@@ -5,18 +5,18 @@ import type { Note } from '../NoteCard/NoteCard';
 interface NoteModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (note: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  onSave: (note: Omit<Note, 'id' | 'created_at' | 'updated_at'>) => void;
   initialData?: Note | null;
 }
 
 export const NoteModal: React.FC<NoteModalProps> = ({ isOpen, onClose, onSave, initialData }) => {
   const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
+  const [content, setContent] = useState('');
 
   useEffect(() => {
     if (isOpen) {
       setTitle(initialData?.title || '');
-      setDescription(initialData?.description || '');
+      setContent(initialData?.content || '');
     }
   }, [isOpen, initialData]);
 
@@ -24,8 +24,8 @@ export const NoteModal: React.FC<NoteModalProps> = ({ isOpen, onClose, onSave, i
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() && !description.trim()) return;
-    onSave({ title, description });
+    if (!title.trim() && !content.trim()) return;
+    onSave({ title, content });
     onClose();
   };
 
@@ -54,13 +54,13 @@ export const NoteModal: React.FC<NoteModalProps> = ({ isOpen, onClose, onSave, i
           </div>
           
           <div className={styles.inputGroup}>
-            <label htmlFor="note-description">Description</label>
+            <label htmlFor="note-content">Content</label>
             <textarea
-              id="note-description"
+              id="note-content"
               className={styles.textarea}
               placeholder="Write your note here..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
             />
           </div>
           

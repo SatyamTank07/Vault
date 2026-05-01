@@ -4,9 +4,9 @@ import styles from './NoteCard.module.css';
 export interface Note {
   id: string;
   title: string;
-  description: string;
-  createdAt: string;
-  updatedAt: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
 }
 
 interface NoteCardProps {
@@ -45,10 +45,10 @@ export const NoteCard: React.FC<NoteCardProps> = ({ note, onEdit, onDelete }) =>
         </button>
       </div>
       <h3 className={styles.title}>{note.title || 'Untitled'}</h3>
-      <p className={styles.description}>{note.description}</p>
+      <p className={styles.description}>{note.content}</p>
       <div className={styles.footer}>
-        <span>{formatDate(note.createdAt)}</span>
-        {note.updatedAt !== note.createdAt && (
+        <span>{formatDate(note.created_at)}</span>
+        {note.updated_at && note.updated_at !== note.created_at && (
           <span title="Edited">Edited</span>
         )}
       </div>

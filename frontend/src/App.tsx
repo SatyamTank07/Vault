@@ -5,53 +5,86 @@ import type { Note } from './components/NoteCard/NoteCard';
 import { NoteModal } from './components/NoteModal/NoteModal';
 import { FloatingActionButton } from './components/FloatingActionButton/FloatingActionButton';
 
+const API_BASE_URL = 'http://localhost:8000';
+
 function App() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
 
-  // Load notes from localStorage on mount
-  useEffect(() => {
-    const savedNotes = localStorage.getItem('vault_notes');
-    if (savedNotes) {
-      try {
-        setNotes(JSON.parse(savedNotes));
-      } catch (e) {
-        console.error('Failed to parse notes from local storage');
+  const fetchNotes = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/notes/`);
+      if (response.ok) {
+        const data = await response.json();
+        // Sort notes by updated_at or created_at descending if needed
+        // Assuming the backend returns them in order, or we can sort them here
+        data.sort((a: Note, b: Note) => 
+          new Date(b.updated_at || b.created_at).getTime() - new Date(a.updated_at || a.created_at).getTime()
+        );
+        setNotes(data);
       }
+    } catch (error) {
+      console.error('Failed to fetch notes:', error);
     }
+  };
+
+  useEffect(() => {
+    fetchNotes();
   }, []);
 
-  // Save notes to localStorage whenever they change
-  useEffect(() => {
-    localStorage.setItem('vault_notes', JSON.stringify(notes));
-  }, [notes]);
-
-  const handleCreateNote = (noteData: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const now = new Date().toISOString();
-    const newNote: Note = {
-      id: crypto.randomUUID(),
-      ...noteData,
-      createdAt: now,
-      updatedAt: now,
-    };
-    setNotes(prev => [newNote, ...prev]);
+  const handleCreateNote = async (noteData: Omit<Note, 'id' | 'created_at' | 'updated_at'>) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/notes/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(noteData),
+      });
+      if (response.ok) {
+        const newNote = await response.json();
+        setNotes(prev => [newNote, ...prev]);
+      }
+    } catch (error) {
+      console.error('Failed to create note:', error);
+    }
   };
 
-  const handleUpdateNote = (noteData: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const handleUpdateNote = async (noteData: Omit<Note, 'id' | 'created_at' | 'updated_at'>) => {
     if (!editingNote) return;
     
-    const now = new Date().toISOString();
-    setNotes(prev => prev.map(note => 
-      note.id === editingNote.id 
-        ? { ...note, ...noteData, updatedAt: now } 
-        : note
-    ));
+    try {
+      const response = await fetch(`${API_BASE_URL}/notes/${editingNote.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(noteData),
+      });
+      if (response.ok) {
+        const updatedNote = await response.json();
+        setNotes(prev => prev.map(note => 
+          note.id === editingNote.id ? updatedNote : note
+        ));
+      }
+    } catch (error) {
+      console.error('Failed to update note:', error);
+    }
   };
 
-  const handleDeleteNote = (id: string) => {
+  const handleDeleteNote = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this note?')) {
-      setNotes(prev => prev.filter(note => note.id !== id));
+      try {
+        const response = await fetch(`${API_BASE_URL}/notes/${id}`, {
+          method: 'DELETE',
+        });
+        if (response.ok) {
+          setNotes(prev => prev.filter(note => note.id !== id));
+        }
+      } catch (error) {
+        console.error('Failed to delete note:', error);
+      }
     }
   };
 
