@@ -31,12 +31,49 @@
   font-size: 0.95rem;
   line-height: 1.6;
   flex-grow: 1;
-  white-space: pre-wrap;
   display: -webkit-box;
   -webkit-line-clamp: 4;
   line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.description > * {
+  margin: 0 0 0.5rem 0;
+}
+
+.description > *:last-child {
+  margin-bottom: 0;
+}
+
+.description h1, .description h2, .description h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.description ul, .description ol {
+  padding-left: 1.5rem;
+}
+
+.description ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+}
+
+.description ul[data-type="taskList"] li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.2rem;
+}
+
+.description input[type="checkbox"] {
+  accent-color: var(--primary-purple);
+  width: 0.9rem;
+  height: 0.9rem;
+  margin: 0;
+  pointer-events: none; /* Make checkbox unclickable in card view */
 }
 
 .footer {

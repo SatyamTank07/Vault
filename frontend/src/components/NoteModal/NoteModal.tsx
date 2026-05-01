@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import styles from './NoteModal.module.css';
 import type { Note } from '../NoteCard/NoteCard';
+import { TipTapEditor } from '../TipTapEditor/TipTapEditor';
 
 interface NoteModalProps {
   isOpen: boolean;
@@ -38,32 +39,24 @@ export const NoteModal: React.FC<NoteModalProps> = ({ isOpen, onClose, onSave, i
             ✕
           </button>
         </div>
-        
+
         <form className={styles.form} onSubmit={handleSubmit}>
           <div className={styles.inputGroup}>
-            <label htmlFor="note-title">Title</label>
             <input
               id="note-title"
               type="text"
               className={styles.input}
-              placeholder="Enter title..."
+              placeholder="Enter Title ..."
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               autoFocus
             />
           </div>
-          
-          <div className={styles.inputGroup}>
-            <label htmlFor="note-content">Content</label>
-            <textarea
-              id="note-content"
-              className={styles.textarea}
-              placeholder="Write your note here..."
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-            />
+
+          <div className={`${styles.inputGroup} ${styles.contentGroup}`}>
+            <TipTapEditor content={content} onChange={setContent} />
           </div>
-          
+
           <div className={styles.footer}>
             <button type="button" className={styles.cancelBtn} onClick={onClose}>
               Cancel

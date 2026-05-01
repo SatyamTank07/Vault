@@ -45,7 +45,10 @@ export const NoteCard: React.FC<NoteCardProps> = ({ note, onEdit, onDelete }) =>
         </button>
       </div>
       <h3 className={styles.title}>{note.title || 'Untitled'}</h3>
-      <p className={styles.description}>{note.content}</p>
+      <div 
+        className={styles.description}
+        dangerouslySetInnerHTML={{ __html: note.content }}
+      />
       <div className={styles.footer}>
         <span>{formatDate(note.created_at)}</span>
         {note.updated_at && note.updated_at !== note.created_at && (
