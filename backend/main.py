@@ -1,5 +1,9 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+import os
+import uuid
+import shutil
 from sqlalchemy.orm import Session
 from typing import List
 
@@ -22,6 +26,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Ensure uploads directory exists
+UPLOAD_DIR = "uploads"
+if not os.path.exists(UPLOAD_DIR):
+    os.makedirs(UPLOAD_DIR)
+
+# Mount static files to serve images
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+
 @app.get("/")
 async def root():
     return {"message": "Welcome to Vault API"}
@@ -29,6 +41,28 @@ async def root():
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
+@app.post("/api/upload")
+async def upload_image(
+    file: UploadFile = File(...), 
+    note_id: str = "misc"
+):
+    # Create subfolder for the note
+    note_folder = os.path.join(UPLOAD_DIR, note_id)
+    if not os.path.exists(note_folder):
+        os.makedirs(note_folder)
+
+    # Create unique filename
+    file_extension = os.path.splitext(file.filename)[1]
+    unique_filename = f"{uuid.uuid4()}{file_extension}"
+    file_path = os.path.join(note_folder, unique_filename)
+    
+    # Save the file
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    
+    # Return the URL including the note_id subfolder
+    return {"url": f"/uploads/{note_id}/{unique_filename}"}
 
 @app.post("/notes/", response_model=schemas.NoteResponse)
 def create_note(note: schemas.NoteCreate, db: Session = Depends(get_db)):

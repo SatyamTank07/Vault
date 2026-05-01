@@ -36,3 +36,5 @@ wheels/
 .DS_Store
 *.swp
 *.swo
+
+/backend/uploads

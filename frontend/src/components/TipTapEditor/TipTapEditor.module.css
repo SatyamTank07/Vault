@@ -50,6 +50,36 @@
   color: white;
 }
 
+.editorImage {
+  max-width: 100%;
+  max-height: 400px; /* Limit height so it fits nicely */
+  width: auto;
+  object-fit: contain;
+  border-radius: 8px;
+  margin: 1rem 0;
+  display: block;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: zoom-in;
+}
+
+.editorImage:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+}
+
+.editorImage.enlarged {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(1.5);
+  max-height: 90vh;
+  max-width: 90vw;
+  z-index: 9999;
+  cursor: zoom-out;
+  box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.8); /* Dark background overlay */
+}
+
 .menuBar button:disabled {
   opacity: 0.5;
   cursor: not-allowed;

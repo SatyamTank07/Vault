@@ -11,6 +11,28 @@ function App() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
+  const [enlargedImageUrl, setEnlargedImageUrl] = useState<string | null>(null);
+
+  // Global click handler to detect image clicks for Lightbox
+  useEffect(() => {
+    const handleGlobalClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      
+      // If we click an image, enlarge it
+      if (target.tagName === 'IMG') {
+        const img = target as HTMLImageElement;
+        // Don't enlarge images that are already in the lightbox
+        if (!img.closest('[class*="lightboxContent"]')) {
+          setEnlargedImageUrl(img.src);
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }
+    };
+
+    document.addEventListener('click', handleGlobalClick, true); // Use capture phase
+    return () => document.removeEventListener('click', handleGlobalClick, true);
+  }, []);
 
   const fetchNotes = async () => {
     try {
@@ -33,7 +55,7 @@ function App() {
     fetchNotes();
   }, []);
 
-  const handleCreateNote = async (noteData: Omit<Note, 'id' | 'created_at' | 'updated_at'>) => {
+  const handleCreateNote = async (noteData: Omit<Note, 'created_at' | 'updated_at'>) => {
     try {
       const response = await fetch(`${API_BASE_URL}/notes/`, {
         method: 'POST',
@@ -51,7 +73,7 @@ function App() {
     }
   };
 
-  const handleUpdateNote = async (noteData: Omit<Note, 'id' | 'created_at' | 'updated_at'>) => {
+  const handleUpdateNote = async (noteData: Omit<Note, 'created_at' | 'updated_at'>) => {
     if (!editingNote) return;
     
     try {
@@ -131,6 +153,19 @@ function App() {
         onSave={editingNote ? handleUpdateNote : handleCreateNote}
         initialData={editingNote}
       />
+
+      {/* Lightbox Overlay */}
+      {enlargedImageUrl && (
+        <div 
+          className={styles.lightboxOverlay} 
+          onClick={() => setEnlargedImageUrl(null)}
+          title="Click anywhere to close"
+        >
+          <div className={styles.lightboxContent}>
+            <img src={enlargedImageUrl} alt="Enlarged" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

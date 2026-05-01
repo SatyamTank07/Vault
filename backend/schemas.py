@@ -7,7 +7,7 @@ class NoteBase(BaseModel):
     content: Optional[str] = None
 
 class NoteCreate(NoteBase):
-    pass
+    id: Optional[str] = None
 
 class NoteUpdate(BaseModel):
     title: Optional[str] = None

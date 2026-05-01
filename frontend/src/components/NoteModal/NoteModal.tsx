@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import styles from './NoteModal.module.css';
 import type { Note } from '../NoteCard/NoteCard';
 import { TipTapEditor } from '../TipTapEditor/TipTapEditor';
@@ -6,13 +6,17 @@ import { TipTapEditor } from '../TipTapEditor/TipTapEditor';
 interface NoteModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (note: Omit<Note, 'id' | 'created_at' | 'updated_at'>) => void;
+  onSave: (note: Omit<Note, 'created_at' | 'updated_at'>) => void;
   initialData?: Note | null;
 }
 
 export const NoteModal: React.FC<NoteModalProps> = ({ isOpen, onClose, onSave, initialData }) => {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  
+  // Generate a temporary ID for new notes to use as a folder name
+  const generatedId = useMemo(() => crypto.randomUUID(), [isOpen, initialData]);
+  const currentNoteId = initialData?.id || generatedId;
 
   useEffect(() => {
     if (isOpen) {
@@ -26,7 +30,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({ isOpen, onClose, onSave, i
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() && !content.trim()) return;
-    onSave({ title, content });
+    onSave({ id: currentNoteId, title, content });
     onClose();
   };
 
@@ -54,7 +58,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({ isOpen, onClose, onSave, i
           </div>
 
           <div className={`${styles.inputGroup} ${styles.contentGroup}`}>
-            <TipTapEditor content={content} onChange={setContent} />
+            <TipTapEditor content={content} onChange={setContent} noteId={currentNoteId} />
           </div>
 
           <div className={styles.footer}>

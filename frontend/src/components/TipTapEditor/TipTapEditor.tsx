@@ -4,6 +4,7 @@ import StarterKit from '@tiptap/starter-kit';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import Placeholder from '@tiptap/extension-placeholder';
+import Image from '@tiptap/extension-image';
 import {
   Bold,
   Italic,
@@ -15,7 +16,8 @@ import {
   CheckSquare,
   Quote,
   Code,
-  Strikethrough
+  Strikethrough,
+  Image as ImageIcon
 } from 'lucide-react';
 import styles from './TipTapEditor.module.css';
 
@@ -130,16 +132,61 @@ const MenuBar: React.FC<MenuBarProps> = ({ editor }) => {
       >
         <Code size={18} />
       </button>
+
+      <div className={styles.divider} />
+
+      <button
+        type="button"
+        onClick={() => {
+          const input = document.createElement('input');
+          input.type = 'file';
+          input.accept = 'image/*';
+          input.onchange = async () => {
+            if (input.files?.length) {
+              const file = input.files[0];
+              const url = await uploadImage(file, noteId);
+              if (url) {
+                editor.chain().focus().setImage({ src: url }).run();
+              }
+            }
+          };
+          input.click();
+        }}
+        title="Upload Image"
+      >
+        <ImageIcon size={18} />
+      </button>
     </div>
   );
+};
+
+// Helper function to upload image
+const uploadImage = async (file: File, noteId: string): Promise<string | null> => {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const response = await fetch(`http://localhost:8000/api/upload?note_id=${noteId}`, {
+      method: 'POST',
+      body: formData,
+    });
+    const data = await response.json();
+    // Prepend base URL if necessary, but here we use relative path
+    // If frontend and backend are on different ports, we need the full URL
+    return `http://localhost:8000${data.url}`;
+  } catch (error) {
+    console.error('Upload failed:', error);
+    return null;
+  }
 };
 
 interface TipTapEditorProps {
   content: string;
   onChange: (content: string) => void;
+  noteId: string;
 }
 
-export const TipTapEditor: React.FC<TipTapEditorProps> = ({ content, onChange }) => {
+export const TipTapEditor: React.FC<TipTapEditorProps> = ({ content, onChange, noteId }) => {
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -150,7 +197,52 @@ export const TipTapEditor: React.FC<TipTapEditorProps> = ({ content, onChange })
       Placeholder.configure({
         placeholder: 'Write your note here...',
       }),
+      Image.configure({
+        allowBase64: true,
+        HTMLAttributes: {
+          class: styles.editorImage,
+        },
+      }),
     ],
+    editorProps: {
+      handlePaste: (view, event) => {
+        const items = Array.from(event.clipboardData?.items || []);
+        const imageItem = items.find(item => item.type.startsWith('image/'));
+
+        if (imageItem) {
+          const file = imageItem.getAsFile();
+          if (file) {
+            uploadImage(file, noteId).then(url => {
+              if (url) {
+                const { schema } = view.state;
+                const node = schema.nodes.image.create({ src: url });
+                const transaction = view.state.tr.replaceSelectionWith(node);
+                view.dispatch(transaction);
+              }
+            });
+            return true;
+          }
+        }
+        return false;
+      },
+      handleDrop: (view, event, _slice, moved) => {
+        if (!moved && event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0]) {
+          const file = event.dataTransfer.files[0];
+          if (file.type.startsWith('image/')) {
+            uploadImage(file, noteId).then(url => {
+              if (url) {
+                const { schema } = view.state;
+                const node = schema.nodes.image.create({ src: url });
+                const transaction = view.state.tr.replaceSelectionWith(node);
+                view.dispatch(transaction);
+              }
+            });
+            return true;
+          }
+        }
+        return false;
+      },
+    },
     content,
     onUpdate: ({ editor }) => {
       onChange(editor.getHTML());
