@@ -13,12 +13,18 @@ class NoteUpdate(BaseModel):
     title: Optional[str] = None
     content: Optional[str] = None
 
+class NoteScheduleUpdate(BaseModel):
+    scheduled_date: Optional[date] = None
+    clear_date: Optional[bool] = False
+    status: Optional[str] = None
+
 class NoteResponse(NoteBase):
     id: str
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     scheduled_date: Optional[date] = None
     status: Optional[str] = "todo"
+    canvas_name: Optional[str] = "Independent Note"
 
     class Config:
         orm_mode = True
@@ -59,9 +65,6 @@ class CanvasNodeUpdate(BaseModel):
     position_y: Optional[float] = None
     parent_node_id: Optional[str] = None
     clear_parent: Optional[bool] = False
-    scheduled_date: Optional[date] = None
-    clear_date: Optional[bool] = False    # set to true to remove the date
-    status: Optional[str] = None          # "todo" | "in_progress" | "done"
 
 class CanvasNodeResponse(BaseModel):
     id: str
@@ -70,8 +73,6 @@ class CanvasNodeResponse(BaseModel):
     parent_node_id: Optional[str] = None
     position_x: float
     position_y: float
-    scheduled_date: Optional[date] = None
-    status: Optional[str] = "todo"
 
     class Config:
         from_attributes = True

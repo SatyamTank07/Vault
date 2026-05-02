@@ -3,7 +3,7 @@
   display: flex;
   flex-direction: column;
   gap: 0;
-  height: calc(100vh - 140px);
+  height: calc(100vh - 180px);
 }
 
 /* ── Top Bar ───────────────────────────────────────────────── */
@@ -52,12 +52,48 @@
   background: rgba(139, 92, 246, 0.16);
 }
 
+.dateLabelContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 200px;
+}
+
 .dateLabel {
   font-size: 1rem;
   font-weight: 600;
   color: var(--text-main);
-  min-width: 200px;
   text-align: center;
+}
+
+.datePickerBtn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  color: var(--text-muted);
+  background: rgba(139, 92, 246, 0.05);
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.datePickerBtn:hover {
+  color: var(--primary-purple);
+  background: rgba(139, 92, 246, 0.15);
+}
+
+.datePickerHidden {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
 }
 
 /* ── View Toggle (Day / Week) ──────────────────────────────── */
@@ -93,7 +129,9 @@
 /* ── Content Area ──────────────────────────────────────────── */
 .content {
   flex: 1;
-  overflow: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   border-radius: 12px;
   background: var(--surface-color);
   border: 1px solid rgba(139, 92, 246, 0.1);
@@ -108,15 +146,31 @@
 /* ── Day View ──────────────────────────────────────────────── */
 .dayView {
   padding: 24px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
 }
 
 .dayHeader {
+  flex-shrink: 0;
   font-size: 1.1rem;
   font-weight: 600;
   color: var(--text-main);
   margin-bottom: 20px;
   padding-bottom: 12px;
   border-bottom: 1px solid rgba(139, 92, 246, 0.1);
+}
+
+.dayContent {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+.dayContent::-webkit-scrollbar {
+  display: none; /* Chrome/Safari/Webkit */
 }
 
 .dayHeader .dayHeaderSub {
@@ -161,6 +215,7 @@
 .weekView {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
+  flex: 1;
   height: 100%;
   gap: 0;
 }

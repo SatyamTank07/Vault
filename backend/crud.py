@@ -34,10 +34,10 @@ def delete_unused_images(urls: list):
                     print(f"Error during cleanup of {file_path}: {e}")
 
 def get_note(db: Session, note_id: str):
-    return db.query(models.Note).options(joinedload(models.Note.canvas_nodes)).filter(models.Note.id == note_id).first()
+    return db.query(models.Note).options(joinedload(models.Note.canvas_nodes).joinedload(models.CanvasNode.canvas)).filter(models.Note.id == note_id).first()
 
 def get_notes(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(models.Note).options(joinedload(models.Note.canvas_nodes)).offset(skip).limit(limit).all()
+    return db.query(models.Note).options(joinedload(models.Note.canvas_nodes).joinedload(models.CanvasNode.canvas)).offset(skip).limit(limit).all()
 
 def create_note(db: Session, note: schemas.NoteCreate):
     db_note = models.Note(
@@ -154,7 +154,6 @@ def create_canvas_node(db: Session, canvas_id: str, data: schemas.CanvasNodeCrea
         parent_node_id=data.parent_node_id,
         position_x=data.position_x,
         position_y=data.position_y,
-        scheduled_date=data.scheduled_date,
     )
     db.add(db_node)
     db.commit()
@@ -174,33 +173,25 @@ def update_canvas_node(db: Session, node_id: str, data: schemas.CanvasNodeUpdate
             db_node.parent_node_id = None
         elif data.parent_node_id is not None:
             db_node.parent_node_id = data.parent_node_id
-        # Timeline fields
-        if data.clear_date:
-            db_node.scheduled_date = None
-        elif data.scheduled_date is not None:
-            db_node.scheduled_date = data.scheduled_date
-        if data.status is not None:
-            db_node.status = data.status
         db.commit()
         db.refresh(db_node)
     return db_node
 
-def update_note_schedule(db: Session, note_id: str, data: schemas.CanvasNodeUpdate):
-    # Find the first canvas node for this note
-    db_node = db.query(models.CanvasNode).filter(models.CanvasNode.note_id == note_id).first()
-    if not db_node:
+def update_note_schedule(db: Session, note_id: str, data: schemas.NoteScheduleUpdate):
+    db_note = get_note(db, note_id)
+    if not db_note:
         return None
     
     if data.scheduled_date is not None:
-        db_node.scheduled_date = data.scheduled_date
+        db_note.scheduled_date = data.scheduled_date
     if data.clear_date:
-        db_node.scheduled_date = None
+        db_note.scheduled_date = None
     if data.status:
-        db_node.status = data.status
+        db_note.status = data.status
         
     db.commit()
-    db.refresh(db_node)
-    return db_node
+    db.refresh(db_note)
+    return db_note
 
 def delete_canvas_node(db: Session, node_id: str):
     db_node = db.query(models.CanvasNode).filter(models.CanvasNode.id == node_id).first()
@@ -241,17 +232,14 @@ def create_branch(db: Session, canvas_id: str, parent_node_id: str, data: schema
 # ── Timeline CRUD ───────────────────────────────────────────
 
 def get_timeline(db: Session, start_date: date, end_date: date):
-    """Get all scheduled canvas nodes within a date range."""
+    """Get all scheduled notes within a date range."""
     return (
-        db.query(models.CanvasNode)
-        .join(models.Canvas)
-        .join(models.Note)
+        db.query(models.Note)
         .options(
-            joinedload(models.CanvasNode.canvas),
-            joinedload(models.CanvasNode.note),
+            joinedload(models.Note.canvas_nodes).joinedload(models.CanvasNode.canvas)
         )
-        .filter(models.CanvasNode.scheduled_date >= start_date)
-        .filter(models.CanvasNode.scheduled_date <= end_date)
-        .order_by(models.CanvasNode.scheduled_date)
+        .filter(models.Note.scheduled_date >= start_date)
+        .filter(models.Note.scheduled_date <= end_date)
+        .order_by(models.Note.scheduled_date)
         .all()
     )

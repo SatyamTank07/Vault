@@ -12,22 +12,16 @@ class Note(Base):
     content = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    scheduled_date = Column(Date, nullable=True, index=True)
+    status = Column(String, default="todo")
 
     canvas_nodes = relationship("CanvasNode", back_populates="note")
 
     @property
-    def scheduled_date(self):
-        # Return the date from the first canvas node if it exists
-        if self.canvas_nodes:
-            return self.canvas_nodes[0].scheduled_date
-        return None
-
-    @property
-    def status(self):
-        # Return the status from the first canvas node if it exists
-        if self.canvas_nodes:
-            return self.canvas_nodes[0].status
-        return "todo"
+    def canvas_name(self):
+        if self.canvas_nodes and self.canvas_nodes[0].canvas:
+            return self.canvas_nodes[0].canvas.name
+        return "Independent Note"
 
 
 class Canvas(Base):
@@ -51,8 +45,6 @@ class CanvasNode(Base):
     position_x = Column(Float, default=0.0)
     position_y = Column(Float, default=0.0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    scheduled_date = Column(Date, nullable=True, index=True)
-    status = Column(String, default="todo")  # "todo" | "in_progress" | "done"
 
     canvas = relationship("Canvas", back_populates="nodes")
     note = relationship("Note")

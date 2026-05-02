@@ -43,21 +43,23 @@ export const DayView: React.FC<DayViewProps> = ({ date, tasks, onOpenNote, onSta
           <p>No tasks scheduled for this day.</p>
         </div>
       ) : (
-        canvasNames.map((canvasName) => (
-          <div key={canvasName} className={styles.canvasGroup}>
-            <div className={styles.canvasGroupTitle}>{canvasName}</div>
-            <div className={styles.taskList}>
-              {grouped[canvasName].map((task) => (
-                <TimelineTaskCard
-                  key={task.id}
-                  task={task}
-                  onOpenNote={onOpenNote}
-                  onStatusChange={onStatusChange}
-                />
-              ))}
+        <div className={styles.dayContent}>
+          {canvasNames.map((canvasName) => (
+            <div key={canvasName} className={styles.canvasGroup}>
+              <div className={styles.canvasGroupTitle}>{canvasName}</div>
+              <div className={styles.taskList}>
+                {grouped[canvasName].map((task) => (
+                  <TimelineTaskCard
+                    key={task.id}
+                    task={task}
+                    onOpenNote={onOpenNote}
+                    onStatusChange={onStatusChange}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
-        ))
+          ))}
+        </div>
       )}
     </div>
   );

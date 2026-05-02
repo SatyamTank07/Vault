@@ -10,6 +10,7 @@ export interface Note {
   updated_at: string;
   scheduled_date: string | null;
   status: string;
+  canvas_name?: string;
 }
 
 interface NoteCardProps {
@@ -70,45 +71,43 @@ export const NoteCard: React.FC<NoteCardProps> = ({ note, onEdit, onDelete, onVi
 
   return (
     <div className={styles.card} onClick={() => onView(note)}>
-      <div className={styles.metaHeader}>
-        <div className={styles.headerLeft}>
-          <button 
-            className={`${styles.statusPill} ${styles[`status_${note.status || 'todo'}`]}`}
-            onClick={handleStatusClick}
-            title={`Status: ${STATUS_LABELS[note.status || 'todo']} (click to cycle)`}
-          >
-            <span className={styles.statusPillDot} />
-            {STATUS_LABELS[note.status || 'todo']}
-          </button>
+      <div className={styles.headerRow}>
+        <div className={styles.titleWrapper}>
+          <div className={styles.titleContent}>
+            <span className={styles.canvasName}>{note.canvas_name || 'Independent Note'}</span>
+            <div className={styles.titleRow}>
+              <button 
+                className={`${styles.statusDotBtn} ${styles[`status_${note.status || 'todo'}`]}`}
+                onClick={handleStatusClick}
+                title={`Status: ${STATUS_LABELS[note.status || 'todo']} (click to cycle)`}
+              />
+              <h3 className={styles.title}>{note.title || 'Untitled'}</h3>
+            </div>
+          </div>
         </div>
-
+        
         <div className={styles.headerRight}>
-          <div className={styles.scheduleRow}>
-            {note.scheduled_date && (
-              <span className={styles.scheduledDate} onClick={handleCalendarClick}>
-                📅 {formatScheduledDate(note.scheduled_date)}
-              </span>
-            )}
-            <button
-              className={styles.calendarBtn}
-              onClick={handleCalendarClick}
-              title="Set / Change date"
-            >
+          <div className={styles.scheduleWrapper} onClick={handleCalendarClick} title="Set scheduled date">
+            <div className={styles.calendarBtn}>
               <Calendar size={14} />
-              <input
+              <input 
                 ref={dateInputRef}
                 type="date"
                 className={styles.hiddenDateInput}
                 value={note.scheduled_date || ''}
                 onChange={handleDateChange}
-                onClick={(e) => e.stopPropagation()}
+                onClick={e => e.stopPropagation()}
               />
-            </button>
+            </div>
+            {note.scheduled_date && (
+              <span className={styles.scheduledDate}>
+                {formatScheduledDate(note.scheduled_date)}
+              </span>
+            )}
           </div>
         </div>
       </div>
 
-      <h3 className={styles.title}>{note.title || 'Untitled'}</h3>
       <div 
         className={styles.description}
         dangerouslySetInnerHTML={{ __html: note.content }}

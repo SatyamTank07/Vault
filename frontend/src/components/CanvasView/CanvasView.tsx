@@ -318,6 +318,10 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ onOpenNote, fetchNotes, 
   const handleUpdateSchedule = async (nodeId: string, date: string | null, status: string) => {
     if (!activeCanvasId) return;
 
+    const nodeToUpdate = nodes.find((n) => n.id === nodeId);
+    if (!nodeToUpdate) return;
+    const noteId = (nodeToUpdate.data as any).noteId;
+
     // Optimistic update
     setNodes((prev) =>
       prev.map((node) =>
@@ -329,7 +333,7 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ onOpenNote, fetchNotes, 
 
     try {
       await fetch(
-        `${API_BASE_URL}/api/canvases/${activeCanvasId}/nodes/${nodeId}`,
+        `${API_BASE_URL}/api/notes/${noteId}/schedule`,
         {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -340,6 +344,7 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ onOpenNote, fetchNotes, 
           }),
         }
       );
+      fetchNotes(); // sync grid view
     } catch (err) {
       console.error('Failed to update schedule:', err);
       // Revert on failure

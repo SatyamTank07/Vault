@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import { DayView } from './DayView';
 import { WeekView } from './WeekView';
 import type { TimelineTask } from './TimelineTaskCard';
@@ -134,20 +134,8 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ onOpenNote }) => {
       return updated;
     });
 
-    // Find the task to get its canvas_id
-    let canvasId = '';
-    for (const tasks of Object.values(tasksByDate)) {
-      const found = tasks.find((t) => t.id === taskId);
-      if (found) {
-        canvasId = found.canvas_id;
-        break;
-      }
-    }
-
-    if (!canvasId) return;
-
     try {
-      await fetch(`${API_BASE_URL}/api/canvases/${canvasId}/nodes/${taskId}`, {
+      await fetch(`${API_BASE_URL}/api/notes/${taskId}/schedule`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
@@ -175,7 +163,30 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ onOpenNote }) => {
           <button className={styles.navBtn} onClick={goNext} title="Next">
             <ChevronRight size={18} />
           </button>
-          <span className={styles.dateLabel}>{formatDateLabel(selectedDate, subView)}</span>
+          <div className={styles.dateLabelContainer}>
+            <span className={styles.dateLabel}>{formatDateLabel(selectedDate, subView)}</span>
+            <div className={styles.datePickerBtn} title="Select Date">
+              <Calendar size={16} />
+              <input
+                type="date"
+                className={styles.datePickerHidden}
+                value={toISODateString(selectedDate)}
+                onChange={(e) => {
+                  if (e.target.value) {
+                    const [y, m, d] = e.target.value.split('-');
+                    setSelectedDate(new Date(Number(y), Number(m) - 1, Number(d)));
+                  }
+                }}
+                onClick={(e) => {
+                  try {
+                    if ('showPicker' in HTMLInputElement.prototype) {
+                      (e.target as HTMLInputElement).showPicker();
+                    }
+                  } catch (err) {}
+                }}
+              />
+            </div>
+          </div>
         </div>
 
         <div className={styles.viewToggle}>

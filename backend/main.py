@@ -95,12 +95,12 @@ def delete_note(note_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Note not found")
     return {"message": "Note deleted successfully"}
 
-@app.put("/api/notes/{note_id}/schedule", response_model=schemas.CanvasNodeResponse)
-def update_note_schedule(note_id: str, data: schemas.CanvasNodeUpdate, db: Session = Depends(get_db)):
-    db_node = crud.update_note_schedule(db, note_id=note_id, data=data)
-    if db_node is None:
-        raise HTTPException(status_code=404, detail="Note is not assigned to any canvas")
-    return db_node
+@app.put("/api/notes/{note_id}/schedule", response_model=schemas.NoteResponse)
+def update_note_schedule(note_id: str, data: schemas.NoteScheduleUpdate, db: Session = Depends(get_db)):
+    db_note = crud.update_note_schedule(db, note_id=note_id, data=data)
+    if db_note is None:
+        raise HTTPException(status_code=404, detail="Note not found")
+    return db_note
 
 
 # ── Canvas Endpoints ────────────────────────────────────────
@@ -174,24 +174,27 @@ def get_timeline(
     end_date: date = Query(...),
     db: Session = Depends(get_db),
 ):
-    nodes = crud.get_timeline(db, start_date, end_date)
+    notes = crud.get_timeline(db, start_date, end_date)
     result: dict[str, list] = {}
-    for node in nodes:
-        date_key = node.scheduled_date.isoformat()
+    for note in notes:
+        date_key = note.scheduled_date.isoformat()
         if date_key not in result:
             result[date_key] = []
+        
+        canvas_id = note.canvas_nodes[0].canvas_id if note.canvas_nodes else ""
+        
         result[date_key].append({
-            "id": node.id,
-            "canvas_id": node.canvas_id,
-            "canvas_name": node.canvas.name,
+            "id": note.id,
+            "canvas_id": canvas_id,
+            "canvas_name": note.canvas_name,
             "note": {
-                "id": node.note.id,
-                "title": node.note.title,
-                "content": node.note.content,
-                "created_at": node.note.created_at.isoformat() if node.note.created_at else None,
-                "updated_at": node.note.updated_at.isoformat() if node.note.updated_at else None,
+                "id": note.id,
+                "title": note.title,
+                "content": note.content,
+                "created_at": note.created_at.isoformat() if note.created_at else None,
+                "updated_at": note.updated_at.isoformat() if note.updated_at else None,
             },
-            "scheduled_date": node.scheduled_date.isoformat(),
-            "status": node.status or "todo",
+            "scheduled_date": note.scheduled_date.isoformat(),
+            "status": note.status or "todo",
         })
     return result
