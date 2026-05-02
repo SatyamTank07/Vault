@@ -93,3 +93,67 @@ def delete_note(note_id: str, db: Session = Depends(get_db)):
     if not success:
         raise HTTPException(status_code=404, detail="Note not found")
     return {"message": "Note deleted successfully"}
+
+
+# ── Canvas Endpoints ────────────────────────────────────────
+
+@app.post("/api/canvases/", response_model=schemas.CanvasListResponse)
+def create_canvas(canvas: schemas.CanvasCreate, db: Session = Depends(get_db)):
+    return crud.create_canvas(db=db, canvas=canvas)
+
+@app.get("/api/canvases/", response_model=List[schemas.CanvasListResponse])
+def list_canvases(db: Session = Depends(get_db)):
+    return crud.get_canvases(db)
+
+@app.get("/api/canvases/{canvas_id}", response_model=schemas.CanvasResponse)
+def get_canvas(canvas_id: str, db: Session = Depends(get_db)):
+    db_canvas = crud.get_canvas(db, canvas_id=canvas_id)
+    if db_canvas is None:
+        raise HTTPException(status_code=404, detail="Canvas not found")
+    return db_canvas
+
+@app.put("/api/canvases/{canvas_id}", response_model=schemas.CanvasListResponse)
+def update_canvas(canvas_id: str, canvas: schemas.CanvasUpdate, db: Session = Depends(get_db)):
+    db_canvas = crud.update_canvas(db, canvas_id=canvas_id, canvas=canvas)
+    if db_canvas is None:
+        raise HTTPException(status_code=404, detail="Canvas not found")
+    return db_canvas
+
+@app.delete("/api/canvases/{canvas_id}")
+def delete_canvas(canvas_id: str, db: Session = Depends(get_db)):
+    success = crud.delete_canvas(db, canvas_id=canvas_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Canvas not found")
+    return {"message": "Canvas deleted successfully"}
+
+
+# ── Canvas Node Endpoints ───────────────────────────────────
+
+@app.post("/api/canvases/{canvas_id}/nodes/", response_model=schemas.CanvasNodeResponse)
+def create_canvas_node(canvas_id: str, data: schemas.CanvasNodeCreate, db: Session = Depends(get_db)):
+    # Verify canvas exists
+    if crud.get_canvas(db, canvas_id) is None:
+        raise HTTPException(status_code=404, detail="Canvas not found")
+    return crud.create_canvas_node(db, canvas_id=canvas_id, data=data)
+
+@app.put("/api/canvases/{canvas_id}/nodes/{node_id}", response_model=schemas.CanvasNodeResponse)
+def update_canvas_node(canvas_id: str, node_id: str, data: schemas.CanvasNodeUpdate, db: Session = Depends(get_db)):
+    db_node = crud.update_canvas_node(db, node_id=node_id, data=data)
+    if db_node is None:
+        raise HTTPException(status_code=404, detail="Canvas node not found")
+    return db_node
+
+@app.delete("/api/canvases/{canvas_id}/nodes/{node_id}")
+def delete_canvas_node(canvas_id: str, node_id: str, db: Session = Depends(get_db)):
+    success = crud.delete_canvas_node(db, node_id=node_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Canvas node not found")
+    return {"message": "Node removed from canvas"}
+
+@app.post("/api/canvases/{canvas_id}/nodes/{node_id}/branch", response_model=schemas.CanvasNodeResponse)
+def create_branch(canvas_id: str, node_id: str, data: schemas.BranchCreate, db: Session = Depends(get_db)):
+    db_node = crud.create_branch(db, canvas_id=canvas_id, parent_node_id=node_id, data=data)
+    if db_node is None:
+        raise HTTPException(status_code=404, detail="Parent node not found")
+    return db_node
+

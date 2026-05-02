@@ -1,0 +1,66 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 180px);
+  gap: 0;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  flex-shrink: 0;
+}
+
+.addRootBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--primary-purple);
+  color: white;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: background 0.2s, transform 0.15s;
+}
+
+.addRootBtn:hover {
+  background: var(--primary-purple-hover);
+  transform: translateY(-1px);
+}
+
+.canvasArea {
+  flex: 1;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(139, 92, 246, 0.15);
+  background: var(--bg-color);
+}
+
+.emptyState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted);
+  font-size: 1rem;
+}
+
+/* Override React Flow controls to match theme */
+.controls {
+  border-radius: 10px !important;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08) !important;
+  border: 1px solid rgba(139, 92, 246, 0.15) !important;
+}
+
+.controls button {
+  background: var(--surface-color) !important;
+  color: var(--text-main) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06) !important;
+}
+
+.controls button:hover {
+  background: rgba(139, 92, 246, 0.08) !important;
+}

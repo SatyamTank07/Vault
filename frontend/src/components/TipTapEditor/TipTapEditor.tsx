@@ -257,6 +257,12 @@ export const TipTapEditor: React.FC<TipTapEditorProps> = ({ content, onChange, n
     }
   }, [editor, content]);
 
+  useEffect(() => {
+    if (editor) {
+      editor.setEditable(!readOnly);
+    }
+  }, [editor, readOnly]);
+
   if (!editor) {
     return null;
   }

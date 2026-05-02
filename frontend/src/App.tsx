@@ -1,11 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import styles from './App.module.css';
 import { NoteCard } from './components/NoteCard/NoteCard';
 import type { Note } from './components/NoteCard/NoteCard';
 import { NoteModal } from './components/NoteModal/NoteModal';
+import { ConfirmModal } from './components/ConfirmModal/ConfirmModal';
 import { FloatingActionButton } from './components/FloatingActionButton/FloatingActionButton';
+import { CanvasView } from './components/CanvasView/CanvasView';
+import { LayoutGrid, Network } from 'lucide-react';
 
 const API_BASE_URL = 'http://localhost:8000';
+
+type ViewMode = 'grid' | 'canvas';
 
 function App() {
   const [notes, setNotes] = useState<Note[]>([]);
@@ -13,6 +18,19 @@ function App() {
   const [isViewMode, setIsViewMode] = useState(false);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
   const [enlargedImageUrl, setEnlargedImageUrl] = useState<string | null>(null);
+  const [activeView, setActiveView] = useState<ViewMode>('grid');
+
+  const [confirmModalConfig, setConfirmModalConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
 
   // Global click handler to detect image clicks for Lightbox
   useEffect(() => {
@@ -35,7 +53,7 @@ function App() {
     return () => document.removeEventListener('click', handleGlobalClick, true);
   }, []);
 
-  const fetchNotes = async () => {
+  const fetchNotes = useCallback(async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/notes/`);
       if (response.ok) {
@@ -50,11 +68,11 @@ function App() {
     } catch (error) {
       console.error('Failed to fetch notes:', error);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchNotes();
-  }, []);
+  }, [fetchNotes]);
 
   const handleCreateNote = async (noteData: Omit<Note, 'created_at' | 'updated_at'>) => {
     try {
@@ -96,19 +114,25 @@ function App() {
     }
   };
 
-  const handleDeleteNote = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this note?')) {
-      try {
-        const response = await fetch(`${API_BASE_URL}/notes/${id}`, {
-          method: 'DELETE',
-        });
-        if (response.ok) {
-          setNotes(prev => prev.filter(note => note.id !== id));
+  const handleDeleteNote = (id: string) => {
+    setConfirmModalConfig({
+      isOpen: true,
+      title: 'Delete Note',
+      message: 'Are you sure you want to delete this note?',
+      onConfirm: async () => {
+        setConfirmModalConfig((prev) => ({ ...prev, isOpen: false }));
+        try {
+          const response = await fetch(`${API_BASE_URL}/notes/${id}`, {
+            method: 'DELETE',
+          });
+          if (response.ok) {
+            setNotes(prev => prev.filter(note => note.id !== id));
+          }
+        } catch (error) {
+          console.error('Failed to delete note:', error);
         }
-      } catch (error) {
-        console.error('Failed to delete note:', error);
       }
-    }
+    });
   };
 
   const openCreateModal = () => {
@@ -132,30 +156,58 @@ function App() {
   return (
     <div className={styles.container}>
       <header className={styles.header}>
-        <h1>Vault</h1>
-        <p>Your secure, local note-taking space.</p>
+        <div className={styles.headerTop}>
+          <div>
+            <h1>Vault</h1>
+            <p>Your secure, local note-taking space.</p>
+          </div>
+          <div className={styles.viewToggle}>
+            <button
+              className={`${styles.toggleBtn} ${activeView === 'grid' ? styles.toggleActive : ''}`}
+              onClick={() => setActiveView('grid')}
+              title="Grid View"
+            >
+              <LayoutGrid size={16} />
+              Grid
+            </button>
+            <button
+              className={`${styles.toggleBtn} ${activeView === 'canvas' ? styles.toggleActive : ''}`}
+              onClick={() => setActiveView('canvas')}
+              title="Canvas View"
+            >
+              <Network size={16} />
+              Canvas
+            </button>
+          </div>
+        </div>
       </header>
 
-      {notes.length === 0 ? (
-        <div className={styles.emptyState}>
-          <p>No notes yet.</p>
-          <p>Click the + button to create your first note!</p>
-        </div>
-      ) : (
-        <div className={styles.notesGrid}>
-          {notes.map(note => (
-            <NoteCard 
-              key={note.id} 
-              note={note} 
-              onEdit={openEditModal}
-              onDelete={handleDeleteNote}
-              onView={openViewModal}
-            />
-          ))}
-        </div>
-      )}
+      {activeView === 'grid' ? (
+        <>
+          {notes.length === 0 ? (
+            <div className={styles.emptyState}>
+              <p>No notes yet.</p>
+              <p>Click the + button to create your first note!</p>
+            </div>
+          ) : (
+            <div className={styles.notesGrid}>
+              {notes.map(note => (
+                <NoteCard 
+                  key={note.id} 
+                  note={note} 
+                  onEdit={openEditModal}
+                  onDelete={handleDeleteNote}
+                  onView={openViewModal}
+                />
+              ))}
+            </div>
+          )}
 
-      <FloatingActionButton onClick={openCreateModal} />
+          <FloatingActionButton onClick={openCreateModal} />
+        </>
+      ) : (
+        <CanvasView onOpenNote={openViewModal} fetchNotes={fetchNotes} notes={notes} />
+      )}
 
       <NoteModal
         isOpen={isModalOpen}
@@ -177,8 +229,18 @@ function App() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={confirmModalConfig.isOpen}
+        title={confirmModalConfig.title}
+        message={confirmModalConfig.message}
+        onConfirm={confirmModalConfig.onConfirm}
+        onCancel={() => setConfirmModalConfig((prev) => ({ ...prev, isOpen: false }))}
+        confirmText="Delete"
+      />
     </div>
   );
 }
 
 export default App;
+

@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from datetime import datetime
 import models
 import schemas
@@ -84,3 +84,131 @@ def delete_note(db: Session, note_id: str):
         db.commit()
         return True
     return False
+
+
+# ── Canvas CRUD ─────────────────────────────────────────────
+
+def get_canvases(db: Session):
+    """List all canvases (lightweight, no nodes)."""
+    return db.query(models.Canvas).order_by(models.Canvas.created_at.desc()).all()
+
+def get_canvas(db: Session, canvas_id: str):
+    """Get a canvas with all its nodes and their notes (eager-loaded)."""
+    return (
+        db.query(models.Canvas)
+        .options(joinedload(models.Canvas.nodes).joinedload(models.CanvasNode.note))
+        .filter(models.Canvas.id == canvas_id)
+        .first()
+    )
+
+def create_canvas(db: Session, canvas: schemas.CanvasCreate):
+    db_canvas = models.Canvas(name=canvas.name)
+    db.add(db_canvas)
+    db.commit()
+    db.refresh(db_canvas)
+    return db_canvas
+
+def update_canvas(db: Session, canvas_id: str, canvas: schemas.CanvasUpdate):
+    db_canvas = db.query(models.Canvas).filter(models.Canvas.id == canvas_id).first()
+    if db_canvas:
+        if canvas.name is not None:
+            db_canvas.name = canvas.name
+        db.commit()
+        db.refresh(db_canvas)
+    return db_canvas
+
+def delete_canvas(db: Session, canvas_id: str):
+    db_canvas = db.query(models.Canvas).filter(models.Canvas.id == canvas_id).first()
+    if db_canvas:
+        # Collect note IDs before deleting the canvas
+        note_ids_to_delete = [node.note_id for node in db_canvas.nodes]
+        
+        # This will cascade and delete the CanvasNode rows
+        db.delete(db_canvas)
+        db.commit()
+        
+        # Completely delete all associated notes and their image folders
+        for note_id in set(note_ids_to_delete):
+            delete_note(db, note_id)
+            
+        return True
+    return False
+
+
+# ── Canvas Node CRUD ────────────────────────────────────────
+
+def create_canvas_node(db: Session, canvas_id: str, data: schemas.CanvasNodeCreate):
+    """Add a note to a canvas. If note_id is None and title is given, create a new note first."""
+    note_id = data.note_id
+
+    if not note_id:
+        # Create a new note inline
+        new_note = models.Note(title=data.title or "Untitled")
+        db.add(new_note)
+        db.flush()  # get the id without committing
+        note_id = new_note.id
+
+    db_node = models.CanvasNode(
+        canvas_id=canvas_id,
+        note_id=note_id,
+        parent_node_id=data.parent_node_id,
+        position_x=data.position_x,
+        position_y=data.position_y,
+    )
+    db.add(db_node)
+    db.commit()
+    db.refresh(db_node)
+    # Eager-load the note relationship for the response
+    db.refresh(db_node, ["note"])
+    return db_node
+
+def update_canvas_node(db: Session, node_id: str, data: schemas.CanvasNodeUpdate):
+    db_node = db.query(models.CanvasNode).filter(models.CanvasNode.id == node_id).first()
+    if db_node:
+        if data.position_x is not None:
+            db_node.position_x = data.position_x
+        if data.position_y is not None:
+            db_node.position_y = data.position_y
+        if data.clear_parent:
+            db_node.parent_node_id = None
+        elif data.parent_node_id is not None:
+            db_node.parent_node_id = data.parent_node_id
+        db.commit()
+        db.refresh(db_node)
+    return db_node
+
+def delete_canvas_node(db: Session, node_id: str):
+    db_node = db.query(models.CanvasNode).filter(models.CanvasNode.id == node_id).first()
+    if db_node:
+        db.delete(db_node)
+        db.commit()
+        return True
+    return False
+
+def create_branch(db: Session, canvas_id: str, parent_node_id: str, data: schemas.BranchCreate):
+    """Convenience: create a new note AND place it as a child of parent_node_id on the canvas."""
+    # Verify parent node exists
+    parent = db.query(models.CanvasNode).filter(models.CanvasNode.id == parent_node_id).first()
+    if not parent:
+        return None
+
+    # Create the note
+    new_note = models.Note(title=data.title)
+    db.add(new_note)
+    db.flush()
+
+    # Place on canvas as child — position relative to parent
+    # (frontend will auto-layout, these are just defaults)
+    db_node = models.CanvasNode(
+        canvas_id=canvas_id,
+        note_id=new_note.id,
+        parent_node_id=parent_node_id,
+        position_x=parent.position_x,
+        position_y=parent.position_y + 150,
+    )
+    db.add(db_node)
+    db.commit()
+    db.refresh(db_node)
+    db.refresh(db_node, ["note"])
+    return db_node
+
