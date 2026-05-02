@@ -184,9 +184,10 @@ interface TipTapEditorProps {
   content: string;
   onChange: (content: string) => void;
   noteId: string;
+  readOnly?: boolean;
 }
 
-export const TipTapEditor: React.FC<TipTapEditorProps> = ({ content, onChange, noteId }) => {
+export const TipTapEditor: React.FC<TipTapEditorProps> = ({ content, onChange, noteId, readOnly = false }) => {
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -244,6 +245,7 @@ export const TipTapEditor: React.FC<TipTapEditorProps> = ({ content, onChange, n
       },
     },
     content,
+    editable: !readOnly,
     onUpdate: ({ editor }) => {
       onChange(editor.getHTML());
     },
@@ -260,8 +262,8 @@ export const TipTapEditor: React.FC<TipTapEditorProps> = ({ content, onChange, n
   }
 
   return (
-    <div className={styles.editorContainer}>
-      <MenuBar editor={editor} />
+    <div className={`${styles.editorContainer} ${readOnly ? styles.readOnly : ''}`}>
+      {!readOnly && <MenuBar editor={editor} />}
       <EditorContent editor={editor} className={styles.editorContent} />
     </div>
   );

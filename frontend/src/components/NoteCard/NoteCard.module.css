@@ -11,6 +11,7 @@
   overflow: hidden;
   border: 1px solid rgba(0, 0, 0, 0.05);
   max-height: 500px; /* Capped at 500px, but can be smaller */
+  cursor: pointer;
 }
 
 .card:hover {

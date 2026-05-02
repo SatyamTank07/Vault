@@ -13,9 +13,10 @@ interface NoteCardProps {
   note: Note;
   onEdit: (note: Note) => void;
   onDelete: (id: string) => void;
+  onView: (note: Note) => void;
 }
 
-export const NoteCard: React.FC<NoteCardProps> = ({ note, onEdit, onDelete }) => {
+export const NoteCard: React.FC<NoteCardProps> = ({ note, onEdit, onDelete, onView }) => {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return new Intl.DateTimeFormat('en-US', {
@@ -27,18 +28,24 @@ export const NoteCard: React.FC<NoteCardProps> = ({ note, onEdit, onDelete }) =>
   };
 
   return (
-    <div className={styles.card}>
+    <div className={styles.card} onClick={() => onView(note)}>
       <div className={styles.actions}>
         <button 
           className={styles.actionBtn} 
-          onClick={() => onEdit(note)}
+          onClick={(e) => {
+            e.stopPropagation();
+            onEdit(note);
+          }}
           title="Edit"
         >
           ✎
         </button>
         <button 
           className={`${styles.actionBtn} ${styles.deleteBtn}`} 
-          onClick={() => onDelete(note.id)}
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete(note.id);
+          }}
           title="Delete"
         >
           ✕

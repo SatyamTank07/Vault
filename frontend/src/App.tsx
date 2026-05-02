@@ -10,6 +10,7 @@ const API_BASE_URL = 'http://localhost:8000';
 function App() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isViewMode, setIsViewMode] = useState(false);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
   const [enlargedImageUrl, setEnlargedImageUrl] = useState<string | null>(null);
 
@@ -112,11 +113,19 @@ function App() {
 
   const openCreateModal = () => {
     setEditingNote(null);
+    setIsViewMode(false);
     setIsModalOpen(true);
   };
 
   const openEditModal = (note: Note) => {
     setEditingNote(note);
+    setIsViewMode(false);
+    setIsModalOpen(true);
+  };
+
+  const openViewModal = (note: Note) => {
+    setEditingNote(note);
+    setIsViewMode(true);
     setIsModalOpen(true);
   };
 
@@ -140,6 +149,7 @@ function App() {
               note={note} 
               onEdit={openEditModal}
               onDelete={handleDeleteNote}
+              onView={openViewModal}
             />
           ))}
         </div>
@@ -152,6 +162,7 @@ function App() {
         onClose={() => setIsModalOpen(false)}
         onSave={editingNote ? handleUpdateNote : handleCreateNote}
         initialData={editingNote}
+        isViewMode={isViewMode}
       />
 
       {/* Lightbox Overlay */}
