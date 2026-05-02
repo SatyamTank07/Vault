@@ -23,9 +23,10 @@ import styles from './TipTapEditor.module.css';
 
 interface MenuBarProps {
   editor: Editor | null;
+  noteId: string;
 }
 
-const MenuBar: React.FC<MenuBarProps> = ({ editor }) => {
+const MenuBar: React.FC<MenuBarProps> = ({ editor, noteId }) => {
   if (!editor) {
     return null;
   }
@@ -269,7 +270,7 @@ export const TipTapEditor: React.FC<TipTapEditorProps> = ({ content, onChange, n
 
   return (
     <div className={`${styles.editorContainer} ${readOnly ? styles.readOnly : ''}`}>
-      {!readOnly && <MenuBar editor={editor} />}
+      {!readOnly && <MenuBar editor={editor} noteId={noteId} />}
       <EditorContent editor={editor} className={styles.editorContent} />
     </div>
   );

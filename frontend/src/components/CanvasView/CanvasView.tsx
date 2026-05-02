@@ -8,6 +8,7 @@ import {
   useEdgesState,
   addEdge,
   type Node,
+  type Edge,
   type Connection,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
@@ -39,8 +40,8 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ onOpenNote, fetchNotes, 
     localStorage.getItem('vault_last_canvas_id') || null
   );
   const [canvasData, setCanvasData] = useState<CanvasData | null>(null);
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState([] as Node[]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState([] as Edge[]);
 
   const dragTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -128,7 +129,7 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ onOpenNote, fetchNotes, 
   }, [activeCanvasId, fetchCanvasData, setNodes, setEdges]);
 
   // ── Inject callbacks into node data ───────────────────────
-  // We need to inject onOpenNote, onAddBranch, onRemoveNode into every node's data
+  // We need to inject onOpenNote, onAddBranch, onRemoveNode, onUpdateSchedule into every node's data
   // so MindMapNode can call them.
   useEffect(() => {
     setNodes((prev) =>
@@ -141,6 +142,8 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ onOpenNote, fetchNotes, 
           },
           onAddBranch: (nodeId: string) => handleAddBranch(nodeId),
           onRemoveNode: (nodeId: string) => handleRemoveNode(nodeId),
+          onUpdateSchedule: (nodeId: string, date: string | null, status: string) =>
+            handleUpdateSchedule(nodeId, date, status),
         },
       }))
     );
@@ -248,7 +251,7 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ onOpenNote, fetchNotes, 
     setIsCreateModalOpen(true);
   };
 
-  const handleSaveNewCanvasNode = async (noteData: Omit<Note, 'created_at' | 'updated_at'>) => {
+  const handleSaveNewCanvasNode = async (noteData: Omit<Note, 'created_at' | 'updated_at' | 'scheduled_date' | 'status'>) => {
     if (!activeCanvasId) return;
 
     try {
@@ -311,6 +314,39 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ onOpenNote, fetchNotes, 
     });
   };
 
+  // ── Schedule update (date & status) ───────────────────────
+  const handleUpdateSchedule = async (nodeId: string, date: string | null, status: string) => {
+    if (!activeCanvasId) return;
+
+    // Optimistic update
+    setNodes((prev) =>
+      prev.map((node) =>
+        node.id === nodeId
+          ? { ...node, data: { ...node.data, scheduledDate: date, status } }
+          : node
+      )
+    );
+
+    try {
+      await fetch(
+        `${API_BASE_URL}/api/canvases/${activeCanvasId}/nodes/${nodeId}`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            scheduled_date: date,
+            clear_date: date === null,
+            status,
+          }),
+        }
+      );
+    } catch (err) {
+      console.error('Failed to update schedule:', err);
+      // Revert on failure
+      if (activeCanvasId) fetchCanvasData(activeCanvasId);
+    }
+  };
+
   // ── Drag position save (debounced) ────────────────────────
   const onNodeDragStop = useCallback(
     (_event: React.MouseEvent, node: Node) => {
@@ -351,8 +387,7 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ onOpenNote, fetchNotes, 
             ...connection,
             type: 'default',
             animated: false,
-            style: { stroke: '#8B5CF6', strokeWidth: 2 },
-          },
+          } as Edge,
           eds
         )
       );

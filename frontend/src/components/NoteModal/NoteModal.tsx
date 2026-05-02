@@ -6,7 +6,7 @@ import { TipTapEditor } from '../TipTapEditor/TipTapEditor';
 interface NoteModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (note: Omit<Note, 'created_at' | 'updated_at'>) => void;
+  onSave: (note: Omit<Note, 'created_at' | 'updated_at' | 'scheduled_date' | 'status'>) => void;
   initialData?: Note | null;
   isViewMode?: boolean;
 }

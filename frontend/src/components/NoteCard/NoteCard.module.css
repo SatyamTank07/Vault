@@ -20,12 +20,165 @@
   background-color: var(--surface-color);
 }
 
+.metaHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+  gap: 1rem;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.scheduleRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(139, 92, 246, 0.04);
+  padding: 3px 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(139, 92, 246, 0.1);
+}
+
+.actions {
+  display: flex;
+  gap: 6px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  flex-shrink: 0;
+}
+
+.card:hover .actions {
+  opacity: 1;
+}
+
+.actionBtn {
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--text-muted);
+  border-radius: 6px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  font-size: 0.75rem;
+  border: none;
+  cursor: pointer;
+}
+
+.actionBtn:hover {
+  background: var(--primary-purple);
+  color: white;
+}
+
+.deleteBtn:hover {
+  background: var(--danger);
+  color: white;
+}
+
+.statusPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.statusPill:hover {
+  transform: scale(1.05);
+  filter: brightness(0.95);
+}
+
+.statusPillDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status_todo {
+  background: rgba(156, 163, 175, 0.15);
+  color: #6B7280;
+}
+.status_todo .statusPillDot {
+  background: #9CA3AF;
+}
+
+.status_in_progress {
+  background: rgba(245, 158, 11, 0.12);
+  color: #D97706;
+}
+.status_in_progress .statusPillDot {
+  background: #F59E0B;
+}
+
+.status_done {
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+}
+.status_done .statusPillDot {
+  background: #10B981;
+}
+
+.scheduledDate {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.calendarBtn {
+  background: none;
+  border: none;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.calendarBtn:hover {
+  background: rgba(139, 92, 246, 0.1);
+  color: var(--primary-purple);
+}
+
+.hiddenDateInput {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
 .title {
   font-size: 1.25rem;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-main);
-  margin: 0;
-  padding-right: 3rem; /* space for actions */
+  margin: 0 0 0.25rem 0;
+  line-height: 1.2;
 }
 
 .description {
@@ -35,8 +188,8 @@
   flex-grow: 1;
   overflow: hidden;
   position: relative;
-  mask-image: linear-gradient(to bottom, black 80%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, black 80%, transparent 100%);
+  mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
 }
 
 .description > * {
@@ -90,44 +243,19 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: var(--text-muted);
-  padding-top: 0.5rem;
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  padding-top: 0.6rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
 }
 
-.actions {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-  display: flex;
-  gap: 0.5rem;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-.card:hover .actions {
-  opacity: 1;
-}
-
-.actionBtn {
-  background: rgba(0, 0, 0, 0.05);
-  color: var(--text-main);
-  border-radius: 50%;
-  width: 28px;
-  height: 28px;
+.footerLeft {
   display: flex;
   align-items: center;
-  justify-content: center;
-  transition: background-color 0.2s, color 0.2s;
+  gap: 6px;
 }
 
-.actionBtn:hover {
-  background: var(--primary-purple);
-  color: white;
-}
-
-.deleteBtn:hover {
-  background: var(--danger);
-  color: white;
+.editedTag {
+  font-style: italic;
+  opacity: 0.8;
 }

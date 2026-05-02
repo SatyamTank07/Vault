@@ -17,6 +17,8 @@ export interface BackendCanvasNode {
   parent_node_id: string | null;
   position_x: number;
   position_y: number;
+  scheduled_date: string | null;
+  status: string;
 }
 
 export interface CanvasData {
@@ -49,6 +51,8 @@ export function convertToReactFlow(backendNodes: BackendCanvasNode[]): {
       title: bn.note.title || 'Untitled',
       noteId: bn.note.id,
       note: bn.note,
+      scheduledDate: bn.scheduled_date,
+      status: bn.status || 'todo',
     },
   }));
 

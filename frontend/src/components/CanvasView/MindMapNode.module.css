@@ -4,7 +4,7 @@
   border-radius: 12px;
   padding: 0;
   min-width: 200px;
-  max-width: 260px;
+  max-width: 280px;
   box-shadow: 0 4px 16px rgba(139, 92, 246, 0.1);
   transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
   position: relative;
@@ -16,14 +16,22 @@
   box-shadow: 0 6px 24px rgba(139, 92, 246, 0.2);
 }
 
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
 .titleArea {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 16px;
+  padding: 12px 4px 12px 16px;
   cursor: pointer;
-  border-radius: 10px;
+  border-radius: 10px 0 0 10px;
   transition: background 0.15s;
+  flex: 1;
+  min-width: 0;
 }
 
 .titleArea:hover {
@@ -45,6 +53,113 @@
   line-height: 1.3;
 }
 
+/* Calendar date picker button */
+.dateBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  position: relative;
+  flex-shrink: 0;
+  margin-right: 8px;
+}
+
+.dateBtn:hover {
+  background: rgba(139, 92, 246, 0.1);
+  color: var(--primary-purple);
+}
+
+.hiddenDateInput {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  pointer-events: none;
+}
+
+/* Meta row — status pill + date */
+.metaRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 16px 10px 16px;
+  font-size: 0.7rem;
+}
+
+/* Status pill — always visible, clickable */
+.statusPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px 3px 8px;
+  border-radius: 20px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s;
+  letter-spacing: 0.01em;
+}
+
+.statusPill:hover {
+  transform: scale(1.05);
+  filter: brightness(0.95);
+}
+
+.statusPill:active {
+  transform: scale(0.97);
+}
+
+.statusPillDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Status colors */
+.status_todo {
+  background: rgba(156, 163, 175, 0.15);
+  color: #6B7280;
+}
+.status_todo .statusPillDot {
+  background: #9CA3AF;
+}
+
+.status_in_progress {
+  background: rgba(245, 158, 11, 0.12);
+  color: #D97706;
+}
+.status_in_progress .statusPillDot {
+  background: #F59E0B;
+}
+
+.status_done {
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+}
+.status_done .statusPillDot {
+  background: #10B981;
+}
+
+.dateSep {
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+
+.dateText {
+  color: var(--text-muted);
+}
+
+/* Action buttons */
 .actions {
   position: absolute;
   top: -10px;

@@ -1,7 +1,7 @@
-import React, { memo } from 'react';
+import React, { memo, useRef } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, Calendar } from 'lucide-react';
 import styles from './MindMapNode.module.css';
 
 interface MindMapNodeData {
@@ -14,25 +14,100 @@ interface MindMapNodeData {
     created_at: string;
     updated_at: string;
   };
+  scheduledDate: string | null;
+  status: string;
   onOpenNote?: (note: any) => void;
   onAddBranch?: (nodeId: string) => void;
   onRemoveNode?: (nodeId: string) => void;
+  onUpdateSchedule?: (nodeId: string, date: string | null, status: string) => void;
+}
+
+const STATUS_CYCLE: Record<string, string> = {
+  todo: 'in_progress',
+  in_progress: 'done',
+  done: 'todo',
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  todo: 'To Do',
+  in_progress: 'In Progress',
+  done: 'Done',
+};
+
+function formatDate(dateStr: string): string {
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 const MindMapNode: React.FC<NodeProps> = ({ id, data }) => {
   const nodeData = data as unknown as MindMapNodeData;
+  const dateInputRef = useRef<HTMLInputElement>(null);
+
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.stopPropagation();
+    const newDate = e.target.value || null;
+    nodeData.onUpdateSchedule?.(id, newDate, nodeData.status || 'todo');
+  };
+
+  const handleStatusClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const currentStatus = nodeData.status || 'todo';
+    const nextStatus = STATUS_CYCLE[currentStatus] || 'todo';
+    nodeData.onUpdateSchedule?.(id, nodeData.scheduledDate, nextStatus);
+  };
+
+  const handleCalendarClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    dateInputRef.current?.showPicker();
+  };
 
   return (
     <div className={styles.node}>
       <Handle type="target" position={Position.Top} className={styles.handle} />
       
-      <div
-        className={styles.titleArea}
-        onClick={() => nodeData.onOpenNote?.(nodeData.note)}
-        title="Click to view / edit note"
-      >
-        <span className={styles.icon}>📝</span>
-        <span className={styles.title}>{nodeData.title}</span>
+      <div className={styles.titleRow}>
+        <div
+          className={styles.titleArea}
+          onClick={() => nodeData.onOpenNote?.(nodeData.note)}
+          title="Click to view / edit note"
+        >
+          <span className={styles.icon}>📝</span>
+          <span className={styles.title}>{nodeData.title}</span>
+        </div>
+
+        <button
+          className={styles.dateBtn}
+          onClick={handleCalendarClick}
+          title="Set scheduled date"
+        >
+          <Calendar size={13} />
+          <input
+            ref={dateInputRef}
+            type="date"
+            className={styles.hiddenDateInput}
+            value={nodeData.scheduledDate || ''}
+            onChange={handleDateChange}
+            onClick={(e) => e.stopPropagation()}
+          />
+        </button>
+      </div>
+
+      {/* Status pill (always visible) + date (when set) */}
+      <div className={styles.metaRow}>
+        <button
+          className={`${styles.statusPill} ${styles[`status_${nodeData.status || 'todo'}`]}`}
+          onClick={handleStatusClick}
+          title={`Click to change status (${STATUS_LABELS[nodeData.status || 'todo']})`}
+        >
+          <span className={styles.statusPillDot} />
+          {STATUS_LABELS[nodeData.status || 'todo']}
+        </button>
+        {nodeData.scheduledDate && (
+          <>
+            <span className={styles.dateSep}>·</span>
+            <span className={styles.dateText}>{formatDate(nodeData.scheduledDate)}</span>
+          </>
+        )}
       </div>
 
       <div className={styles.actions}>

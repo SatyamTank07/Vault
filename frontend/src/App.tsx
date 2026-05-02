@@ -6,11 +6,12 @@ import { NoteModal } from './components/NoteModal/NoteModal';
 import { ConfirmModal } from './components/ConfirmModal/ConfirmModal';
 import { FloatingActionButton } from './components/FloatingActionButton/FloatingActionButton';
 import { CanvasView } from './components/CanvasView/CanvasView';
-import { LayoutGrid, Network } from 'lucide-react';
+import { TimelineView } from './components/TimelineView/TimelineView';
+import { LayoutGrid, Network, CalendarDays } from 'lucide-react';
 
 const API_BASE_URL = 'http://localhost:8000';
 
-type ViewMode = 'grid' | 'canvas';
+type ViewMode = 'grid' | 'canvas' | 'timeline';
 
 function App() {
   const [notes, setNotes] = useState<Note[]>([]);
@@ -74,7 +75,7 @@ function App() {
     fetchNotes();
   }, [fetchNotes]);
 
-  const handleCreateNote = async (noteData: Omit<Note, 'created_at' | 'updated_at'>) => {
+  const handleCreateNote = async (noteData: Omit<Note, 'created_at' | 'updated_at' | 'scheduled_date' | 'status'>) => {
     try {
       const response = await fetch(`${API_BASE_URL}/notes/`, {
         method: 'POST',
@@ -92,7 +93,7 @@ function App() {
     }
   };
 
-  const handleUpdateNote = async (noteData: Omit<Note, 'created_at' | 'updated_at'>) => {
+  const handleUpdateNote = async (noteData: Omit<Note, 'created_at' | 'updated_at' | 'scheduled_date' | 'status'>) => {
     if (!editingNote) return;
     
     try {
@@ -111,6 +112,34 @@ function App() {
       }
     } catch (error) {
       console.error('Failed to update note:', error);
+    }
+  };
+
+  const handleUpdateSchedule = async (noteId: string, date: string | null, status: string) => {
+    // Optimistic update
+    setNotes((prev) =>
+      prev.map((note) =>
+        note.id === noteId ? { ...note, scheduled_date: date, status } : note
+      )
+    );
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/notes/${noteId}/schedule`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          scheduled_date: date,
+          clear_date: date === null,
+          status,
+        }),
+      });
+      if (!response.ok) {
+        // Revert on failure
+        fetchNotes();
+      }
+    } catch (error) {
+      console.error('Failed to update schedule:', error);
+      fetchNotes();
     }
   };
 
@@ -178,6 +207,14 @@ function App() {
               <Network size={16} />
               Canvas
             </button>
+            <button
+              className={`${styles.toggleBtn} ${activeView === 'timeline' ? styles.toggleActive : ''}`}
+              onClick={() => setActiveView('timeline')}
+              title="Timeline View"
+            >
+              <CalendarDays size={16} />
+              Timeline
+            </button>
           </div>
         </div>
       </header>
@@ -198,6 +235,7 @@ function App() {
                   onEdit={openEditModal}
                   onDelete={handleDeleteNote}
                   onView={openViewModal}
+                  onUpdateSchedule={handleUpdateSchedule}
                 />
               ))}
             </div>
@@ -205,8 +243,10 @@ function App() {
 
           <FloatingActionButton onClick={openCreateModal} />
         </>
-      ) : (
+      ) : activeView === 'canvas' ? (
         <CanvasView onOpenNote={openViewModal} fetchNotes={fetchNotes} notes={notes} />
+      ) : (
+        <TimelineView onOpenNote={openViewModal} />
       )}
 
       <NoteModal
