@@ -133,3 +133,25 @@ class TimelineEntry(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ── Feedback Schemas ────────────────────────────────────────
+
+class FeedbackBase(BaseModel):
+    title: str
+    content: Optional[str] = None
+
+class FeedbackCreate(FeedbackBase):
+    pass
+
+class FeedbackUpdate(BaseModel):
+    title: Optional[str] = None
+    content: Optional[str] = None
+
+class FeedbackResponse(FeedbackBase):
+    id: str
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True

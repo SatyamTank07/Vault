@@ -198,3 +198,28 @@ def update_occurrence_status(occurrence_id: str, data: schemas.OccurrenceStatusU
         raise HTTPException(status_code=404, detail="Occurrence not found")
     return occ
 
+
+# ── Feedback Endpoints ──────────────────────────────────────
+
+@app.post("/api/feedback/", response_model=schemas.FeedbackResponse)
+def create_feedback(feedback: schemas.FeedbackCreate, db: Session = Depends(get_db)):
+    return crud.create_feedback(db=db, feedback=feedback)
+
+@app.get("/api/feedback/", response_model=List[schemas.FeedbackResponse])
+def read_feedbacks(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    return crud.get_feedbacks(db, skip=skip, limit=limit)
+
+@app.put("/api/feedback/{feedback_id}", response_model=schemas.FeedbackResponse)
+def update_feedback(feedback_id: str, feedback: schemas.FeedbackUpdate, db: Session = Depends(get_db)):
+    db_feedback = crud.update_feedback(db, feedback_id=feedback_id, feedback=feedback)
+    if db_feedback is None:
+        raise HTTPException(status_code=404, detail="Feedback not found")
+    return db_feedback
+
+@app.delete("/api/feedback/{feedback_id}")
+def delete_feedback(feedback_id: str, db: Session = Depends(get_db)):
+    success = crud.delete_feedback(db, feedback_id=feedback_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Feedback not found")
+    return {"message": "Feedback deleted successfully"}
+

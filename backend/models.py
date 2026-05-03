@@ -71,3 +71,13 @@ class CanvasNode(Base):
     canvas = relationship("Canvas", back_populates="nodes")
     note = relationship("Note")
     children = relationship("CanvasNode", backref=backref("parent", remote_side=[id]))
+
+
+class Feedback(Base):
+    __tablename__ = "feedbacks"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
+    title = Column(String, index=True)
+    content = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())

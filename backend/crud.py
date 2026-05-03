@@ -454,3 +454,40 @@ def update_occurrence_status(db: Session, occurrence_id: str, data: schemas.Occu
     db.refresh(occ)
     return occ
 
+
+# ── Feedback CRUD ───────────────────────────────────────────
+
+def get_feedback(db: Session, feedback_id: str):
+    return db.query(models.Feedback).filter(models.Feedback.id == feedback_id).first()
+
+def get_feedbacks(db: Session, skip: int = 0, limit: int = 100):
+    return db.query(models.Feedback).order_by(models.Feedback.created_at.desc()).offset(skip).limit(limit).all()
+
+def create_feedback(db: Session, feedback: schemas.FeedbackCreate):
+    db_feedback = models.Feedback(
+        title=feedback.title,
+        content=feedback.content
+    )
+    db.add(db_feedback)
+    db.commit()
+    db.refresh(db_feedback)
+    return db_feedback
+
+def update_feedback(db: Session, feedback_id: str, feedback: schemas.FeedbackUpdate):
+    db_feedback = get_feedback(db, feedback_id)
+    if db_feedback:
+        update_data = feedback.dict(exclude_unset=True)
+        for key, value in update_data.items():
+            setattr(db_feedback, key, value)
+        db.commit()
+        db.refresh(db_feedback)
+    return db_feedback
+
+def delete_feedback(db: Session, feedback_id: str):
+    db_feedback = get_feedback(db, feedback_id)
+    if db_feedback:
+        db.delete(db_feedback)
+        db.commit()
+        return True
+    return False
+
