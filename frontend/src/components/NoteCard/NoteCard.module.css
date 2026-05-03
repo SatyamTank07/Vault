@@ -101,6 +101,7 @@
   display: flex;
   align-items: center;
   flex-shrink: 0;
+  gap: 8px;
 }
 
 .scheduleWrapper {
@@ -271,3 +272,46 @@
   background: var(--danger);
   color: white;
 }
+
+/* ── Recurrence Button ─────────────────────────────────────── */
+
+.recurrenceBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s;
+  padding: 0;
+  opacity: 0;
+  flex-shrink: 0;
+}
+
+.card:hover .recurrenceBtn {
+  opacity: 1;
+}
+
+.recurrenceBtn:hover {
+  background: rgba(139, 92, 246, 0.08);
+  color: var(--primary-purple);
+  border-color: rgba(139, 92, 246, 0.2);
+}
+
+/* Active state — always visible when recurrence is set */
+.recurrenceBtnActive {
+  opacity: 1;
+  background: rgba(139, 92, 246, 0.1);
+  color: var(--primary-purple);
+  border-color: rgba(139, 92, 246, 0.25);
+}
+
+.recurrenceBtnActive:hover {
+  background: rgba(139, 92, 246, 0.18);
+}
+
+

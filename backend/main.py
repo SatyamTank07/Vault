@@ -174,27 +174,27 @@ def get_timeline(
     end_date: date = Query(...),
     db: Session = Depends(get_db),
 ):
-    notes = crud.get_timeline(db, start_date, end_date)
-    result: dict[str, list] = {}
-    for note in notes:
-        date_key = note.scheduled_date.isoformat()
-        if date_key not in result:
-            result[date_key] = []
-        
-        canvas_id = note.canvas_nodes[0].canvas_id if note.canvas_nodes else ""
-        
-        result[date_key].append({
-            "id": note.id,
-            "canvas_id": canvas_id,
-            "canvas_name": note.canvas_name,
-            "note": {
-                "id": note.id,
-                "title": note.title,
-                "content": note.content,
-                "created_at": note.created_at.isoformat() if note.created_at else None,
-                "updated_at": note.updated_at.isoformat() if note.updated_at else None,
-            },
-            "scheduled_date": note.scheduled_date.isoformat(),
-            "status": note.status or "todo",
-        })
-    return result
+    # crud.get_timeline now handles both one-off and recurring notes,
+    # returning a pre-built dict of { date_string: [task, ...] }
+    return crud.get_timeline(db, start_date, end_date)
+
+
+# ── Recurrence Endpoints ────────────────────────────────────
+
+@app.put("/api/notes/{note_id}/recurrence", response_model=schemas.NoteResponse)
+def update_recurrence(note_id: str, data: schemas.RecurrenceUpdate, db: Session = Depends(get_db)):
+    db_note = crud.update_recurrence(db, note_id=note_id, data=data)
+    if db_note is None:
+        raise HTTPException(status_code=404, detail="Note not found")
+    return db_note
+
+
+# ── Occurrence Endpoints ────────────────────────────────────
+
+@app.put("/api/occurrences/{occurrence_id}/status", response_model=schemas.OccurrenceResponse)
+def update_occurrence_status(occurrence_id: str, data: schemas.OccurrenceStatusUpdate, db: Session = Depends(get_db)):
+    occ = crud.update_occurrence_status(db, occurrence_id=occurrence_id, data=data)
+    if occ is None:
+        raise HTTPException(status_code=404, detail="Occurrence not found")
+    return occ
+

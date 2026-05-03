@@ -121,28 +121,64 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ onOpenNote }) => {
     setSelectedDate(d);
   };
 
-  // Status change handler
-  const handleStatusChange = async (taskId: string, newStatus: string) => {
+  // Status change handler — routes to occurrence endpoint for recurring tasks
+  const handleStatusChange = async (taskId: string, newStatus: string, occurrenceId?: string | null) => {
     // Optimistic update
     setTasksByDate((prev) => {
       const updated = { ...prev };
       for (const dateKey of Object.keys(updated)) {
         updated[dateKey] = updated[dateKey].map((t) =>
-          t.id === taskId ? { ...t, status: newStatus } : t
+          (occurrenceId ? t.occurrence_id === occurrenceId : t.id === taskId)
+            ? { ...t, status: newStatus }
+            : t
         );
       }
       return updated;
     });
 
     try {
-      await fetch(`${API_BASE_URL}/api/notes/${taskId}/schedule`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
-      });
+      if (occurrenceId) {
+        // Recurring task → update occurrence status
+        await fetch(`${API_BASE_URL}/api/occurrences/${occurrenceId}/status`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: newStatus }),
+        });
+      } else {
+        // One-off task → update note schedule status
+        await fetch(`${API_BASE_URL}/api/notes/${taskId}/schedule`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: newStatus }),
+        });
+      }
     } catch (err) {
       console.error('Failed to update status:', err);
       fetchTimeline(); // revert
+    }
+  };
+
+  // Skip occurrence handler
+  const handleSkip = async (occurrenceId: string) => {
+    // Optimistic: remove from view
+    setTasksByDate((prev) => {
+      const updated = { ...prev };
+      for (const dateKey of Object.keys(updated)) {
+        updated[dateKey] = updated[dateKey].filter((t) => t.occurrence_id !== occurrenceId);
+        if (updated[dateKey].length === 0) delete updated[dateKey];
+      }
+      return updated;
+    });
+
+    try {
+      await fetch(`${API_BASE_URL}/api/occurrences/${occurrenceId}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'todo', skipped: true }),
+      });
+    } catch (err) {
+      console.error('Failed to skip occurrence:', err);
+      fetchTimeline();
     }
   };
 
@@ -215,6 +251,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ onOpenNote }) => {
             tasks={dayTasks}
             onOpenNote={onOpenNote}
             onStatusChange={handleStatusChange}
+            onSkip={handleSkip}
           />
         ) : (
           <WeekView
@@ -222,6 +259,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ onOpenNote }) => {
             tasksByDate={tasksByDate}
             onOpenNote={onOpenNote}
             onStatusChange={handleStatusChange}
+            onSkip={handleSkip}
           />
         )}
       </div>

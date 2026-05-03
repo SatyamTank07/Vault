@@ -25,6 +25,9 @@ class NoteResponse(NoteBase):
     scheduled_date: Optional[date] = None
     status: Optional[str] = "todo"
     canvas_name: Optional[str] = "Independent Note"
+    recurrence_rule: Optional[str] = None
+    recurrence_interval: Optional[int] = 1
+    recurrence_end_date: Optional[date] = None
 
     class Config:
         orm_mode = True
@@ -89,6 +92,33 @@ class CanvasResponse(BaseModel):
 
 class BranchCreate(BaseModel):
     title: str = "Untitled"
+
+
+# ── Recurrence Schemas ──────────────────────────────────────
+
+class RecurrenceUpdate(BaseModel):
+    recurrence_rule: Optional[str] = None        # "daily" | "weekly" | "monthly" | None
+    recurrence_interval: Optional[int] = 1
+    recurrence_end_date: Optional[date] = None
+    clear_end_date: Optional[bool] = False       # remove end date (repeat forever)
+    clear_recurrence: Optional[bool] = False     # remove recurrence entirely
+
+
+# ── Occurrence Schemas ──────────────────────────────────────
+
+class OccurrenceStatusUpdate(BaseModel):
+    status: str
+    skipped: Optional[bool] = None
+
+class OccurrenceResponse(BaseModel):
+    id: str
+    note_id: str
+    occurrence_date: date
+    status: str
+    skipped: bool
+
+    class Config:
+        from_attributes = True
 
 
 # ── Timeline Schemas ────────────────────────────────────────

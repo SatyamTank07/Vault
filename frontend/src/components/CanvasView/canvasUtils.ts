@@ -15,6 +15,9 @@ export interface BackendCanvasNode {
     updated_at: string;
     scheduled_date: string | null;
     status: string;
+    recurrence_rule?: string | null;
+    recurrence_interval?: number;
+    recurrence_end_date?: string | null;
   };
   parent_node_id: string | null;
   position_x: number;
@@ -53,6 +56,7 @@ export function convertToReactFlow(backendNodes: BackendCanvasNode[]): {
       note: bn.note,
       scheduledDate: bn.note.scheduled_date,
       status: bn.note.status || 'todo',
+      recurrenceRule: bn.note.recurrence_rule,
     },
   }));
 

@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session, joinedload
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import models
 import schemas
 import re
@@ -231,15 +231,226 @@ def create_branch(db: Session, canvas_id: str, parent_node_id: str, data: schema
 
 # ── Timeline CRUD ───────────────────────────────────────────
 
+def _add_months(source_date: date, months: int) -> date:
+    """Add N months to a date, clamping to last day of month if needed."""
+    month = source_date.month - 1 + months
+    year = source_date.year + month // 12
+    month = month % 12 + 1
+    import calendar
+    day = min(source_date.day, calendar.monthrange(year, month)[1])
+    return date(year, month, day)
+
+def expand_recurrence(note, start_date: date, end_date: date) -> list[date]:
+    """Generate all occurrence dates for a recurring note within a date range."""
+    if not note.recurrence_rule or not note.scheduled_date:
+        return []
+    
+    dates = []
+    current = note.scheduled_date
+    interval = note.recurrence_interval or 1
+    rule = note.recurrence_rule
+    
+    # Don't generate dates before the recurrence start
+    # but we need to iterate from the start to maintain correct intervals
+    while current <= end_date:
+        # Check against recurrence end date
+        if note.recurrence_end_date and current > note.recurrence_end_date:
+            break
+        
+        if current >= start_date:
+            dates.append(current)
+        
+        # Advance based on rule
+        if rule == "daily":
+            current += timedelta(days=interval)
+        elif rule == "weekly":
+            current += timedelta(weeks=interval)
+        elif rule == "monthly":
+            current = _add_months(current, interval)
+        else:
+            break  # unknown rule, stop
+    
+    return dates
+
+def ensure_occurrences(db: Session, note, dates: list[date]) -> list:
+    """Lazy-materialize occurrence rows for the given dates. Returns all occurrences."""
+    if not dates:
+        return []
+    
+    # Fetch existing occurrences for these dates
+    existing = (
+        db.query(models.TaskOccurrence)
+        .filter(
+            models.TaskOccurrence.note_id == note.id,
+            models.TaskOccurrence.occurrence_date.in_(dates),
+        )
+        .all()
+    )
+    existing_dates = {occ.occurrence_date for occ in existing}
+    
+    # Create missing occurrences
+    new_occs = []
+    for d in dates:
+        if d not in existing_dates:
+            occ = models.TaskOccurrence(note_id=note.id, occurrence_date=d)
+            db.add(occ)
+            new_occs.append(occ)
+    
+    if new_occs:
+        db.commit()
+        for occ in new_occs:
+            db.refresh(occ)
+    
+    return existing + new_occs
+
+
 def get_timeline(db: Session, start_date: date, end_date: date):
-    """Get all scheduled notes within a date range."""
-    return (
+    """Get all scheduled notes within a date range, including recurring occurrences."""
+    
+    # 1. One-off notes (no recurrence) — existing behavior
+    one_off_notes = (
         db.query(models.Note)
         .options(
             joinedload(models.Note.canvas_nodes).joinedload(models.CanvasNode.canvas)
         )
-        .filter(models.Note.scheduled_date >= start_date)
-        .filter(models.Note.scheduled_date <= end_date)
+        .filter(
+            models.Note.scheduled_date >= start_date,
+            models.Note.scheduled_date <= end_date,
+            models.Note.recurrence_rule == None,
+        )
         .order_by(models.Note.scheduled_date)
         .all()
     )
+    
+    # 2. Recurring notes whose range overlaps the query window
+    recurring_notes = (
+        db.query(models.Note)
+        .options(
+            joinedload(models.Note.canvas_nodes).joinedload(models.CanvasNode.canvas)
+        )
+        .filter(
+            models.Note.recurrence_rule != None,
+            models.Note.scheduled_date <= end_date,  # recurrence started before window ends
+        )
+        .all()
+    )
+    # Further filter: recurrence_end_date is null (infinite) or >= start_date
+    recurring_notes = [
+        n for n in recurring_notes
+        if n.recurrence_end_date is None or n.recurrence_end_date >= start_date
+    ]
+    
+    # Build the result dict
+    result: dict[str, list] = {}
+    
+    # Add one-off notes
+    for note in one_off_notes:
+        date_key = note.scheduled_date.isoformat()
+        if date_key not in result:
+            result[date_key] = []
+        
+        canvas_id = note.canvas_nodes[0].canvas_id if note.canvas_nodes else ""
+        
+        result[date_key].append({
+            "id": note.id,
+            "canvas_id": canvas_id,
+            "canvas_name": note.canvas_name,
+            "note": {
+                "id": note.id,
+                "title": note.title,
+                "content": note.content,
+                "created_at": note.created_at.isoformat() if note.created_at else None,
+                "updated_at": note.updated_at.isoformat() if note.updated_at else None,
+            },
+            "scheduled_date": note.scheduled_date.isoformat(),
+            "status": note.status or "todo",
+            "is_recurring": False,
+            "occurrence_id": None,
+            "recurrence_rule": None,
+        })
+    
+    # Add recurring note occurrences
+    for note in recurring_notes:
+        occurrence_dates = expand_recurrence(note, start_date, end_date)
+        occurrences = ensure_occurrences(db, note, occurrence_dates)
+        
+        canvas_id = note.canvas_nodes[0].canvas_id if note.canvas_nodes else ""
+        
+        for occ in occurrences:
+            if occ.skipped:
+                continue
+            
+            date_key = occ.occurrence_date.isoformat()
+            if date_key not in result:
+                result[date_key] = []
+            
+            result[date_key].append({
+                "id": note.id,
+                "canvas_id": canvas_id,
+                "canvas_name": note.canvas_name,
+                "note": {
+                    "id": note.id,
+                    "title": note.title,
+                    "content": note.content,
+                    "created_at": note.created_at.isoformat() if note.created_at else None,
+                    "updated_at": note.updated_at.isoformat() if note.updated_at else None,
+                },
+                "scheduled_date": occ.occurrence_date.isoformat(),
+                "status": occ.status or "todo",
+                "is_recurring": True,
+                "occurrence_id": occ.id,
+                "recurrence_rule": note.recurrence_rule,
+            })
+    
+    return result
+
+
+# ── Recurrence CRUD ─────────────────────────────────────────
+
+def update_recurrence(db: Session, note_id: str, data: schemas.RecurrenceUpdate):
+    """Set or clear recurrence on a note."""
+    db_note = get_note(db, note_id)
+    if not db_note:
+        return None
+    
+    if data.clear_recurrence:
+        db_note.recurrence_rule = None
+        db_note.recurrence_interval = 1
+        db_note.recurrence_end_date = None
+        # Delete all future occurrences when clearing recurrence
+        from datetime import date as date_type
+        db.query(models.TaskOccurrence).filter(
+            models.TaskOccurrence.note_id == note_id,
+            models.TaskOccurrence.occurrence_date >= date_type.today(),
+        ).delete(synchronize_session=False)
+    else:
+        if data.recurrence_rule is not None:
+            db_note.recurrence_rule = data.recurrence_rule
+        if data.recurrence_interval is not None:
+            db_note.recurrence_interval = data.recurrence_interval
+        if data.clear_end_date:
+            db_note.recurrence_end_date = None
+        elif data.recurrence_end_date is not None:
+            db_note.recurrence_end_date = data.recurrence_end_date
+    
+    db.commit()
+    db.refresh(db_note)
+    return db_note
+
+
+# ── Occurrence CRUD ─────────────────────────────────────────
+
+def update_occurrence_status(db: Session, occurrence_id: str, data: schemas.OccurrenceStatusUpdate):
+    """Update status of a single occurrence."""
+    occ = db.query(models.TaskOccurrence).filter(models.TaskOccurrence.id == occurrence_id).first()
+    if not occ:
+        return None
+    
+    occ.status = data.status
+    if data.skipped is not None:
+        occ.skipped = data.skipped
+    
+    db.commit()
+    db.refresh(occ)
+    return occ
+

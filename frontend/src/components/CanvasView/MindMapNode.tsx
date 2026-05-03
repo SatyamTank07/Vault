@@ -1,7 +1,7 @@
 import React, { memo, useRef } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
-import { Plus, X, Calendar } from 'lucide-react';
+import { Plus, X, Calendar, Repeat } from 'lucide-react';
 import styles from './MindMapNode.module.css';
 
 interface MindMapNodeData {
@@ -13,13 +13,18 @@ interface MindMapNodeData {
     content: string;
     created_at: string;
     updated_at: string;
+    recurrence_rule?: string | null;
+    recurrence_interval?: number;
+    recurrence_end_date?: string | null;
   };
   scheduledDate: string | null;
   status: string;
+  recurrenceRule: string | null;
   onOpenNote?: (note: any) => void;
   onAddBranch?: (nodeId: string) => void;
   onRemoveNode?: (nodeId: string) => void;
   onUpdateSchedule?: (nodeId: string, date: string | null, status: string) => void;
+  onRecurrenceClick?: (note: any) => void;
 }
 
 const STATUS_CYCLE: Record<string, string> = {
@@ -33,6 +38,25 @@ const STATUS_LABELS: Record<string, string> = {
   in_progress: 'In Progress',
   done: 'Done',
 };
+
+const RECURRENCE_LABELS: Record<string, string> = {
+  daily: 'Daily',
+  weekly: 'Weekly',
+  monthly: 'Monthly',
+};
+
+function buildRecurrenceTooltip(note: any): string {
+  if (!note.recurrence_rule) return 'Set recurrence';
+  const rule = RECURRENCE_LABELS[note.recurrence_rule] || note.recurrence_rule;
+  const interval = note.recurrence_interval || 1;
+  const freq = interval === 1
+    ? rule
+    : `Every ${interval} ${note.recurrence_rule === 'daily' ? 'days' : note.recurrence_rule === 'weekly' ? 'weeks' : 'months'}`;
+  const end = note.recurrence_end_date
+    ? ` until ${new Date(note.recurrence_end_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+    : ' · Forever';
+  return `${freq}${end} — Click to edit`;
+}
 
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr + 'T00:00:00');
@@ -61,6 +85,11 @@ const MindMapNode: React.FC<NodeProps> = ({ id, data }) => {
     dateInputRef.current?.showPicker();
   };
 
+  const handleRecurrenceClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    nodeData.onRecurrenceClick?.(nodeData.note);
+  };
+
   return (
     <div className={styles.node}>
       <Handle type="target" position={Position.Top} className={styles.handle} />
@@ -74,6 +103,16 @@ const MindMapNode: React.FC<NodeProps> = ({ id, data }) => {
           <span className={styles.icon}>📝</span>
           <span className={styles.title}>{nodeData.title}</span>
         </div>
+
+        {nodeData.scheduledDate && (
+          <button
+            className={`${styles.recurrenceBtn} ${nodeData.recurrenceRule ? styles.recurrenceBtnActive : ''}`}
+            onClick={handleRecurrenceClick}
+            title={buildRecurrenceTooltip(nodeData.note)}
+          >
+            <Repeat size={13} />
+          </button>
+        )}
 
         <button
           className={styles.dateBtn}

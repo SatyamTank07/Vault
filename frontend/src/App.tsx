@@ -4,6 +4,7 @@ import { NoteCard } from './components/NoteCard/NoteCard';
 import type { Note } from './components/NoteCard/NoteCard';
 import { NoteModal } from './components/NoteModal/NoteModal';
 import { ConfirmModal } from './components/ConfirmModal/ConfirmModal';
+import { RecurrenceModal } from './components/RecurrenceModal/RecurrenceModal';
 import { FloatingActionButton } from './components/FloatingActionButton/FloatingActionButton';
 import { CanvasView } from './components/CanvasView/CanvasView';
 import { TimelineView } from './components/TimelineView/TimelineView';
@@ -20,6 +21,7 @@ function App() {
   const [editingNote, setEditingNote] = useState<Note | null>(null);
   const [enlargedImageUrl, setEnlargedImageUrl] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<ViewMode>('grid');
+  const [recurrenceNote, setRecurrenceNote] = useState<Note | null>(null);
 
   const [confirmModalConfig, setConfirmModalConfig] = useState<{
     isOpen: boolean;
@@ -143,6 +145,41 @@ function App() {
     }
   };
 
+  const handleUpdateRecurrence = async (noteId: string, rule: string | null, interval: number, endDate: string | null) => {
+    // Optimistic update
+    setNotes((prev) =>
+      prev.map((note) =>
+        note.id === noteId
+          ? { ...note, recurrence_rule: rule, recurrence_interval: interval, recurrence_end_date: endDate }
+          : note
+      )
+    );
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/notes/${noteId}/recurrence`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(
+          rule
+            ? {
+                recurrence_rule: rule,
+                recurrence_interval: interval,
+                ...(endDate
+                  ? { recurrence_end_date: endDate }
+                  : { clear_end_date: true }),
+              }
+            : { clear_recurrence: true }
+        ),
+      });
+      if (!response.ok) {
+        fetchNotes();
+      }
+    } catch (error) {
+      console.error('Failed to update recurrence:', error);
+      fetchNotes();
+    }
+  };
+
   const handleDeleteNote = (id: string) => {
     setConfirmModalConfig({
       isOpen: true,
@@ -236,6 +273,7 @@ function App() {
                   onDelete={handleDeleteNote}
                   onView={openViewModal}
                   onUpdateSchedule={handleUpdateSchedule}
+                  onRecurrenceClick={(n) => setRecurrenceNote(n)}
                 />
               ))}
             </div>
@@ -244,7 +282,12 @@ function App() {
           <FloatingActionButton onClick={openCreateModal} />
         </>
       ) : activeView === 'canvas' ? (
-        <CanvasView onOpenNote={openViewModal} fetchNotes={fetchNotes} notes={notes} />
+        <CanvasView 
+          onOpenNote={openViewModal} 
+          onRecurrenceClick={(n) => setRecurrenceNote(n)}
+          fetchNotes={fetchNotes} 
+          notes={notes} 
+        />
       ) : (
         <TimelineView onOpenNote={openViewModal} />
       )}
@@ -277,6 +320,20 @@ function App() {
         onConfirm={confirmModalConfig.onConfirm}
         onCancel={() => setConfirmModalConfig((prev) => ({ ...prev, isOpen: false }))}
         confirmText="Delete"
+      />
+
+      <RecurrenceModal
+        isOpen={recurrenceNote !== null}
+        onClose={() => setRecurrenceNote(null)}
+        onSave={(rule, interval, endDate) => {
+          if (recurrenceNote) {
+            handleUpdateRecurrence(recurrenceNote.id, rule, interval, endDate);
+          }
+        }}
+        initialRule={recurrenceNote?.recurrence_rule}
+        initialInterval={recurrenceNote?.recurrence_interval}
+        initialEndDate={recurrenceNote?.recurrence_end_date}
+        scheduledDate={recurrenceNote?.scheduled_date}
       />
     </div>
   );

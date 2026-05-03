@@ -6,7 +6,8 @@ interface DayViewProps {
   date: Date;
   tasks: TimelineTask[];
   onOpenNote: (note: any) => void;
-  onStatusChange: (taskId: string, newStatus: string) => void;
+  onStatusChange: (taskId: string, newStatus: string, occurrenceId?: string | null) => void;
+  onSkip?: (occurrenceId: string) => void;
 }
 
 function formatDayHeader(date: Date): string {
@@ -18,7 +19,7 @@ function formatDayHeader(date: Date): string {
   });
 }
 
-export const DayView: React.FC<DayViewProps> = ({ date, tasks, onOpenNote, onStatusChange }) => {
+export const DayView: React.FC<DayViewProps> = ({ date, tasks, onOpenNote, onStatusChange, onSkip }) => {
   // Group tasks by canvas name
   const grouped = tasks.reduce<Record<string, TimelineTask[]>>((acc, task) => {
     const key = task.canvas_name;
@@ -54,6 +55,7 @@ export const DayView: React.FC<DayViewProps> = ({ date, tasks, onOpenNote, onSta
                     task={task}
                     onOpenNote={onOpenNote}
                     onStatusChange={onStatusChange}
+                    onSkip={onSkip}
                   />
                 ))}
               </div>

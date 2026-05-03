@@ -6,7 +6,8 @@ interface WeekViewProps {
   weekStart: Date; // Monday of the week
   tasksByDate: Record<string, TimelineTask[]>;
   onOpenNote: (note: any) => void;
-  onStatusChange: (taskId: string, newStatus: string) => void;
+  onStatusChange: (taskId: string, newStatus: string, occurrenceId?: string | null) => void;
+  onSkip?: (occurrenceId: string) => void;
 }
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -31,6 +32,7 @@ export const WeekView: React.FC<WeekViewProps> = ({
   tasksByDate,
   onOpenNote,
   onStatusChange,
+  onSkip,
 }) => {
   const today = new Date();
   const days: Date[] = [];
@@ -67,6 +69,7 @@ export const WeekView: React.FC<WeekViewProps> = ({
                     compact
                     onOpenNote={onOpenNote}
                     onStatusChange={onStatusChange}
+                    onSkip={onSkip}
                   />
                 ))
               )}

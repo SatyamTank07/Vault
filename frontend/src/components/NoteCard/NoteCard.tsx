@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import styles from './NoteCard.module.css';
-import { Calendar } from 'lucide-react';
+import { Calendar, Repeat } from 'lucide-react';
 
 export interface Note {
   id: string;
@@ -11,6 +11,9 @@ export interface Note {
   scheduled_date: string | null;
   status: string;
   canvas_name?: string;
+  recurrence_rule?: string | null;
+  recurrence_interval?: number;
+  recurrence_end_date?: string | null;
 }
 
 interface NoteCardProps {
@@ -19,6 +22,7 @@ interface NoteCardProps {
   onDelete: (id: string) => void;
   onView: (note: Note) => void;
   onUpdateSchedule?: (noteId: string, date: string | null, status: string) => void;
+  onRecurrenceClick?: (note: Note) => void;
 }
 
 const STATUS_CYCLE: Record<string, string> = {
@@ -33,7 +37,26 @@ const STATUS_LABELS: Record<string, string> = {
   done: 'Done',
 };
 
-export const NoteCard: React.FC<NoteCardProps> = ({ note, onEdit, onDelete, onView, onUpdateSchedule }) => {
+const RECURRENCE_LABELS: Record<string, string> = {
+  daily: 'Daily',
+  weekly: 'Weekly',
+  monthly: 'Monthly',
+};
+
+function buildRecurrenceTooltip(note: Note): string {
+  if (!note.recurrence_rule) return 'Set recurrence';
+  const rule = RECURRENCE_LABELS[note.recurrence_rule] || note.recurrence_rule;
+  const interval = note.recurrence_interval || 1;
+  const freq = interval === 1
+    ? rule
+    : `Every ${interval} ${note.recurrence_rule === 'daily' ? 'days' : note.recurrence_rule === 'weekly' ? 'weeks' : 'months'}`;
+  const end = note.recurrence_end_date
+    ? ` until ${new Date(note.recurrence_end_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+    : ' · Forever';
+  return `${freq}${end} — Click to edit`;
+}
+
+export const NoteCard: React.FC<NoteCardProps> = ({ note, onEdit, onDelete, onView, onUpdateSchedule, onRecurrenceClick }) => {
   const dateInputRef = useRef<HTMLInputElement>(null);
 
   const formatDate = (dateString: string) => {
@@ -69,6 +92,11 @@ export const NoteCard: React.FC<NoteCardProps> = ({ note, onEdit, onDelete, onVi
     dateInputRef.current?.showPicker();
   };
 
+  const handleRecurrenceClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onRecurrenceClick?.(note);
+  };
+
   return (
     <div className={styles.card} onClick={() => onView(note)}>
       <div className={styles.headerRow}>
@@ -86,7 +114,17 @@ export const NoteCard: React.FC<NoteCardProps> = ({ note, onEdit, onDelete, onVi
           </div>
         </div>
         
-        <div className={styles.headerRight}>
+        <div className={styles.headerRight} onClick={e => e.stopPropagation()}>
+          {note.scheduled_date && (
+            <button
+              className={`${styles.recurrenceBtn} ${note.recurrence_rule ? styles.recurrenceBtnActive : ''}`}
+              onClick={handleRecurrenceClick}
+              title={buildRecurrenceTooltip(note)}
+            >
+              <Repeat size={13} />
+            </button>
+          )}
+
           <div className={styles.scheduleWrapper} onClick={handleCalendarClick} title="Set scheduled date">
             <div className={styles.calendarBtn}>
               <Calendar size={14} />

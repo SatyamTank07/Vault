@@ -30,11 +30,12 @@ const API_BASE_URL = 'http://localhost:8000';
 
 interface CanvasViewProps {
   onOpenNote: (note: Note) => void;
+  onRecurrenceClick: (note: Note) => void;
   fetchNotes: () => void;
   notes: Note[];
 }
 
-export const CanvasView: React.FC<CanvasViewProps> = ({ onOpenNote, fetchNotes, notes }) => {
+export const CanvasView: React.FC<CanvasViewProps> = ({ onOpenNote, onRecurrenceClick, fetchNotes, notes }) => {
   const [canvases, setCanvases] = useState<CanvasListItem[]>([]);
   const [activeCanvasId, setActiveCanvasId] = useState<string | null>(
     localStorage.getItem('vault_last_canvas_id') || null
@@ -144,6 +145,7 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ onOpenNote, fetchNotes, 
           onRemoveNode: (nodeId: string) => handleRemoveNode(nodeId),
           onUpdateSchedule: (nodeId: string, date: string | null, status: string) =>
             handleUpdateSchedule(nodeId, date, status),
+          onRecurrenceClick: (note: Note) => onRecurrenceClick(note),
         },
       }))
     );
