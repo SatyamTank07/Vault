@@ -254,3 +254,21 @@
 .recurrenceBtnActive:hover {
   background: rgba(139, 92, 246, 0.18);
 }
+
+@media (max-width: 600px) {
+  .dateBtn,
+  .recurrenceBtn {
+    width: 36px;
+    height: 36px;
+  }
+  
+  .branchBtn,
+  .removeBtn {
+    width: 32px;
+    height: 32px;
+  }
+  
+  .statusPill {
+    padding: 6px 12px;
+  }
+}

@@ -1,7 +1,8 @@
 .container {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 180px);
+  flex: 1;
+  min-height: 0;
   gap: 0;
 }
 
@@ -63,4 +64,19 @@
 
 .controls button:hover {
   background: rgba(139, 92, 246, 0.08) !important;
+}
+
+@media (max-width: 600px) {
+  .container {
+    height: auto;
+  }
+  
+  .toolbar {
+    flex-wrap: wrap;
+    justify-content: space-between;
+  }
+  
+  .controls {
+    display: none !important;
+  }
 }

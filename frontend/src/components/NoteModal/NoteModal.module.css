@@ -188,3 +188,14 @@
     transform: translateY(0);
   }
 }
+
+@media (max-width: 600px) {
+  .modal {
+    width: 100%;
+    max-width: 100%;
+    height: 100dvh;
+    border-radius: 0;
+    padding: 1.5rem;
+    margin: 0;
+  }
+}

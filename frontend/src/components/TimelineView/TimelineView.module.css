@@ -3,7 +3,8 @@
   display: flex;
   flex-direction: column;
   gap: 0;
-  height: calc(100vh - 180px);
+  flex: 1;
+  min-height: 0;
 }
 
 /* ── Top Bar ───────────────────────────────────────────────── */
@@ -296,6 +297,7 @@
 }
 
 .taskStatusDot {
+  position: relative;
   width: 10px;
   height: 10px;
   border-radius: 50%;
@@ -448,6 +450,120 @@
 .taskCardCompact .skipBtn {
   width: 20px;
   height: 20px;
+}
+
+/* ── Mobile Responsiveness ─────────────────────────────────── */
+@media (max-width: 600px) {
+  /* 1. Dynamic Container Height */
+  .container {
+    height: auto;
+  }
+
+  /* 2. Fix Horizontal Scroll (Keep Top Bar on Single Line & Scale Down) */
+  .topBar {
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 8px 0;
+  }
+
+  .dateNav {
+    gap: 2px;
+  }
+
+  .navBtn {
+    width: 28px;
+    height: 28px;
+  }
+
+  .todayBtn {
+    padding: 4px 8px;
+    font-size: 0.7rem;
+  }
+
+  .dateLabelContainer {
+    min-width: auto;
+    gap: 4px;
+  }
+
+  .dateLabel {
+    font-size: 0.8rem;
+  }
+
+  .datePickerBtn {
+    width: 24px;
+    height: 24px;
+  }
+
+  .viewToggle {
+    padding: 2px;
+  }
+
+  .viewBtn {
+    padding: 4px 8px;
+    font-size: 0.75rem;
+  }
+
+  /* 3. Optimize Day View Spacing */
+  .dayView {
+    padding: 12px;
+  }
+
+  /* 4. Mobile Week View (1 Column instead of 7) */
+  .weekView {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .weekView::-webkit-scrollbar {
+    display: none;
+  }
+
+  .weekDay {
+    min-height: 120px;
+    flex-shrink: 0;
+    border-right: none;
+    border-bottom: 1px solid rgba(139, 92, 246, 0.08);
+  }
+
+  .weekDay:last-child {
+    border-bottom: none;
+  }
+
+  .weekDayTasks {
+    overflow-y: visible;
+  }
+
+  .weekDayHeader {
+    text-align: left;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .weekDayNumber {
+    display: inline;
+    margin-top: 0;
+  }
+
+  /* 5. Hover States for Touch Devices (The Skip Button) */
+  .skipBtn {
+    opacity: 1;
+  }
+
+  /* 6. Fat-Finger Friendly Touch Targets */
+  .taskStatusDot::after {
+    content: '';
+    position: absolute;
+    top: -12px;
+    left: -12px;
+    right: -12px;
+    bottom: -12px;
+    border-radius: 50%;
+  }
 }
 
 
