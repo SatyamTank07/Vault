@@ -19,9 +19,13 @@ models.Base.metadata.create_all(bind=engine)
 app = FastAPI(title="Vault API")
 
 # Configure CORS
+# Read FRONTEND_URL from environment, fallback to localhost for development
+frontend_url = os.environ.get("FRONTEND_URL", "http://localhost:5173")
+origins = [url.strip() for url in frontend_url.split(",")] if frontend_url else ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, replace with specific origins
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
