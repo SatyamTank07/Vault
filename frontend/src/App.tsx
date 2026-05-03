@@ -289,7 +289,7 @@ function App() {
           notes={notes} 
         />
       ) : (
-        <TimelineView onOpenNote={openViewModal} />
+        <TimelineView onOpenNote={openViewModal} notes={notes} fetchNotes={fetchNotes} />
       )}
 
       <NoteModal

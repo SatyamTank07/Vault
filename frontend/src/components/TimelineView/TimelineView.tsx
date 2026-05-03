@@ -12,6 +12,8 @@ type SubView = 'day' | 'week';
 
 interface TimelineViewProps {
   onOpenNote: (note: Note) => void;
+  notes: Note[];
+  fetchNotes: () => void;
 }
 
 function toISODateString(date: Date): string {
@@ -58,7 +60,7 @@ function formatDateLabel(date: Date, subView: SubView): string {
   return `${startStr} – ${endStr}`;
 }
 
-export const TimelineView: React.FC<TimelineViewProps> = ({ onOpenNote }) => {
+export const TimelineView: React.FC<TimelineViewProps> = ({ onOpenNote, notes, fetchNotes }) => {
   const [subView, setSubView] = useState<SubView>('day');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [tasksByDate, setTasksByDate] = useState<Record<string, TimelineTask[]>>({});
@@ -97,6 +99,35 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ onOpenNote }) => {
   useEffect(() => {
     fetchTimeline();
   }, [fetchTimeline]);
+
+  // Sync with global notes updates for title/content
+  useEffect(() => {
+    setTasksByDate((prev) => {
+      let changed = false;
+      const updated = { ...prev };
+      for (const dateKey of Object.keys(updated)) {
+        updated[dateKey] = updated[dateKey].map((t) => {
+          const globalNote = notes.find((n) => n.id === t.note.id);
+          if (
+            globalNote &&
+            (globalNote.title !== t.note.title || globalNote.content !== t.note.content)
+          ) {
+            changed = true;
+            return {
+              ...t,
+              note: {
+                ...t.note,
+                title: globalNote.title,
+                content: globalNote.content,
+              },
+            };
+          }
+          return t;
+        });
+      }
+      return changed ? updated : prev;
+    });
+  }, [notes]);
 
   // Navigation
   const goToToday = () => setSelectedDate(new Date());
@@ -152,6 +183,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ onOpenNote }) => {
           body: JSON.stringify({ status: newStatus }),
         });
       }
+      fetchNotes();
     } catch (err) {
       console.error('Failed to update status:', err);
       fetchTimeline(); // revert
@@ -176,6 +208,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ onOpenNote }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'todo', skipped: true }),
       });
+      fetchNotes();
     } catch (err) {
       console.error('Failed to skip occurrence:', err);
       fetchTimeline();
