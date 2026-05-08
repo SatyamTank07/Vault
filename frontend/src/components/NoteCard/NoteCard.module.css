@@ -10,7 +10,7 @@
   position: relative;
   overflow: hidden;
   border: 1px solid rgba(0, 0, 0, 0.05);
-  max-height: 500px; /* Capped at 500px, but can be smaller */
+  min-height: 220px;
   cursor: pointer;
 }
 
@@ -102,6 +102,7 @@
   align-items: center;
   flex-shrink: 0;
   gap: 8px;
+  min-width: 0;
 }
 
 .scheduleWrapper {
@@ -162,10 +163,13 @@
   font-size: 0.95rem;
   line-height: 1.6;
   flex-grow: 1;
+  min-height: 0;
+  max-height: 10rem;
   overflow: hidden;
   position: relative;
   mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
   -webkit-mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
+  word-break: break-word;
 }
 
 .description > * {
@@ -312,6 +316,44 @@
 
 .recurrenceBtnActive:hover {
   background: rgba(139, 92, 246, 0.18);
+}
+
+@media (max-width: 600px) {
+  .card {
+    min-height: 0;
+    padding: 1rem;
+  }
+
+  .headerRow {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .headerRight {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .scheduleWrapper {
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .scheduledDate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .footer {
+    gap: 0.75rem;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .actions {
+    opacity: 1;
+  }
 }
 
 
