@@ -32,3 +32,17 @@
   justify-content: center;
   margin-top: -2px; /* optical centering */
 }
+
+@media (max-width: 600px) {
+  .fab {
+    width: 56px;
+    height: 56px;
+    right: 1rem;
+    bottom: 1rem;
+    box-shadow: 0 8px 20px rgba(139, 92, 246, 0.32);
+  }
+
+  .icon {
+    font-size: 30px;
+  }
+}
