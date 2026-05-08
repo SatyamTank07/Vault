@@ -6,7 +6,7 @@ import type { TimelineTask } from './TimelineTaskCard';
 import type { Note } from '../NoteCard/NoteCard';
 import styles from './TimelineView.module.css';
 
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 type SubView = 'day' | 'week';
 

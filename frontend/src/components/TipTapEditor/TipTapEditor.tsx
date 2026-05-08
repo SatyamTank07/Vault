@@ -167,14 +167,14 @@ const uploadImage = async (file: File, noteId: string): Promise<string | null> =
   formData.append('file', file);
 
   try {
-    const response = await fetch(`http://localhost:8000/api/upload?note_id=${noteId}`, {
+    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/upload?note_id=${noteId}`, {
       method: 'POST',
       body: formData,
     });
     const data = await response.json();
     // Prepend base URL if necessary, but here we use relative path
     // If frontend and backend are on different ports, we need the full URL
-    return `http://localhost:8000${data.url}`;
+    return `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}${data.url}`;
   } catch (error) {
     console.error('Upload failed:', error);
     return null;

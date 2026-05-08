@@ -10,7 +10,7 @@ import { CanvasView } from './components/CanvasView/CanvasView';
 import { TimelineView } from './components/TimelineView/TimelineView';
 import { LayoutGrid, Network, CalendarDays } from 'lucide-react';
 
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 type ViewMode = 'grid' | 'canvas' | 'timeline';
 

@@ -4,7 +4,7 @@ import { FeedbackModal, type Feedback } from './components/FeedbackModal/Feedbac
 import { FloatingActionButton } from './components/FloatingActionButton/FloatingActionButton';
 import { ConfirmModal } from './components/ConfirmModal/ConfirmModal';
 
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 export function FeedbackApp() {
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);

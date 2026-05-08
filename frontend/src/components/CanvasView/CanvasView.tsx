@@ -26,7 +26,7 @@ import { NoteModal } from '../NoteModal/NoteModal';
 import { ConfirmModal } from '../ConfirmModal/ConfirmModal';
 import styles from './CanvasView.module.css';
 
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 interface CanvasViewProps {
   onOpenNote: (note: Note) => void;
