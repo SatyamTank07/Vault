@@ -1,22 +1,63 @@
-from pydantic import BaseModel
+from datetime import date, datetime
 from typing import Optional
-from datetime import datetime, date
+
+from pydantic import BaseModel
+
+
+class UserCreate(BaseModel):
+    mobile_number: str
+    password: str
+
+
+class UserLogin(BaseModel):
+    mobile_number: str
+    password: str
+
+
+class SendOtpRequest(BaseModel):
+    mobile_number: str
+
+
+class VerifySignupOtpRequest(BaseModel):
+    mobile_number: str
+    otp: str
+    password: str
+
+
+class CurrentUserResponse(BaseModel):
+    id: str
+    mobile_number: str
+    is_mobile_verified: bool
+
+    class Config:
+        from_attributes = True
+
+
+class AuthTokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: CurrentUserResponse
+
 
 class NoteBase(BaseModel):
     title: str
     content: Optional[str] = None
 
+
 class NoteCreate(NoteBase):
     id: Optional[str] = None
+
 
 class NoteUpdate(BaseModel):
     title: Optional[str] = None
     content: Optional[str] = None
 
+
 class NoteScheduleUpdate(BaseModel):
     scheduled_date: Optional[date] = None
     clear_date: Optional[bool] = False
     status: Optional[str] = None
+
 
 class NoteResponse(NoteBase):
     id: str
@@ -31,19 +72,18 @@ class NoteResponse(NoteBase):
 
     class Config:
         orm_mode = True
-        from_attributes = True # Pydantic v2 support
+        from_attributes = True
 
-
-# ── Canvas Schemas ──────────────────────────────────────────
 
 class CanvasCreate(BaseModel):
     name: str
 
+
 class CanvasUpdate(BaseModel):
     name: Optional[str] = None
 
+
 class CanvasListResponse(BaseModel):
-    """Lightweight response for listing canvases (no nodes)."""
     id: str
     name: str
     created_at: Optional[datetime] = None
@@ -53,21 +93,21 @@ class CanvasListResponse(BaseModel):
         from_attributes = True
 
 
-# ── Canvas Node Schemas ─────────────────────────────────────
-
 class CanvasNodeCreate(BaseModel):
-    note_id: Optional[str] = None         # existing note id, or None to create new
-    parent_node_id: Optional[str] = None  # null = root / standalone
+    note_id: Optional[str] = None
+    parent_node_id: Optional[str] = None
     position_x: float = 0.0
     position_y: float = 0.0
-    title: Optional[str] = None           # used when creating a new note inline
+    title: Optional[str] = None
     scheduled_date: Optional[date] = None
+
 
 class CanvasNodeUpdate(BaseModel):
     position_x: Optional[float] = None
     position_y: Optional[float] = None
     parent_node_id: Optional[str] = None
     clear_parent: Optional[bool] = False
+
 
 class CanvasNodeResponse(BaseModel):
     id: str
@@ -80,6 +120,7 @@ class CanvasNodeResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class CanvasResponse(BaseModel):
     id: str
     name: str
@@ -90,25 +131,23 @@ class CanvasResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class BranchCreate(BaseModel):
     title: str = "Untitled"
 
 
-# ── Recurrence Schemas ──────────────────────────────────────
-
 class RecurrenceUpdate(BaseModel):
-    recurrence_rule: Optional[str] = None        # "daily" | "weekly" | "monthly" | None
+    recurrence_rule: Optional[str] = None
     recurrence_interval: Optional[int] = 1
     recurrence_end_date: Optional[date] = None
-    clear_end_date: Optional[bool] = False       # remove end date (repeat forever)
-    clear_recurrence: Optional[bool] = False     # remove recurrence entirely
+    clear_end_date: Optional[bool] = False
+    clear_recurrence: Optional[bool] = False
 
-
-# ── Occurrence Schemas ──────────────────────────────────────
 
 class OccurrenceStatusUpdate(BaseModel):
     status: str
     skipped: Optional[bool] = None
+
 
 class OccurrenceResponse(BaseModel):
     id: str
@@ -120,8 +159,6 @@ class OccurrenceResponse(BaseModel):
     class Config:
         from_attributes = True
 
-
-# ── Timeline Schemas ────────────────────────────────────────
 
 class TimelineEntry(BaseModel):
     id: str
@@ -135,18 +172,19 @@ class TimelineEntry(BaseModel):
         from_attributes = True
 
 
-# ── Feedback Schemas ────────────────────────────────────────
-
 class FeedbackBase(BaseModel):
     title: str
     content: Optional[str] = None
 
+
 class FeedbackCreate(FeedbackBase):
     pass
+
 
 class FeedbackUpdate(BaseModel):
     title: Optional[str] = None
     content: Optional[str] = None
+
 
 class FeedbackResponse(FeedbackBase):
     id: str

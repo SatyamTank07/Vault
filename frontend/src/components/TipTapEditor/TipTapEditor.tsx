@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { useEditor, EditorContent, Editor } from '@tiptap/react';
+import React, { useEffect, useMemo } from 'react';
+import { Editor, EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
@@ -17,8 +17,15 @@ import {
   Quote,
   Code,
   Strikethrough,
-  Image as ImageIcon
+  Image as ImageIcon,
 } from 'lucide-react';
+import {
+  apiFetch,
+  appendAccessTokenToUrl,
+  decorateProtectedHtml,
+  getErrorMessage,
+  stripProtectedAssetTokens,
+} from '../../lib/api';
 import styles from './TipTapEditor.module.css';
 
 interface MenuBarProps {
@@ -161,20 +168,22 @@ const MenuBar: React.FC<MenuBarProps> = ({ editor, noteId }) => {
   );
 };
 
-// Helper function to upload image
 const uploadImage = async (file: File, noteId: string): Promise<string | null> => {
   const formData = new FormData();
   formData.append('file', file);
 
   try {
-    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/upload?note_id=${noteId}`, {
+    const response = await apiFetch(`/api/upload?note_id=${encodeURIComponent(noteId)}`, {
       method: 'POST',
       body: formData,
     });
+    if (!response.ok) {
+      console.error('Upload failed:', await getErrorMessage(response, 'Upload failed.'));
+      return null;
+    }
+
     const data = await response.json();
-    // Prepend base URL if necessary, but here we use relative path
-    // If frontend and backend are on different ports, we need the full URL
-    return `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}${data.url}`;
+    return appendAccessTokenToUrl(data.url);
   } catch (error) {
     console.error('Upload failed:', error);
     return null;
@@ -189,6 +198,8 @@ interface TipTapEditorProps {
 }
 
 export const TipTapEditor: React.FC<TipTapEditorProps> = ({ content, onChange, noteId, readOnly = false }) => {
+  const displayContent = useMemo(() => decorateProtectedHtml(content), [content]);
+
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -209,12 +220,12 @@ export const TipTapEditor: React.FC<TipTapEditorProps> = ({ content, onChange, n
     editorProps: {
       handlePaste: (view, event) => {
         const items = Array.from(event.clipboardData?.items || []);
-        const imageItem = items.find(item => item.type.startsWith('image/'));
+        const imageItem = items.find((item) => item.type.startsWith('image/'));
 
         if (imageItem) {
           const file = imageItem.getAsFile();
           if (file) {
-            uploadImage(file, noteId).then(url => {
+            uploadImage(file, noteId).then((url) => {
               if (url) {
                 const { schema } = view.state;
                 const node = schema.nodes.image.create({ src: url });
@@ -228,10 +239,10 @@ export const TipTapEditor: React.FC<TipTapEditorProps> = ({ content, onChange, n
         return false;
       },
       handleDrop: (view, event, _slice, moved) => {
-        if (!moved && event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0]) {
+        if (!moved && event.dataTransfer?.files?.[0]) {
           const file = event.dataTransfer.files[0];
           if (file.type.startsWith('image/')) {
-            uploadImage(file, noteId).then(url => {
+            uploadImage(file, noteId).then((url) => {
               if (url) {
                 const { schema } = view.state;
                 const node = schema.nodes.image.create({ src: url });
@@ -245,18 +256,18 @@ export const TipTapEditor: React.FC<TipTapEditorProps> = ({ content, onChange, n
         return false;
       },
     },
-    content,
+    content: displayContent,
     editable: !readOnly,
-    onUpdate: ({ editor }) => {
-      onChange(editor.getHTML());
+    onUpdate: ({ editor: activeEditor }) => {
+      onChange(stripProtectedAssetTokens(activeEditor.getHTML()));
     },
   });
 
   useEffect(() => {
-    if (editor && content !== editor.getHTML()) {
-      editor.commands.setContent(content);
+    if (editor && displayContent !== editor.getHTML()) {
+      editor.commands.setContent(displayContent);
     }
-  }, [editor, content]);
+  }, [editor, displayContent]);
 
   useEffect(() => {
     if (editor) {
@@ -275,4 +286,3 @@ export const TipTapEditor: React.FC<TipTapEditorProps> = ({ content, onChange, n
     </div>
   );
 };
-

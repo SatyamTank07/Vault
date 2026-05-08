@@ -1,20 +1,23 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { CalendarDays, LayoutGrid, Network } from 'lucide-react';
 import styles from './App.module.css';
-import { NoteCard } from './components/NoteCard/NoteCard';
-import type { Note } from './components/NoteCard/NoteCard';
-import { NoteModal } from './components/NoteModal/NoteModal';
-import { ConfirmModal } from './components/ConfirmModal/ConfirmModal';
-import { RecurrenceModal } from './components/RecurrenceModal/RecurrenceModal';
-import { FloatingActionButton } from './components/FloatingActionButton/FloatingActionButton';
 import { CanvasView } from './components/CanvasView/CanvasView';
+import { ConfirmModal } from './components/ConfirmModal/ConfirmModal';
+import { FloatingActionButton } from './components/FloatingActionButton/FloatingActionButton';
+import { NoteModal } from './components/NoteModal/NoteModal';
+import { NoteCard, type Note } from './components/NoteCard/NoteCard';
+import { RecurrenceModal } from './components/RecurrenceModal/RecurrenceModal';
 import { TimelineView } from './components/TimelineView/TimelineView';
-import { LayoutGrid, Network, CalendarDays } from 'lucide-react';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+import { apiFetch, type CurrentUser } from './lib/api';
 
 type ViewMode = 'grid' | 'canvas' | 'timeline';
 
-function App() {
+interface AppProps {
+  currentUser: CurrentUser;
+  onLogout: () => void;
+}
+
+function App({ currentUser, onLogout }: AppProps) {
   const [notes, setNotes] = useState<Note[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isViewMode, setIsViewMode] = useState(false);
@@ -22,7 +25,6 @@ function App() {
   const [enlargedImageUrl, setEnlargedImageUrl] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<ViewMode>('grid');
   const [recurrenceNote, setRecurrenceNote] = useState<Note | null>(null);
-
   const [confirmModalConfig, setConfirmModalConfig] = useState<{
     isOpen: boolean;
     title: string;
@@ -35,36 +37,31 @@ function App() {
     onConfirm: () => {},
   });
 
-  // Global click handler to detect image clicks for Lightbox
   useEffect(() => {
-    const handleGlobalClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      
-      // If we click an image, enlarge it
+    const handleGlobalClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
       if (target.tagName === 'IMG') {
-        const img = target as HTMLImageElement;
-        // Don't enlarge images that are already in the lightbox
-        if (!img.closest('[class*="lightboxContent"]')) {
-          setEnlargedImageUrl(img.src);
-          e.preventDefault();
-          e.stopPropagation();
+        const image = target as HTMLImageElement;
+        if (!image.closest('[class*="lightboxContent"]')) {
+          setEnlargedImageUrl(image.src);
+          event.preventDefault();
+          event.stopPropagation();
         }
       }
     };
 
-    document.addEventListener('click', handleGlobalClick, true); // Use capture phase
+    document.addEventListener('click', handleGlobalClick, true);
     return () => document.removeEventListener('click', handleGlobalClick, true);
   }, []);
 
   const fetchNotes = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/notes/`);
+      const response = await apiFetch('/notes/');
       if (response.ok) {
         const data = await response.json();
-        // Sort notes by updated_at or created_at descending if needed
-        // Assuming the backend returns them in order, or we can sort them here
-        data.sort((a: Note, b: Note) => 
-          new Date(b.updated_at || b.created_at).getTime() - new Date(a.updated_at || a.created_at).getTime()
+        data.sort(
+          (a: Note, b: Note) =>
+            new Date(b.updated_at || b.created_at).getTime() - new Date(a.updated_at || a.created_at).getTime(),
         );
         setNotes(data);
       }
@@ -79,16 +76,13 @@ function App() {
 
   const handleCreateNote = async (noteData: Omit<Note, 'created_at' | 'updated_at' | 'scheduled_date' | 'status'>) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/notes/`, {
+      const response = await apiFetch('/notes/', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(noteData),
       });
       if (response.ok) {
         const newNote = await response.json();
-        setNotes(prev => [newNote, ...prev]);
+        setNotes((prev) => [newNote, ...prev]);
       }
     } catch (error) {
       console.error('Failed to create note:', error);
@@ -97,20 +91,15 @@ function App() {
 
   const handleUpdateNote = async (noteData: Omit<Note, 'created_at' | 'updated_at' | 'scheduled_date' | 'status'>) => {
     if (!editingNote) return;
-    
+
     try {
-      const response = await fetch(`${API_BASE_URL}/notes/${editingNote.id}`, {
+      const response = await apiFetch(`/notes/${editingNote.id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(noteData),
       });
       if (response.ok) {
         const updatedNote = await response.json();
-        setNotes(prev => prev.map(note => 
-          note.id === editingNote.id ? updatedNote : note
-        ));
+        setNotes((prev) => prev.map((note) => (note.id === editingNote.id ? updatedNote : note)));
       }
     } catch (error) {
       console.error('Failed to update note:', error);
@@ -118,17 +107,11 @@ function App() {
   };
 
   const handleUpdateSchedule = async (noteId: string, date: string | null, status: string) => {
-    // Optimistic update
-    setNotes((prev) =>
-      prev.map((note) =>
-        note.id === noteId ? { ...note, scheduled_date: date, status } : note
-      )
-    );
+    setNotes((prev) => prev.map((note) => (note.id === noteId ? { ...note, scheduled_date: date, status } : note)));
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/notes/${noteId}/schedule`, {
+      const response = await apiFetch(`/api/notes/${noteId}/schedule`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           scheduled_date: date,
           clear_date: date === null,
@@ -136,7 +119,6 @@ function App() {
         }),
       });
       if (!response.ok) {
-        // Revert on failure
         fetchNotes();
       }
     } catch (error) {
@@ -146,29 +128,25 @@ function App() {
   };
 
   const handleUpdateRecurrence = async (noteId: string, rule: string | null, interval: number, endDate: string | null) => {
-    // Optimistic update
     setNotes((prev) =>
       prev.map((note) =>
         note.id === noteId
           ? { ...note, recurrence_rule: rule, recurrence_interval: interval, recurrence_end_date: endDate }
-          : note
-      )
+          : note,
+      ),
     );
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/notes/${noteId}/recurrence`, {
+      const response = await apiFetch(`/api/notes/${noteId}/recurrence`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(
           rule
             ? {
                 recurrence_rule: rule,
                 recurrence_interval: interval,
-                ...(endDate
-                  ? { recurrence_end_date: endDate }
-                  : { clear_end_date: true }),
+                ...(endDate ? { recurrence_end_date: endDate } : { clear_end_date: true }),
               }
-            : { clear_recurrence: true }
+            : { clear_recurrence: true },
         ),
       });
       if (!response.ok) {
@@ -188,16 +166,14 @@ function App() {
       onConfirm: async () => {
         setConfirmModalConfig((prev) => ({ ...prev, isOpen: false }));
         try {
-          const response = await fetch(`${API_BASE_URL}/notes/${id}`, {
-            method: 'DELETE',
-          });
+          const response = await apiFetch(`/notes/${id}`, { method: 'DELETE' });
           if (response.ok) {
-            setNotes(prev => prev.filter(note => note.id !== id));
+            setNotes((prev) => prev.filter((note) => note.id !== id));
           }
         } catch (error) {
           console.error('Failed to delete note:', error);
         }
-      }
+      },
     });
   };
 
@@ -225,7 +201,7 @@ function App() {
         <div className={styles.headerTop}>
           <div>
             <h1>Vault</h1>
-            <p>Your secure, local note-taking space.</p>
+            <p>{currentUser.mobile_number}</p>
           </div>
           <div className={styles.viewToggle}>
             <button
@@ -252,6 +228,12 @@ function App() {
               <CalendarDays size={16} />
               Timeline
             </button>
+            <button className={styles.toggleBtn} onClick={() => (window.location.href = '/feedback')} title="Feedback">
+              Feedback
+            </button>
+            <button className={styles.toggleBtn} onClick={onLogout} title="Logout">
+              Logout
+            </button>
           </div>
         </div>
       </header>
@@ -261,19 +243,19 @@ function App() {
           {notes.length === 0 ? (
             <div className={styles.emptyState}>
               <p>No notes yet.</p>
-              <p>Click the + button to create your first note!</p>
+              <p>Click the + button to create your first note.</p>
             </div>
           ) : (
             <div className={styles.notesGrid}>
-              {notes.map(note => (
-                <NoteCard 
-                  key={note.id} 
-                  note={note} 
+              {notes.map((note) => (
+                <NoteCard
+                  key={note.id}
+                  note={note}
                   onEdit={openEditModal}
                   onDelete={handleDeleteNote}
                   onView={openViewModal}
                   onUpdateSchedule={handleUpdateSchedule}
-                  onRecurrenceClick={(n) => setRecurrenceNote(n)}
+                  onRecurrenceClick={(nextNote) => setRecurrenceNote(nextNote)}
                 />
               ))}
             </div>
@@ -282,11 +264,12 @@ function App() {
           <FloatingActionButton onClick={openCreateModal} />
         </>
       ) : activeView === 'canvas' ? (
-        <CanvasView 
-          onOpenNote={openViewModal} 
-          onRecurrenceClick={(n) => setRecurrenceNote(n)}
-          fetchNotes={fetchNotes} 
-          notes={notes} 
+        <CanvasView
+          currentUserId={currentUser.id}
+          onOpenNote={openViewModal}
+          onRecurrenceClick={(nextNote) => setRecurrenceNote(nextNote)}
+          fetchNotes={fetchNotes}
+          notes={notes}
         />
       ) : (
         <TimelineView onOpenNote={openViewModal} notes={notes} fetchNotes={fetchNotes} />
@@ -300,13 +283,8 @@ function App() {
         isViewMode={isViewMode}
       />
 
-      {/* Lightbox Overlay */}
       {enlargedImageUrl && (
-        <div 
-          className={styles.lightboxOverlay} 
-          onClick={() => setEnlargedImageUrl(null)}
-          title="Click anywhere to close"
-        >
+        <div className={styles.lightboxOverlay} onClick={() => setEnlargedImageUrl(null)} title="Click anywhere to close">
           <div className={styles.lightboxContent}>
             <img src={enlargedImageUrl} alt="Enlarged" />
           </div>
@@ -340,4 +318,3 @@ function App() {
 }
 
 export default App;
-

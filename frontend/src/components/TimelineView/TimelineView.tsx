@@ -1,12 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
-import { DayView } from './DayView';
-import { WeekView } from './WeekView';
-import type { TimelineTask } from './TimelineTaskCard';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { apiFetch } from '../../lib/api';
 import type { Note } from '../NoteCard/NoteCard';
+import { DayView } from './DayView';
+import type { TimelineTask } from './TimelineTaskCard';
+import { WeekView } from './WeekView';
 import styles from './TimelineView.module.css';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 type SubView = 'day' | 'week';
 
@@ -17,26 +16,25 @@ interface TimelineViewProps {
 }
 
 function toISODateString(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
-/** Get Monday of the week containing `date`. */
 function getWeekStart(date: Date): Date {
-  const d = new Date(date);
-  const day = d.getDay(); // 0=Sun, 1=Mon, ...
-  const diff = day === 0 ? -6 : 1 - day; // shift to Monday
-  d.setDate(d.getDate() + diff);
-  d.setHours(0, 0, 0, 0);
-  return d;
+  const nextDate = new Date(date);
+  const day = nextDate.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  nextDate.setDate(nextDate.getDate() + diff);
+  nextDate.setHours(0, 0, 0, 0);
+  return nextDate;
 }
 
 function getWeekEnd(weekStart: Date): Date {
-  const d = new Date(weekStart);
-  d.setDate(d.getDate() + 6);
-  return d;
+  const nextDate = new Date(weekStart);
+  nextDate.setDate(nextDate.getDate() + 6);
+  return nextDate;
 }
 
 function formatDateLabel(date: Date, subView: SubView): string {
@@ -48,7 +46,7 @@ function formatDateLabel(date: Date, subView: SubView): string {
       year: 'numeric',
     });
   }
-  // Week view — show range
+
   const weekStart = getWeekStart(date);
   const weekEnd = getWeekEnd(weekStart);
   const startStr = weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -57,7 +55,7 @@ function formatDateLabel(date: Date, subView: SubView): string {
     day: 'numeric',
     year: 'numeric',
   });
-  return `${startStr} – ${endStr}`;
+  return `${startStr} - ${endStr}`;
 }
 
 export const TimelineView: React.FC<TimelineViewProps> = ({ onOpenNote, notes, fetchNotes }) => {
@@ -66,31 +64,29 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ onOpenNote, notes, f
   const [tasksByDate, setTasksByDate] = useState<Record<string, TimelineTask[]>>({});
   const [loading, setLoading] = useState(false);
 
-  // Compute the fetch range based on subView
   const getDateRange = useCallback((): { start: string; end: string } => {
     if (subView === 'day') {
       const dateStr = toISODateString(selectedDate);
       return { start: dateStr, end: dateStr };
     }
+
     const weekStart = getWeekStart(selectedDate);
     const weekEnd = getWeekEnd(weekStart);
     return { start: toISODateString(weekStart), end: toISODateString(weekEnd) };
   }, [subView, selectedDate]);
 
-  // Fetch timeline data
   const fetchTimeline = useCallback(async () => {
     const { start, end } = getDateRange();
     setLoading(true);
+
     try {
-      const res = await fetch(
-        `${API_BASE_URL}/api/timeline/?start_date=${start}&end_date=${end}`
-      );
-      if (res.ok) {
-        const data: Record<string, TimelineTask[]> = await res.json();
+      const response = await apiFetch(`/api/timeline/?start_date=${start}&end_date=${end}`);
+      if (response.ok) {
+        const data: Record<string, TimelineTask[]> = await response.json();
         setTasksByDate(data);
       }
-    } catch (err) {
-      console.error('Failed to fetch timeline:', err);
+    } catch (error) {
+      console.error('Failed to fetch timeline:', error);
     } finally {
       setLoading(false);
     }
@@ -100,68 +96,55 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ onOpenNote, notes, f
     fetchTimeline();
   }, [fetchTimeline]);
 
-  // Sync with global notes updates for title/content
   useEffect(() => {
     setTasksByDate((prev) => {
       let changed = false;
       const updated = { ...prev };
+
       for (const dateKey of Object.keys(updated)) {
-        updated[dateKey] = updated[dateKey].map((t) => {
-          const globalNote = notes.find((n) => n.id === t.note.id);
-          if (
-            globalNote &&
-            (globalNote.title !== t.note.title || globalNote.content !== t.note.content)
-          ) {
+        updated[dateKey] = updated[dateKey].map((task) => {
+          const globalNote = notes.find((note) => note.id === task.note.id);
+          if (globalNote && (globalNote.title !== task.note.title || globalNote.content !== task.note.content)) {
             changed = true;
             return {
-              ...t,
+              ...task,
               note: {
-                ...t.note,
+                ...task.note,
                 title: globalNote.title,
                 content: globalNote.content,
               },
             };
           }
-          return t;
+          return task;
         });
       }
+
       return changed ? updated : prev;
     });
   }, [notes]);
 
-  // Navigation
   const goToToday = () => setSelectedDate(new Date());
 
   const goPrev = () => {
-    const d = new Date(selectedDate);
-    if (subView === 'day') {
-      d.setDate(d.getDate() - 1);
-    } else {
-      d.setDate(d.getDate() - 7);
-    }
-    setSelectedDate(d);
+    const nextDate = new Date(selectedDate);
+    nextDate.setDate(nextDate.getDate() - (subView === 'day' ? 1 : 7));
+    setSelectedDate(nextDate);
   };
 
   const goNext = () => {
-    const d = new Date(selectedDate);
-    if (subView === 'day') {
-      d.setDate(d.getDate() + 1);
-    } else {
-      d.setDate(d.getDate() + 7);
-    }
-    setSelectedDate(d);
+    const nextDate = new Date(selectedDate);
+    nextDate.setDate(nextDate.getDate() + (subView === 'day' ? 1 : 7));
+    setSelectedDate(nextDate);
   };
 
-  // Status change handler — routes to occurrence endpoint for recurring tasks
   const handleStatusChange = async (taskId: string, newStatus: string, occurrenceId?: string | null) => {
-    // Optimistic update
     setTasksByDate((prev) => {
       const updated = { ...prev };
       for (const dateKey of Object.keys(updated)) {
-        updated[dateKey] = updated[dateKey].map((t) =>
-          (occurrenceId ? t.occurrence_id === occurrenceId : t.id === taskId)
-            ? { ...t, status: newStatus }
-            : t
+        updated[dateKey] = updated[dateKey].map((task) =>
+          (occurrenceId ? task.occurrence_id === occurrenceId : task.id === taskId)
+            ? { ...task, status: newStatus }
+            : task,
         );
       }
       return updated;
@@ -169,58 +152,51 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ onOpenNote, notes, f
 
     try {
       if (occurrenceId) {
-        // Recurring task → update occurrence status
-        await fetch(`${API_BASE_URL}/api/occurrences/${occurrenceId}/status`, {
+        await apiFetch(`/api/occurrences/${occurrenceId}/status`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: newStatus }),
         });
       } else {
-        // One-off task → update note schedule status
-        await fetch(`${API_BASE_URL}/api/notes/${taskId}/schedule`, {
+        await apiFetch(`/api/notes/${taskId}/schedule`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: newStatus }),
         });
       }
       fetchNotes();
-    } catch (err) {
-      console.error('Failed to update status:', err);
-      fetchTimeline(); // revert
+    } catch (error) {
+      console.error('Failed to update status:', error);
+      fetchTimeline();
     }
   };
 
-  // Skip occurrence handler
   const handleSkip = async (occurrenceId: string) => {
-    // Optimistic: remove from view
     setTasksByDate((prev) => {
       const updated = { ...prev };
       for (const dateKey of Object.keys(updated)) {
-        updated[dateKey] = updated[dateKey].filter((t) => t.occurrence_id !== occurrenceId);
-        if (updated[dateKey].length === 0) delete updated[dateKey];
+        updated[dateKey] = updated[dateKey].filter((task) => task.occurrence_id !== occurrenceId);
+        if (updated[dateKey].length === 0) {
+          delete updated[dateKey];
+        }
       }
       return updated;
     });
 
     try {
-      await fetch(`${API_BASE_URL}/api/occurrences/${occurrenceId}/status`, {
+      await apiFetch(`/api/occurrences/${occurrenceId}/status`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'todo', skipped: true }),
       });
       fetchNotes();
-    } catch (err) {
-      console.error('Failed to skip occurrence:', err);
+    } catch (error) {
+      console.error('Failed to skip occurrence:', error);
       fetchTimeline();
     }
   };
 
-  // Get tasks for the day view
   const dayTasks = tasksByDate[toISODateString(selectedDate)] || [];
 
   return (
     <div className={styles.container}>
-      {/* Top Bar */}
       <div className={styles.topBar}>
         <div className={styles.dateNav}>
           <button className={styles.navBtn} onClick={goPrev} title="Previous">
@@ -240,18 +216,20 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ onOpenNote, notes, f
                 type="date"
                 className={styles.datePickerHidden}
                 value={toISODateString(selectedDate)}
-                onChange={(e) => {
-                  if (e.target.value) {
-                    const [y, m, d] = e.target.value.split('-');
-                    setSelectedDate(new Date(Number(y), Number(m) - 1, Number(d)));
+                onChange={(event) => {
+                  if (event.target.value) {
+                    const [year, month, day] = event.target.value.split('-');
+                    setSelectedDate(new Date(Number(year), Number(month) - 1, Number(day)));
                   }
                 }}
-                onClick={(e) => {
+                onClick={(event) => {
                   try {
                     if ('showPicker' in HTMLInputElement.prototype) {
-                      (e.target as HTMLInputElement).showPicker();
+                      (event.target as HTMLInputElement).showPicker();
                     }
-                  } catch (err) {}
+                  } catch {
+                    return;
+                  }
                 }}
               />
             </div>
@@ -274,7 +252,6 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ onOpenNote, notes, f
         </div>
       </div>
 
-      {/* Content */}
       <div className={styles.content}>
         {loading ? (
           <div className={styles.emptyState}>Loading...</div>

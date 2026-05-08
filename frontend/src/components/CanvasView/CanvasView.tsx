@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ReactFlow,
   Controls,
@@ -7,43 +7,44 @@ import {
   useNodesState,
   useEdgesState,
   addEdge,
-  type Node,
-  type Edge,
   type Connection,
+  type Edge,
+  type Node,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { Plus } from 'lucide-react';
+import { apiFetch } from '../../lib/api';
+import type { Note } from '../NoteCard/NoteCard';
+import { ConfirmModal } from '../ConfirmModal/ConfirmModal';
+import { NoteModal } from '../NoteModal/NoteModal';
 import MindMapNode from './MindMapNode';
 import { CanvasSelector } from './CanvasSelector';
-import {
-  convertToReactFlow,
-  autoLayout,
-  type CanvasData,
-  type CanvasListItem,
-} from './canvasUtils';
-import type { Note } from '../NoteCard/NoteCard';
-import { NoteModal } from '../NoteModal/NoteModal';
-import { ConfirmModal } from '../ConfirmModal/ConfirmModal';
+import { autoLayout, convertToReactFlow, type CanvasData, type CanvasListItem } from './canvasUtils';
 import styles from './CanvasView.module.css';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-
 interface CanvasViewProps {
+  currentUserId: string;
   onOpenNote: (note: Note) => void;
   onRecurrenceClick: (note: Note) => void;
   fetchNotes: () => void;
   notes: Note[];
 }
 
-export const CanvasView: React.FC<CanvasViewProps> = ({ onOpenNote, onRecurrenceClick, fetchNotes, notes }) => {
+export const CanvasView: React.FC<CanvasViewProps> = ({
+  currentUserId,
+  onOpenNote,
+  onRecurrenceClick,
+  fetchNotes,
+  notes,
+}) => {
+  const storageKey = useMemo(() => `vault_last_canvas_id_${currentUserId}`, [currentUserId]);
   const [canvases, setCanvases] = useState<CanvasListItem[]>([]);
-  const [activeCanvasId, setActiveCanvasId] = useState<string | null>(
-    localStorage.getItem('vault_last_canvas_id') || null
-  );
+  const [activeCanvasId, setActiveCanvasId] = useState<string | null>(() => localStorage.getItem(storageKey) || null);
   const [canvasData, setCanvasData] = useState<CanvasData | null>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState([] as Node[]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([] as Edge[]);
-
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [parentNodeIdForNewNote, setParentNodeIdForNewNote] = useState<string | null>(null);
   const dragTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [confirmModalConfig, setConfirmModalConfig] = useState<{
@@ -61,63 +62,61 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ onOpenNote, onRecurrence
 
   const nodeTypes = useMemo(() => ({ mindMapNode: MindMapNode }), []);
 
-  // ── Sync activeCanvasId to localStorage ─────────────────────
+  useEffect(() => {
+    setActiveCanvasId(localStorage.getItem(storageKey) || null);
+  }, [storageKey]);
+
   useEffect(() => {
     if (activeCanvasId) {
-      localStorage.setItem('vault_last_canvas_id', activeCanvasId);
+      localStorage.setItem(storageKey, activeCanvasId);
     } else {
-      localStorage.removeItem('vault_last_canvas_id');
+      localStorage.removeItem(storageKey);
     }
-  }, [activeCanvasId]);
+  }, [activeCanvasId, storageKey]);
 
-  // ── Fetch canvases list ───────────────────────────────────
   const fetchCanvases = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/canvases/`);
-      if (res.ok) {
-        const data: CanvasListItem[] = await res.json();
+      const response = await apiFetch('/api/canvases/');
+      if (response.ok) {
+        const data: CanvasListItem[] = await response.json();
         setCanvases(data);
 
-        // Auto-select logic
         if (data.length > 0) {
-          const savedId = localStorage.getItem('vault_last_canvas_id');
-          const savedExists = data.some((c) => c.id === savedId);
-          if (savedExists) {
-            setActiveCanvasId(savedId);
-          } else {
-            // Fallback to the first (most recent) canvas
-            setActiveCanvasId(data[0].id);
-          }
+          const savedId = localStorage.getItem(storageKey);
+          const savedExists = data.some((canvas) => canvas.id === savedId);
+          setActiveCanvasId(savedExists ? savedId : data[0].id);
         } else {
           setActiveCanvasId(null);
         }
       }
-    } catch (err) {
-      console.error('Failed to fetch canvases:', err);
+    } catch (error) {
+      console.error('Failed to fetch canvases:', error);
     }
-  }, []);
+  }, [storageKey]);
 
   useEffect(() => {
     fetchCanvases();
   }, [fetchCanvases]);
 
-  // ── Fetch active canvas data ──────────────────────────────
-  const fetchCanvasData = useCallback(async (canvasId: string) => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/canvases/${canvasId}`);
-      if (res.ok) {
-        const data: CanvasData = await res.json();
-        setCanvasData(data);
+  const fetchCanvasData = useCallback(
+    async (canvasId: string) => {
+      try {
+        const response = await apiFetch(`/api/canvases/${canvasId}`);
+        if (response.ok) {
+          const data: CanvasData = await response.json();
+          setCanvasData(data);
 
-        const { nodes: rfNodes, edges: rfEdges } = convertToReactFlow(data.nodes);
-        const laid = autoLayout(rfNodes, rfEdges);
-        setNodes(laid);
-        setEdges(rfEdges);
+          const { nodes: flowNodes, edges: flowEdges } = convertToReactFlow(data.nodes);
+          const laidOutNodes = autoLayout(flowNodes, flowEdges);
+          setNodes(laidOutNodes);
+          setEdges(flowEdges);
+        }
+      } catch (error) {
+        console.error('Failed to fetch canvas:', error);
       }
-    } catch (err) {
-      console.error('Failed to fetch canvas:', err);
-    }
-  }, [setNodes, setEdges]);
+    },
+    [setEdges, setNodes],
+  );
 
   useEffect(() => {
     if (activeCanvasId) {
@@ -127,88 +126,81 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ onOpenNote, onRecurrence
       setNodes([]);
       setEdges([]);
     }
-  }, [activeCanvasId, fetchCanvasData, setNodes, setEdges]);
+  }, [activeCanvasId, fetchCanvasData, setEdges, setNodes]);
 
-  // ── Inject callbacks into node data ───────────────────────
-  // We need to inject onOpenNote, onAddBranch, onRemoveNode, onUpdateSchedule into every node's data
-  // so MindMapNode can call them.
   useEffect(() => {
     setNodes((prev) =>
       prev.map((node) => ({
         ...node,
         data: {
           ...node.data,
-          onOpenNote: (note: Note) => {
-            onOpenNote(note);
-          },
+          onOpenNote: (note: Note) => onOpenNote(note),
           onAddBranch: (nodeId: string) => handleAddBranch(nodeId),
           onRemoveNode: (nodeId: string) => handleRemoveNode(nodeId),
           onUpdateSchedule: (nodeId: string, date: string | null, status: string) =>
             handleUpdateSchedule(nodeId, date, status),
           onRecurrenceClick: (note: Note) => onRecurrenceClick(note),
         },
-      }))
+      })),
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canvasData]);
+  }, [canvasData, onOpenNote, onRecurrenceClick, setNodes]);
 
-  // ── Sync with global notes updates ────────────────────────
   useEffect(() => {
     setNodes((prevNodes) =>
       prevNodes.map((node) => {
-        const globalNote = notes.find((n) => n.id === node.data.noteId);
-        if (globalNote) {
-          const currentNote = node.data.note as Note;
-          if (
-            globalNote.title !== node.data.title ||
-            globalNote.content !== currentNote?.content ||
-            globalNote.updated_at !== currentNote?.updated_at
-          ) {
-            return {
-              ...node,
-              data: {
-                ...node.data,
-                title: globalNote.title,
-                note: globalNote,
-              },
-            };
-          }
+        const globalNote = notes.find((note) => note.id === node.data.noteId);
+        if (!globalNote) {
+          return node;
         }
+
+        const currentNote = node.data.note as Note;
+        if (
+          globalNote.title !== node.data.title ||
+          globalNote.content !== currentNote?.content ||
+          globalNote.updated_at !== currentNote?.updated_at
+        ) {
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              title: globalNote.title,
+              note: globalNote,
+            },
+          };
+        }
+
         return node;
-      })
+      }),
     );
   }, [notes, setNodes]);
 
-  // ── Canvas CRUD handlers ──────────────────────────────────
   const handleCreateCanvas = async (name: string) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/canvases/`, {
+      const response = await apiFetch('/api/canvases/', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name }),
       });
-      if (res.ok) {
-        const created = await res.json();
+      if (response.ok) {
+        const created = await response.json();
         setCanvases((prev) => [created, ...prev]);
         setActiveCanvasId(created.id);
       }
-    } catch (err) {
-      console.error('Failed to create canvas:', err);
+    } catch (error) {
+      console.error('Failed to create canvas:', error);
     }
   };
 
   const handleRenameCanvas = async (id: string, name: string) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/canvases/${id}`, {
+      const response = await apiFetch(`/api/canvases/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name }),
       });
-      if (res.ok) {
-        setCanvases((prev) => prev.map((c) => (c.id === id ? { ...c, name } : c)));
+      if (response.ok) {
+        setCanvases((prev) => prev.map((canvas) => (canvas.id === id ? { ...canvas, name } : canvas)));
       }
-    } catch (err) {
-      console.error('Failed to rename canvas:', err);
+    } catch (error) {
+      console.error('Failed to rename canvas:', error);
     }
   };
 
@@ -221,26 +213,21 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ onOpenNote, onRecurrence
       onConfirm: async () => {
         setConfirmModalConfig((prev) => ({ ...prev, isOpen: false }));
         try {
-          const res = await fetch(`${API_BASE_URL}/api/canvases/${id}`, { method: 'DELETE' });
-          if (res.ok) {
-            setCanvases((prev) => prev.filter((c) => c.id !== id));
+          const response = await apiFetch(`/api/canvases/${id}`, { method: 'DELETE' });
+          if (response.ok) {
+            setCanvases((prev) => prev.filter((canvas) => canvas.id !== id));
             if (activeCanvasId === id) {
               setActiveCanvasId(null);
             }
-            // The backend now deletes all notes in this canvas, so we must refresh the grid notes
             fetchNotes();
           }
-        } catch (err) {
-          console.error('Failed to delete canvas:', err);
+        } catch (error) {
+          console.error('Failed to delete canvas:', error);
         }
-      }
+      },
     });
   };
 
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [parentNodeIdForNewNote, setParentNodeIdForNewNote] = useState<string | null>(null);
-
-  // ── Node actions ──────────────────────────────────────────
   const handleAddRootNote = () => {
     if (!activeCanvasId) return;
     setParentNodeIdForNewNote(null);
@@ -253,24 +240,21 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ onOpenNote, onRecurrence
     setIsCreateModalOpen(true);
   };
 
-  const handleSaveNewCanvasNode = async (noteData: Omit<Note, 'created_at' | 'updated_at' | 'scheduled_date' | 'status'>) => {
+  const handleSaveNewCanvasNode = async (
+    noteData: Omit<Note, 'created_at' | 'updated_at' | 'scheduled_date' | 'status'>,
+  ) => {
     if (!activeCanvasId) return;
 
     try {
-      // 1. Create the new note in the system
-      const noteRes = await fetch(`${API_BASE_URL}/notes/`, {
+      const noteResponse = await apiFetch('/notes/', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(noteData),
       });
 
-      if (noteRes.ok) {
-        const newNote = await noteRes.json();
-
-        // 2. Add it to the canvas
-        const canvasRes = await fetch(`${API_BASE_URL}/api/canvases/${activeCanvasId}/nodes/`, {
+      if (noteResponse.ok) {
+        const newNote = await noteResponse.json();
+        const canvasResponse = await apiFetch(`/api/canvases/${activeCanvasId}/nodes/`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             note_id: newNote.id,
             parent_node_id: parentNodeIdForNewNote,
@@ -279,13 +263,13 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ onOpenNote, onRecurrence
           }),
         });
 
-        if (canvasRes.ok) {
+        if (canvasResponse.ok) {
           fetchCanvasData(activeCanvasId);
-          fetchNotes(); // sync grid view
+          fetchNotes();
         }
       }
-    } catch (err) {
-      console.error('Failed to create canvas node via modal:', err);
+    } catch (error) {
+      console.error('Failed to create canvas node via modal:', error);
     }
 
     setIsCreateModalOpen(false);
@@ -302,59 +286,55 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ onOpenNote, onRecurrence
       onConfirm: async () => {
         setConfirmModalConfig((prev) => ({ ...prev, isOpen: false }));
         try {
-          const res = await fetch(
-            `${API_BASE_URL}/api/canvases/${activeCanvasId}/nodes/${nodeId}`,
-            { method: 'DELETE' }
-          );
-          if (res.ok) {
+          const response = await apiFetch(`/api/canvases/${activeCanvasId}/nodes/${nodeId}`, {
+            method: 'DELETE',
+          });
+          if (response.ok) {
             fetchCanvasData(activeCanvasId);
           }
-        } catch (err) {
-          console.error('Failed to remove node:', err);
+        } catch (error) {
+          console.error('Failed to remove node:', error);
         }
-      }
+      },
     });
   };
 
-  // ── Schedule update (date & status) ───────────────────────
   const handleUpdateSchedule = async (nodeId: string, date: string | null, status: string) => {
     if (!activeCanvasId) return;
 
-    const nodeToUpdate = nodes.find((n) => n.id === nodeId);
+    const nodeToUpdate = nodes.find((node) => node.id === nodeId);
     if (!nodeToUpdate) return;
-    const noteId = (nodeToUpdate.data as any).noteId;
+    const noteId = (nodeToUpdate.data as { noteId: string }).noteId;
 
-    // Optimistic update
     setNodes((prev) =>
       prev.map((node) =>
-        node.id === nodeId
-          ? { ...node, data: { ...node.data, scheduledDate: date, status } }
-          : node
-      )
+        node.id === nodeId ? { ...node, data: { ...node.data, scheduledDate: date, status } } : node,
+      ),
     );
 
     try {
-      await fetch(
-        `${API_BASE_URL}/api/notes/${noteId}/schedule`,
-        {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            scheduled_date: date,
-            clear_date: date === null,
-            status,
-          }),
-        }
-      );
-      fetchNotes(); // sync grid view
-    } catch (err) {
-      console.error('Failed to update schedule:', err);
-      // Revert on failure
-      if (activeCanvasId) fetchCanvasData(activeCanvasId);
+      const response = await apiFetch(`/api/notes/${noteId}/schedule`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          scheduled_date: date,
+          clear_date: date === null,
+          status,
+        }),
+      });
+
+      if (!response.ok && activeCanvasId) {
+        fetchCanvasData(activeCanvasId);
+      } else {
+        fetchNotes();
+      }
+    } catch (error) {
+      console.error('Failed to update schedule:', error);
+      if (activeCanvasId) {
+        fetchCanvasData(activeCanvasId);
+      }
     }
   };
 
-  // ── Drag position save (debounced) ────────────────────────
   const onNodeDragStop = useCallback(
     (_event: React.MouseEvent, node: Node) => {
       if (!activeCanvasId) return;
@@ -362,68 +342,56 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ onOpenNote, onRecurrence
       if (dragTimeoutRef.current) clearTimeout(dragTimeoutRef.current);
       dragTimeoutRef.current = setTimeout(async () => {
         try {
-          await fetch(
-            `${API_BASE_URL}/api/canvases/${activeCanvasId}/nodes/${node.id}`,
-            {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                position_x: node.position.x,
-                position_y: node.position.y,
-              }),
-            }
-          );
-        } catch (err) {
-          console.error('Failed to save node position:', err);
+          await apiFetch(`/api/canvases/${activeCanvasId}/nodes/${node.id}`, {
+            method: 'PUT',
+            body: JSON.stringify({
+              position_x: node.position.x,
+              position_y: node.position.y,
+            }),
+          });
+        } catch (error) {
+          console.error('Failed to save node position:', error);
         }
       }, 500);
     },
-    [activeCanvasId]
+    [activeCanvasId],
   );
 
-  // ── Connect Nodes (Drag Edge) ─────────────────────────────
   const onConnect = useCallback(
     async (connection: Connection) => {
       if (!activeCanvasId) return;
       if (connection.source === connection.target) return;
 
-      // Update visually first
-      setEdges((eds) =>
+      setEdges((prevEdges) =>
         addEdge(
           {
             ...connection,
             type: 'default',
             animated: false,
           } as Edge,
-          eds
-        )
+          prevEdges,
+        ),
       );
 
       try {
-        const res = await fetch(
-          `${API_BASE_URL}/api/canvases/${activeCanvasId}/nodes/${connection.target}`,
-          {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ parent_node_id: connection.source }),
-          }
-        );
+        const response = await apiFetch(`/api/canvases/${activeCanvasId}/nodes/${connection.target}`, {
+          method: 'PUT',
+          body: JSON.stringify({ parent_node_id: connection.source }),
+        });
 
-        if (res.ok) {
-          // Re-fetch to apply auto-layout since tree structure changed
+        if (response.ok) {
           fetchCanvasData(activeCanvasId);
         } else {
-          fetchCanvasData(activeCanvasId); // Revert on failure
+          fetchCanvasData(activeCanvasId);
         }
-      } catch (err) {
-        console.error('Failed to connect nodes:', err);
+      } catch (error) {
+        console.error('Failed to connect nodes:', error);
         fetchCanvasData(activeCanvasId);
       }
     },
-    [activeCanvasId, setEdges, fetchCanvasData]
+    [activeCanvasId, fetchCanvasData, setEdges],
   );
 
-  // ── Render ────────────────────────────────────────────────
   return (
     <div className={styles.container}>
       <div className={styles.toolbar}>
@@ -463,16 +431,8 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ onOpenNote, onRecurrence
             maxZoom={2}
             proOptions={{ hideAttribution: true }}
           >
-            <Controls
-              showInteractive={false}
-              className={styles.controls}
-            />
-            <Background
-              variant={BackgroundVariant.Dots}
-              gap={24}
-              size={1.5}
-              color="rgba(139, 92, 246, 0.15)"
-            />
+            <Controls showInteractive={false} className={styles.controls} />
+            <Background variant={BackgroundVariant.Dots} gap={24} size={1.5} color="rgba(139, 92, 246, 0.15)" />
           </ReactFlow>
         )}
       </div>
