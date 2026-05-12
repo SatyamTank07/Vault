@@ -6,6 +6,7 @@ import os
 import re
 import secrets
 import time
+from typing import Optional
 from datetime import datetime, timedelta, timezone
 from urllib import error as urllib_error
 from urllib import parse as urllib_parse
@@ -174,7 +175,9 @@ def send_signup_otp(mobile_number: str) -> str:
     else:
         url = f"https://2factor.in/API/V1/{encoded_api_key}/SMS/{encoded_mobile}/AUTOGEN"
 
-    response_data = _call_2factor_api("POST", url)
+    print(f"DEBUG: Sending OTP to {mobile_number} via {url}")
+    response_data = _call_2factor_api("GET", url)
+    print(f"DEBUG: 2Factor response: {response_data}")
     if response_data.get("Status") != "Success":
         raise RuntimeError(str(response_data.get("Details") or "Failed to send OTP."))
 
@@ -200,9 +203,9 @@ def verify_signup_otp(session_id: str, otp_code: str) -> bool:
 
 
 def get_current_user(
-    credentials: HTTPAuthorizationCredentials | None = Depends(HTTP_BEARER),
-    request: Request | None = None,
+    request: Request,
     db: Session = Depends(get_db),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTP_BEARER),
 ):
     token = credentials.credentials if credentials and credentials.credentials else None
     if token is None and request is not None:
