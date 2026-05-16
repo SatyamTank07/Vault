@@ -173,6 +173,16 @@ def get_me(current_user: models.User = Depends(get_current_user)):
     return current_user
 
 
+@app.post("/api/auth/set-vault-flag")
+def set_vault_flag(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    current_user.has_set_vault = True
+    db.commit()
+    return {"message": "Vault flag set."}
+
+
 @app.post("/api/auth/send-reset-otp", status_code=status.HTTP_501_NOT_IMPLEMENTED)
 def send_reset_otp():
     raise HTTPException(status_code=501, detail="Password reset OTP is not implemented yet.")

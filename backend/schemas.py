@@ -28,6 +28,8 @@ class CurrentUserResponse(BaseModel):
     id: str
     mobile_number: str
     is_mobile_verified: bool
+    created_at: Optional[datetime] = None
+    has_set_vault: bool = False
 
     class Config:
         from_attributes = True

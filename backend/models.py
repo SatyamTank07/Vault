@@ -14,6 +14,7 @@ class User(Base):
     mobile_number = Column(String, nullable=False, unique=True, index=True)
     password_hash = Column(String, nullable=False)
     is_mobile_verified = Column(Boolean, default=False, nullable=False)
+    has_set_vault = Column(Boolean, default=False, nullable=False, server_default="false")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

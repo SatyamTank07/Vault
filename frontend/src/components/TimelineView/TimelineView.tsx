@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Lock } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
+import { decryptNote } from '../../lib/crypto';
 import type { Note } from '../NoteCard/NoteCard';
 import { DayView } from './DayView';
 import type { TimelineTask } from './TimelineTaskCard';
@@ -13,6 +14,7 @@ interface TimelineViewProps {
   onOpenNote: (note: Note) => void;
   notes: Note[];
   fetchNotes: () => void;
+  cryptoKey: CryptoKey | null;
 }
 
 function toISODateString(date: Date): string {
@@ -58,7 +60,7 @@ function formatDateLabel(date: Date, subView: SubView): string {
   return `${startStr} - ${endStr}`;
 }
 
-export const TimelineView: React.FC<TimelineViewProps> = ({ onOpenNote, notes, fetchNotes }) => {
+export const TimelineView: React.FC<TimelineViewProps> = ({ onOpenNote, notes, fetchNotes, cryptoKey }) => {
   const [subView, setSubView] = useState<SubView>('day');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [tasksByDate, setTasksByDate] = useState<Record<string, TimelineTask[]>>({});
@@ -83,6 +85,26 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ onOpenNote, notes, f
       const response = await apiFetch(`/api/timeline/?start_date=${start}&end_date=${end}`);
       if (response.ok) {
         const data: Record<string, TimelineTask[]> = await response.json();
+
+        // Decrypt note fields in timeline tasks
+        if (cryptoKey) {
+          for (const dateKey of Object.keys(data)) {
+            for (let i = 0; i < data[dateKey].length; i++) {
+              const task = data[dateKey][i];
+              if (task.note) {
+                const { note: decrypted } = await decryptNote(
+                  task.note as unknown as Note,
+                  cryptoKey,
+                );
+                data[dateKey][i] = {
+                  ...task,
+                  note: decrypted as unknown as typeof task.note,
+                };
+              }
+            }
+          }
+        }
+
         setTasksByDate(data);
       }
     } catch (error) {
@@ -90,7 +112,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ onOpenNote, notes, f
     } finally {
       setLoading(false);
     }
-  }, [getDateRange]);
+  }, [getDateRange, cryptoKey]);
 
   useEffect(() => {
     fetchTimeline();
@@ -194,6 +216,18 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ onOpenNote, notes, f
   };
 
   const dayTasks = tasksByDate[toISODateString(selectedDate)] || [];
+
+  // Null-key guard
+  if (!cryptoKey) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.emptyState}>
+          <Lock size={32} />
+          <span>Vault locked</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.container}>

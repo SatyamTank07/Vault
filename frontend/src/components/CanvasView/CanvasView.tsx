@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Lock } from 'lucide-react';
 import {
   ReactFlow,
   Controls,
@@ -14,6 +15,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import { Plus } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
+import { decryptNote, encryptNote } from '../../lib/crypto';
 import type { Note } from '../NoteCard/NoteCard';
 import { ConfirmModal } from '../ConfirmModal/ConfirmModal';
 import { NoteModal } from '../NoteModal/NoteModal';
@@ -28,6 +30,7 @@ interface CanvasViewProps {
   onRecurrenceClick: (note: Note) => void;
   fetchNotes: () => void;
   notes: Note[];
+  cryptoKey: CryptoKey | null;
 }
 
 export const CanvasView: React.FC<CanvasViewProps> = ({
@@ -36,6 +39,7 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
   onRecurrenceClick,
   fetchNotes,
   notes,
+  cryptoKey,
 }) => {
   const storageKey = useMemo(() => `vault_last_canvas_id_${currentUserId}`, [currentUserId]);
   const [canvases, setCanvases] = useState<CanvasListItem[]>([]);
@@ -104,6 +108,17 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
         const response = await apiFetch(`/api/canvases/${canvasId}`);
         if (response.ok) {
           const data: CanvasData = await response.json();
+
+          // Decrypt note titles and content in canvas nodes
+          if (cryptoKey) {
+            for (const node of data.nodes) {
+              if (node.note) {
+                const { note: decrypted } = await decryptNote(node.note as unknown as Note, cryptoKey);
+                node.note = decrypted as unknown as typeof node.note;
+              }
+            }
+          }
+
           setCanvasData(data);
 
           const { nodes: flowNodes, edges: flowEdges } = convertToReactFlow(data.nodes);
@@ -115,7 +130,7 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
         console.error('Failed to fetch canvas:', error);
       }
     },
-    [setEdges, setNodes],
+    [setEdges, setNodes, cryptoKey],
   );
 
   useEffect(() => {
@@ -246,9 +261,12 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
     if (!activeCanvasId) return;
 
     try {
+      // Encrypt note before sending
+      const dataToSend = cryptoKey ? await encryptNote(noteData, cryptoKey) : noteData;
+
       const noteResponse = await apiFetch('/notes/', {
         method: 'POST',
-        body: JSON.stringify(noteData),
+        body: JSON.stringify(dataToSend),
       });
 
       if (noteResponse.ok) {
@@ -393,6 +411,18 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
     },
     [activeCanvasId, fetchCanvasData, setEdges],
   );
+
+  // Null-key guard
+  if (!cryptoKey) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.emptyState}>
+          <Lock size={32} />
+          <p>Vault locked</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.container}>

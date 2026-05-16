@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, useRef } from 'react';
-import { CalendarDays, LayoutGrid, Network, LogOut, MessageSquare } from 'lucide-react';
+import { CalendarDays, LayoutGrid, Network, LogOut, MessageSquare, Lock } from 'lucide-react';
 import styles from './App.module.css';
 import { CanvasView } from './components/CanvasView/CanvasView';
 import { ConfirmModal } from './components/ConfirmModal/ConfirmModal';
@@ -9,21 +9,24 @@ import { NoteCard, type Note } from './components/NoteCard/NoteCard';
 import { RecurrenceModal } from './components/RecurrenceModal/RecurrenceModal';
 import { TimelineView } from './components/TimelineView/TimelineView';
 import { apiFetch, type CurrentUser } from './lib/api';
+import { encryptNote, decryptNote } from './lib/crypto';
 
 type ViewMode = 'grid' | 'canvas' | 'timeline';
 
 interface AppProps {
   currentUser: CurrentUser;
   onLogout: () => void;
+  cryptoKey: CryptoKey;
 }
 
-function App({ currentUser, onLogout }: AppProps) {
+function App({ currentUser, onLogout, cryptoKey }: AppProps) {
   const [notes, setNotes] = useState<Note[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isViewMode, setIsViewMode] = useState(false);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
   const [enlargedImageUrl, setEnlargedImageUrl] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<ViewMode>('grid');
+  const [wrongSecret, setWrongSecret] = useState(false);
   const navRef = useRef<HTMLDivElement>(null);
   const isScrollingRef = useRef(false);
 
@@ -113,17 +116,33 @@ function App({ currentUser, onLogout }: AppProps) {
     try {
       const response = await apiFetch('/notes/');
       if (response.ok) {
-        const data = await response.json();
-        data.sort(
-          (a: Note, b: Note) =>
+        const data: Note[] = await response.json();
+
+        // Decrypt all notes
+        const results = await Promise.all(
+          data.map((note) => decryptNote(note, cryptoKey)),
+        );
+
+        const decryptedNotes = results.map((r) => r.note);
+        const failedCount = results.filter((r) => r.failed).length;
+
+        // If ALL notes failed and there were notes to decrypt, it's a wrong secret
+        if (failedCount > 0 && failedCount === results.length) {
+          setWrongSecret(true);
+        } else {
+          setWrongSecret(false);
+        }
+
+        decryptedNotes.sort(
+          (a, b) =>
             new Date(b.updated_at || b.created_at).getTime() - new Date(a.updated_at || a.created_at).getTime(),
         );
-        setNotes(data);
+        setNotes(decryptedNotes);
       }
     } catch (error) {
       console.error('Failed to fetch notes:', error);
     }
-  }, []);
+  }, [cryptoKey]);
 
   useEffect(() => {
     fetchNotes();
@@ -131,13 +150,15 @@ function App({ currentUser, onLogout }: AppProps) {
 
   const handleCreateNote = async (noteData: Omit<Note, 'created_at' | 'updated_at' | 'scheduled_date' | 'status'>) => {
     try {
+      const encrypted = await encryptNote(noteData, cryptoKey);
       const response = await apiFetch('/notes/', {
         method: 'POST',
-        body: JSON.stringify(noteData),
+        body: JSON.stringify(encrypted),
       });
       if (response.ok) {
         const newNote = await response.json();
-        setNotes((prev) => [newNote, ...prev]);
+        const { note: decrypted } = await decryptNote(newNote, cryptoKey);
+        setNotes((prev) => [decrypted, ...prev]);
       }
     } catch (error) {
       console.error('Failed to create note:', error);
@@ -148,13 +169,15 @@ function App({ currentUser, onLogout }: AppProps) {
     if (!editingNote) return;
 
     try {
+      const encrypted = await encryptNote(noteData, cryptoKey);
       const response = await apiFetch(`/notes/${editingNote.id}`, {
         method: 'PUT',
-        body: JSON.stringify(noteData),
+        body: JSON.stringify(encrypted),
       });
       if (response.ok) {
         const updatedNote = await response.json();
-        setNotes((prev) => prev.map((note) => (note.id === editingNote.id ? updatedNote : note)));
+        const { note: decrypted } = await decryptNote(updatedNote, cryptoKey);
+        setNotes((prev) => prev.map((note) => (note.id === editingNote.id ? decrypted : note)));
       }
     } catch (error) {
       console.error('Failed to update note:', error);
@@ -252,6 +275,18 @@ function App({ currentUser, onLogout }: AppProps) {
     setIsModalOpen(true);
   };
 
+  // Null-key guard (defense in depth — Root.tsx should prevent this)
+  if (!cryptoKey) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.lockedState}>
+          <Lock size={48} />
+          <p>Vault is locked. Please enter your Vault Secret.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={styles.container}>
       <header className={styles.header}>
@@ -334,7 +369,12 @@ function App({ currentUser, onLogout }: AppProps) {
         </div>
       </header>
 
-      {activeView === 'grid' ? (
+      {wrongSecret ? (
+        <div className={styles.wrongSecretBanner}>
+          <span>Wrong vault secret — please log out and try again.</span>
+          <button onClick={onLogout}>Log Out</button>
+        </div>
+      ) : activeView === 'grid' ? (
         <>
           {notes.length === 0 ? (
             <div className={styles.emptyState}>
@@ -366,9 +406,10 @@ function App({ currentUser, onLogout }: AppProps) {
           onRecurrenceClick={(nextNote) => setRecurrenceNote(nextNote)}
           fetchNotes={fetchNotes}
           notes={notes}
+          cryptoKey={cryptoKey}
         />
       ) : (
-        <TimelineView onOpenNote={openViewModal} notes={notes} fetchNotes={fetchNotes} />
+        <TimelineView onOpenNote={openViewModal} notes={notes} fetchNotes={fetchNotes} cryptoKey={cryptoKey} />
       )}
 
       <NoteModal

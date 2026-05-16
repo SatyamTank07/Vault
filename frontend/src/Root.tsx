@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import App from './App';
 import FeedbackApp from './FeedbackApp';
 import { AuthScreen } from './components/AuthScreen/AuthScreen';
+import { VaultSecretScreen } from './components/VaultSecretScreen/VaultSecretScreen';
 import {
   apiFetch,
   clearAuthToken,
@@ -11,16 +12,20 @@ import {
   type AuthResponse,
   type CurrentUser,
 } from './lib/api';
+import { clearVaultSecret, deriveKey, getVaultSecret } from './lib/crypto';
 
 export default function Root() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const [vaultKey, setVaultKey] = useState<CryptoKey | null>(null);
   const [loading, setLoading] = useState(true);
   const [authMessage, setAuthMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const handleUnauthorized = () => {
       clearAuthToken();
+      clearVaultSecret();
       setCurrentUser(null);
+      setVaultKey(null);
       setAuthMessage('Your session expired. Please log in again.');
     };
 
@@ -40,14 +45,29 @@ export default function Root() {
         const response = await apiFetch('/api/auth/me', { method: 'GET' }, { suppressUnauthorizedEvent: true });
         if (!response.ok) {
           clearAuthToken();
+          clearVaultSecret();
           setLoading(false);
           return;
         }
 
         const user: CurrentUser = await response.json();
         setCurrentUser(user);
+
+        // If we still have the vault secret in sessionStorage (same tab),
+        // re-derive the key automatically
+        const existingSecret = getVaultSecret();
+        if (existingSecret && user.has_set_vault) {
+          try {
+            const key = await deriveKey(existingSecret, user.created_at);
+            setVaultKey(key);
+          } catch {
+            // Secret derivation failed — force re-entry
+            clearVaultSecret();
+          }
+        }
       } catch {
         clearAuthToken();
+        clearVaultSecret();
       } finally {
         setLoading(false);
       }
@@ -59,27 +79,51 @@ export default function Root() {
   const handleAuthenticated = (payload: AuthResponse) => {
     setAuthToken(payload.access_token);
     setCurrentUser(payload.user);
+    setVaultKey(null); // Force vault secret entry after login
     setAuthMessage(null);
   };
 
   const handleLogout = () => {
     clearAuthToken();
+    clearVaultSecret();
     setCurrentUser(null);
+    setVaultKey(null);
     setAuthMessage(null);
+  };
+
+  const handleVaultUnlocked = (key: CryptoKey) => {
+    setVaultKey(key);
+  };
+
+  const handleUserUpdated = (user: CurrentUser) => {
+    setCurrentUser(user);
   };
 
   if (loading) {
     return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading...</div>;
   }
 
+  // State 1: Not authenticated → show auth screen
   if (!currentUser) {
     return <AuthScreen onAuthenticated={handleAuthenticated} initialMessage={authMessage} />;
   }
 
+  // State 2: Authenticated but no vault key → show vault secret screen
+  if (!vaultKey) {
+    return (
+      <VaultSecretScreen
+        currentUser={currentUser}
+        onUnlocked={handleVaultUnlocked}
+        onUserUpdated={handleUserUpdated}
+      />
+    );
+  }
+
+  // State 3: Fully authenticated + vault unlocked → show app
   const isFeedbackRoute = window.location.pathname === '/feedback' || window.location.pathname === '/feedback/';
   return isFeedbackRoute ? (
     <FeedbackApp currentUser={currentUser} onLogout={handleLogout} />
   ) : (
-    <App currentUser={currentUser} onLogout={handleLogout} />
+    <App currentUser={currentUser} onLogout={handleLogout} cryptoKey={vaultKey} />
   );
 }
