@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { ArrowLeft, LogOut, MessageSquare } from 'lucide-react';
 import styles from './App.module.css';
 import { ConfirmModal } from './components/ConfirmModal/ConfirmModal';
 import { FeedbackModal, type Feedback } from './components/FeedbackModal/FeedbackModal';
@@ -112,18 +113,30 @@ export function FeedbackApp({ currentUser, onLogout }: FeedbackAppProps) {
     <div className={styles.container}>
       <header className={styles.header}>
         <div className={styles.headerTop}>
-          <div>
-            <h1>Vault Feedback</h1>
+          <div className={styles.brand}>
+            <h1>Vault</h1>
             <p>{currentUser.mobile_number}</p>
           </div>
-          <div className={styles.viewToggle}>
-            <button className={styles.toggleBtn} onClick={() => (window.location.href = '/')} title="Back to Vault">
-              Back to App
+          <div className={styles.headerActions}>
+            <button 
+              className={styles.actionBtn} 
+              onClick={() => (window.location.href = '/')} 
+              title="Back to Vault"
+            >
+              <ArrowLeft size={20} />
             </button>
-            <button className={styles.toggleBtn} onClick={onLogout} title="Logout">
-              Logout
+            <button 
+              className={styles.actionBtn} 
+              onClick={onLogout} 
+              title="Logout"
+            >
+              <LogOut size={20} />
             </button>
           </div>
+        </div>
+
+        <div className={styles.sectionHeader}>
+          <h2>Feedback</h2>
         </div>
       </header>
 

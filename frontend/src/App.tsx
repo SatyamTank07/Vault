@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
-import { CalendarDays, LayoutGrid, Network } from 'lucide-react';
+import { useCallback, useEffect, useState, useRef } from 'react';
+import { CalendarDays, LayoutGrid, Network, LogOut, MessageSquare } from 'lucide-react';
 import styles from './App.module.css';
 import { CanvasView } from './components/CanvasView/CanvasView';
 import { ConfirmModal } from './components/ConfirmModal/ConfirmModal';
@@ -24,6 +24,61 @@ function App({ currentUser, onLogout }: AppProps) {
   const [editingNote, setEditingNote] = useState<Note | null>(null);
   const [enlargedImageUrl, setEnlargedImageUrl] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<ViewMode>('grid');
+  const navRef = useRef<HTMLDivElement>(null);
+  const isScrollingRef = useRef(false);
+
+  const scrollToView = useCallback((index: number) => {
+    if (navRef.current && window.innerWidth <= 600) {
+      const track = navRef.current;
+      const items = track.querySelectorAll(`.${styles.carouselItem}`);
+      const targetItem = items[index] as HTMLElement;
+      if (targetItem) {
+        isScrollingRef.current = true;
+        track.scrollTo({
+          left: targetItem.offsetLeft,
+          behavior: 'smooth'
+        });
+        // Reset scroll flag after animation
+        setTimeout(() => {
+          isScrollingRef.current = false;
+        }, 500);
+      }
+    }
+  }, []);
+
+  const handleNavScroll = () => {
+    if (!navRef.current || window.innerWidth > 600 || isScrollingRef.current) return;
+    
+    const container = navRef.current;
+    const containerCenter = container.scrollLeft + container.offsetWidth / 2;
+    const items = container.querySelectorAll(`.${styles.carouselItem}`);
+    
+    let closestIndex = 0;
+    let minDistance = Infinity;
+    
+    items.forEach((item, index) => {
+      const itemEl = item as HTMLElement;
+      const itemCenter = itemEl.offsetLeft + itemEl.offsetWidth / 2;
+      const distance = Math.abs(containerCenter - itemCenter);
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestIndex = index;
+      }
+    });
+    
+    const views: ViewMode[] = ['grid', 'canvas', 'timeline'];
+    if (views[closestIndex] && views[closestIndex] !== activeView) {
+      setActiveView(views[closestIndex]);
+    }
+  };
+
+  useEffect(() => {
+    const views: ViewMode[] = ['grid', 'canvas', 'timeline'];
+    const index = views.indexOf(activeView);
+    if (index !== -1) {
+      scrollToView(index);
+    }
+  }, [activeView, scrollToView]);
   const [recurrenceNote, setRecurrenceNote] = useState<Note | null>(null);
   const [confirmModalConfig, setConfirmModalConfig] = useState<{
     isOpen: boolean;
@@ -199,41 +254,66 @@ function App({ currentUser, onLogout }: AppProps) {
     <div className={styles.container}>
       <header className={styles.header}>
         <div className={styles.headerTop}>
-          <div>
+          <div className={styles.brand}>
             <h1>Vault</h1>
             <p>{currentUser.mobile_number}</p>
           </div>
-          <div className={styles.viewToggle}>
-            <button
-              className={`${styles.toggleBtn} ${activeView === 'grid' ? styles.toggleActive : ''}`}
-              onClick={() => setActiveView('grid')}
-              title="Grid View"
+          <div className={styles.headerActions}>
+            <button 
+              className={styles.actionBtn} 
+              onClick={() => (window.location.href = '/feedback')} 
+              title="Feedback"
             >
-              <LayoutGrid size={16} />
-              Grid
+              <MessageSquare size={20} />
             </button>
-            <button
-              className={`${styles.toggleBtn} ${activeView === 'canvas' ? styles.toggleActive : ''}`}
-              onClick={() => setActiveView('canvas')}
-              title="Canvas View"
+            <button 
+              className={styles.actionBtn} 
+              onClick={onLogout} 
+              title="Logout"
             >
-              <Network size={16} />
-              Canvas
+              <LogOut size={20} />
             </button>
-            <button
-              className={`${styles.toggleBtn} ${activeView === 'timeline' ? styles.toggleActive : ''}`}
-              onClick={() => setActiveView('timeline')}
-              title="Timeline View"
+          </div>
+        </div>
+
+        <div className={styles.viewToggle}>
+          <div className={styles.carouselPill}>
+            <div 
+              className={styles.carouselTrack} 
+              ref={navRef}
+              onScroll={handleNavScroll}
             >
-              <CalendarDays size={16} />
-              Timeline
-            </button>
-            <button className={styles.toggleBtn} onClick={() => (window.location.href = '/feedback')} title="Feedback">
-              Feedback
-            </button>
-            <button className={styles.toggleBtn} onClick={onLogout} title="Logout">
-              Logout
-            </button>
+              <div 
+                className={`${styles.carouselItem} ${activeView === 'grid' ? styles.active : ''}`}
+                onClick={() => {
+                  setActiveView('grid');
+                  scrollToView(0);
+                }}
+              >
+                <LayoutGrid size={16} />
+                <span>Grid</span>
+              </div>
+              <div 
+                className={`${styles.carouselItem} ${activeView === 'canvas' ? styles.active : ''}`}
+                onClick={() => {
+                  setActiveView('canvas');
+                  scrollToView(1);
+                }}
+              >
+                <Network size={16} />
+                <span>Canvas</span>
+              </div>
+              <div 
+                className={`${styles.carouselItem} ${activeView === 'timeline' ? styles.active : ''}`}
+                onClick={() => {
+                  setActiveView('timeline');
+                  scrollToView(2);
+                }}
+              >
+                <CalendarDays size={16} />
+                <span>Timeline</span>
+              </div>
+            </div>
           </div>
         </div>
       </header>
