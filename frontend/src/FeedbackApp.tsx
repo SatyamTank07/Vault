@@ -138,6 +138,27 @@ export function FeedbackApp({ currentUser, onLogout }: FeedbackAppProps) {
         <div className={styles.sectionHeader}>
           <h2>Feedback</h2>
         </div>
+
+        <div className={`${styles.viewToggle} ${styles.desktopOnly}`}>
+          <div className={styles.carouselPill}>
+            <div className={styles.carouselTrack}>
+              <div 
+                className={styles.carouselItem}
+                onClick={() => (window.location.href = '/')}
+              >
+                <ArrowLeft size={16} />
+                <span>Back to Vault</span>
+              </div>
+              <div 
+                className={styles.carouselItem}
+                onClick={onLogout}
+              >
+                <LogOut size={16} />
+                <span>Logout</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </header>
 
       {feedbacks.length === 0 ? (

@@ -313,6 +313,20 @@ function App({ currentUser, onLogout }: AppProps) {
                 <CalendarDays size={16} />
                 <span>Timeline</span>
               </div>
+              <div 
+                className={`${styles.carouselItem} ${styles.desktopOnly}`}
+                onClick={() => (window.location.href = '/feedback')}
+              >
+                <MessageSquare size={16} />
+                <span>Feedback</span>
+              </div>
+              <div 
+                className={`${styles.carouselItem} ${styles.desktopOnly}`}
+                onClick={onLogout}
+              >
+                <LogOut size={16} />
+                <span>Logout</span>
+              </div>
             </div>
           </div>
         </div>

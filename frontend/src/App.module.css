@@ -10,8 +10,12 @@
 }
 
 .header {
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
 }
 
 .headerTop {
@@ -19,6 +23,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+  flex: 1;
 }
 
 .headerActions {
@@ -46,8 +51,9 @@
 }
 
 .sectionHeader {
-  margin: 1rem 0 2rem;
+  margin: 0;
   text-align: center;
+  flex: 0 1 auto;
 }
 
 .sectionHeader h2 {
@@ -106,59 +112,57 @@
 
 .viewToggle {
   display: flex;
-  justify-content: center;
+  justify-content: flex-end;
   align-items: center;
-  margin: 1rem 0;
+  margin: 0;
+  flex: 1;
 }
 
 .carouselPill {
-  position: relative;
-  width: 160px;
-  height: 44px;
+  display: flex;
   background: var(--surface-color);
-  border: 1px solid rgba(139, 92, 246, 0.15);
-  border-radius: 999px;
-  box-shadow: 0 4px 15px rgba(139, 92, 246, 0.12);
-  overflow: hidden;
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 12px;
+  padding: 4px;
+  gap: 4px;
 }
 
 .carouselTrack {
   display: flex;
-  height: 100%;
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  cursor: grab;
-}
-
-.carouselTrack::-webkit-scrollbar {
-  display: none;
+  gap: 4px;
 }
 
 .carouselItem {
-  flex: 0 0 100%;
-  height: 100%;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  scroll-snap-align: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 9px;
+  font-size: 0.85rem;
+  font-weight: 500;
   color: var(--text-muted);
-  font-weight: 600;
-  font-size: 0.9rem;
-  transition: all 0.3s ease;
-  user-select: none;
+  transition: all 0.2s;
   cursor: pointer;
+  white-space: nowrap;
+}
+
+.carouselItem:hover {
+  color: var(--text-main);
+  background: rgba(139, 92, 246, 0.06);
 }
 
 .carouselItem.active {
-  color: var(--primary-purple);
-  background: rgba(139, 92, 246, 0.04);
+  background: var(--primary-purple);
+  color: white;
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
 }
 
-.carouselItem span {
-  letter-spacing: 0.01em;
+.carouselItem.mobileOnly {
+  display: none !important;
+}
+
+.headerActions {
+  display: none;
 }
 
 .notesGrid {
@@ -263,6 +267,17 @@
     overflow: visible;
   }
   
+  .header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    margin-bottom: 0.5rem;
+  }
+  
+  .sectionHeader {
+    margin: 0.5rem 0 1.5rem;
+  }
+  
   .headerTop {
     flex-direction: row;
     align-items: center;
@@ -271,27 +286,66 @@
     margin-bottom: 1.5rem;
   }
   
+  .headerActions {
+    display: flex;
+    gap: 8px;
+  }
+
   .viewToggle {
     margin: 0.5rem 0 1.5rem;
     padding: 0;
+    justify-content: center;
   }
 
   .carouselPill {
-    width: 140px; /* Slightly smaller for mobile */
+    position: relative;
+    display: block;
+    width: 140px;
     height: 40px;
     background: var(--primary-purple);
     border: none;
+    border-radius: 999px;
     box-shadow: 0 8px 20px rgba(139, 92, 246, 0.3);
+    overflow: hidden;
+  }
+
+  .carouselTrack {
+    height: 100%;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    gap: 0;
+  }
+
+  .carouselTrack::-webkit-scrollbar {
+    display: none;
   }
 
   .carouselItem {
+    flex: 0 0 100%;
     color: rgba(255, 255, 255, 0.8);
     font-size: 0.85rem;
+    padding: 0;
+    border-radius: 0;
+    height: 100%;
+    justify-content: center;
+    scroll-snap-align: center;
+  }
+
+  .carouselItem:hover {
+    background: transparent;
+    color: rgba(255, 255, 255, 0.8);
   }
 
   .carouselItem.active {
     color: #FFFFFF;
     background: transparent;
+    box-shadow: none;
+  }
+
+  .desktopOnly {
+    display: none !important;
   }
 
   .notesGrid {
