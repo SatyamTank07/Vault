@@ -137,8 +137,8 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
           onOpenNote: (note: Note) => onOpenNote(note),
           onAddBranch: (nodeId: string) => handleAddBranch(nodeId),
           onRemoveNode: (nodeId: string) => handleRemoveNode(nodeId),
-          onUpdateSchedule: (nodeId: string, date: string | null, status: string) =>
-            handleUpdateSchedule(nodeId, date, status),
+          onUpdateSchedule: (nodeId: string, date: string | null, time: string | null, status: string) =>
+            handleUpdateSchedule(nodeId, date, time, status),
           onRecurrenceClick: (note: Note) => onRecurrenceClick(note),
         },
       })),
@@ -299,7 +299,7 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
     });
   };
 
-  const handleUpdateSchedule = async (nodeId: string, date: string | null, status: string) => {
+  const handleUpdateSchedule = async (nodeId: string, date: string | null, time: string | null, status: string) => {
     if (!activeCanvasId) return;
 
     const nodeToUpdate = nodes.find((node) => node.id === nodeId);
@@ -308,7 +308,7 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
 
     setNodes((prev) =>
       prev.map((node) =>
-        node.id === nodeId ? { ...node, data: { ...node.data, scheduledDate: date, status } } : node,
+        node.id === nodeId ? { ...node, data: { ...node.data, scheduledDate: date, scheduledTime: time, status } } : node,
       ),
     );
 
@@ -317,7 +317,9 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
         method: 'PUT',
         body: JSON.stringify({
           scheduled_date: date,
+          scheduled_time: time,
           clear_date: date === null,
+          clear_time: time === null,
           status,
         }),
       });

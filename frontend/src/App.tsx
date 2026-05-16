@@ -161,15 +161,17 @@ function App({ currentUser, onLogout }: AppProps) {
     }
   };
 
-  const handleUpdateSchedule = async (noteId: string, date: string | null, status: string) => {
-    setNotes((prev) => prev.map((note) => (note.id === noteId ? { ...note, scheduled_date: date, status } : note)));
+  const handleUpdateSchedule = async (noteId: string, date: string | null, time: string | null, status: string) => {
+    setNotes((prev) => prev.map((note) => (note.id === noteId ? { ...note, scheduled_date: date, scheduled_time: time, status } : note)));
 
     try {
       const response = await apiFetch(`/api/notes/${noteId}/schedule`, {
         method: 'PUT',
         body: JSON.stringify({
           scheduled_date: date,
+          scheduled_time: time,
           clear_date: date === null,
+          clear_time: time === null,
           status,
         }),
       });

@@ -20,6 +20,7 @@ Base = declarative_base()
 def run_schema_migrations():
     statements = [
         "ALTER TABLE notes ADD COLUMN IF NOT EXISTS user_id VARCHAR",
+        "ALTER TABLE notes ADD COLUMN IF NOT EXISTS scheduled_time VARCHAR",
         "ALTER TABLE canvases ADD COLUMN IF NOT EXISTS user_id VARCHAR",
         "ALTER TABLE feedbacks ADD COLUMN IF NOT EXISTS user_id VARCHAR",
         "CREATE INDEX IF NOT EXISTS ix_notes_user_id ON notes (user_id)",

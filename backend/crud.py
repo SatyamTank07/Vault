@@ -265,6 +265,10 @@ def update_note_schedule(db: Session, user_id: str, note_id: str, data: schemas.
         db_note.scheduled_date = data.scheduled_date
     if data.clear_date:
         db_note.scheduled_date = None
+    if data.scheduled_time is not None:
+        db_note.scheduled_time = data.scheduled_time
+    if data.clear_time:
+        db_note.scheduled_time = None
     if data.status:
         db_note.status = data.status
 
@@ -433,8 +437,10 @@ def get_timeline(db: Session, user_id: str, start_date: date, end_date: date):
                     "content": note.content,
                     "created_at": note.created_at.isoformat() if note.created_at else None,
                     "updated_at": note.updated_at.isoformat() if note.updated_at else None,
+                    "scheduled_time": note.scheduled_time,
                 },
                 "scheduled_date": note.scheduled_date.isoformat(),
+                "scheduled_time": note.scheduled_time,
                 "status": note.status or "todo",
                 "is_recurring": False,
                 "occurrence_id": None,
@@ -464,14 +470,19 @@ def get_timeline(db: Session, user_id: str, start_date: date, end_date: date):
                         "content": note.content,
                         "created_at": note.created_at.isoformat() if note.created_at else None,
                         "updated_at": note.updated_at.isoformat() if note.updated_at else None,
+                        "scheduled_time": note.scheduled_time,
                     },
                     "scheduled_date": occ.occurrence_date.isoformat(),
+                    "scheduled_time": note.scheduled_time,
                     "status": occ.status or "todo",
                     "is_recurring": True,
                     "occurrence_id": occ.id,
                     "recurrence_rule": note.recurrence_rule,
                 }
             )
+
+    for date_key in result:
+        result[date_key].sort(key=lambda x: x["scheduled_time"] or "23:59")
 
     return result
 

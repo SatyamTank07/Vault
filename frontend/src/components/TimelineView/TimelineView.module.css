@@ -360,6 +360,11 @@
   opacity: 0.7;
 }
 
+.taskTime {
+  font-weight: 600;
+  color: var(--primary-purple);
+}
+
 /* Compact card for week view */
 .taskCardCompact {
   padding: 8px 10px;

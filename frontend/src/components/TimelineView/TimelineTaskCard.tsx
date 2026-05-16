@@ -32,6 +32,7 @@ export interface TimelineTask {
     updated_at: string | null;
   };
   scheduled_date: string;
+  scheduled_time: string | null;
   status: string;
   is_recurring: boolean;
   occurrence_id: string | null;
@@ -84,6 +85,12 @@ export const TimelineTaskCard: React.FC<TimelineTaskCardProps> = ({
         <div className={styles.taskMeta}>
           <span className={styles.taskCanvasName}>{task.canvas_name}</span>
           <span>·</span>
+          {task.scheduled_time && (
+            <>
+              <span className={styles.taskTime}>{task.scheduled_time}</span>
+              <span>·</span>
+            </>
+          )}
           <span className={styles.taskStatusLabel}>{STATUS_LABELS[task.status] || 'To Do'}</span>
           {task.is_recurring && (
             <>

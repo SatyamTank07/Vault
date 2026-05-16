@@ -159,6 +159,33 @@
   color: var(--text-muted);
 }
 
+/* Time picker button */
+.timeBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 600;
+  position: relative;
+  transition: background 0.15s, color 0.15s;
+  margin-left: 4px;
+}
+
+.timeBtn:hover {
+  background: rgba(139, 92, 246, 0.1);
+  color: var(--primary-purple);
+}
+
+.timeText {
+  white-space: nowrap;
+}
+
 /* Action buttons */
 .actions {
   position: absolute;

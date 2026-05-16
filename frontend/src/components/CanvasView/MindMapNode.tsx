@@ -18,12 +18,13 @@ interface MindMapNodeData {
     recurrence_end_date?: string | null;
   };
   scheduledDate: string | null;
+  scheduledTime: string | null;
   status: string;
   recurrenceRule: string | null;
   onOpenNote?: (note: any) => void;
   onAddBranch?: (nodeId: string) => void;
   onRemoveNode?: (nodeId: string) => void;
-  onUpdateSchedule?: (nodeId: string, date: string | null, status: string) => void;
+  onUpdateSchedule?: (nodeId: string, date: string | null, time: string | null, status: string) => void;
   onRecurrenceClick?: (note: any) => void;
 }
 
@@ -66,18 +67,25 @@ function formatDate(dateStr: string): string {
 const MindMapNode: React.FC<NodeProps> = ({ id, data }) => {
   const nodeData = data as unknown as MindMapNodeData;
   const dateInputRef = useRef<HTMLInputElement>(null);
+  const timeInputRef = useRef<HTMLInputElement>(null);
 
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.stopPropagation();
     const newDate = e.target.value || null;
-    nodeData.onUpdateSchedule?.(id, newDate, nodeData.status || 'todo');
+    nodeData.onUpdateSchedule?.(id, newDate, nodeData.scheduledTime, nodeData.status || 'todo');
+  };
+
+  const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.stopPropagation();
+    const newTime = e.target.value || null;
+    nodeData.onUpdateSchedule?.(id, nodeData.scheduledDate, newTime, nodeData.status || 'todo');
   };
 
   const handleStatusClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     const currentStatus = nodeData.status || 'todo';
     const nextStatus = STATUS_CYCLE[currentStatus] || 'todo';
-    nodeData.onUpdateSchedule?.(id, nodeData.scheduledDate, nextStatus);
+    nodeData.onUpdateSchedule?.(id, nodeData.scheduledDate, nodeData.scheduledTime, nextStatus);
   };
 
   const handleCalendarClick = (e: React.MouseEvent) => {
@@ -145,6 +153,21 @@ const MindMapNode: React.FC<NodeProps> = ({ id, data }) => {
           <>
             <span className={styles.dateSep}>·</span>
             <span className={styles.dateText}>{formatDate(nodeData.scheduledDate)}</span>
+            <button
+              className={styles.timeBtn}
+              onClick={(e) => { e.stopPropagation(); timeInputRef.current?.showPicker(); }}
+              title="Set scheduled time"
+            >
+              <span className={styles.timeText}>{nodeData.scheduledTime || '--:--'}</span>
+              <input
+                ref={timeInputRef}
+                type="time"
+                className={styles.hiddenDateInput}
+                value={nodeData.scheduledTime || ''}
+                onChange={handleTimeChange}
+                onClick={(e) => e.stopPropagation()}
+              />
+            </button>
           </>
         )}
       </div>

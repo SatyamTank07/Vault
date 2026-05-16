@@ -10,6 +10,7 @@ export interface Note {
   created_at: string;
   updated_at: string;
   scheduled_date: string | null;
+  scheduled_time: string | null;
   status: string;
   canvas_name?: string;
   recurrence_rule?: string | null;
@@ -22,7 +23,7 @@ interface NoteCardProps {
   onEdit: (note: Note) => void;
   onDelete: (id: string) => void;
   onView: (note: Note) => void;
-  onUpdateSchedule?: (noteId: string, date: string | null, status: string) => void;
+  onUpdateSchedule?: (noteId: string, date: string | null, time: string | null, status: string) => void;
   onRecurrenceClick?: (note: Note) => void;
 }
 
@@ -77,6 +78,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
   onRecurrenceClick,
 }) => {
   const dateInputRef = useRef<HTMLInputElement>(null);
+  const timeInputRef = useRef<HTMLInputElement>(null);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -97,13 +99,19 @@ export const NoteCard: React.FC<NoteCardProps> = ({
     event.stopPropagation();
     const currentStatus = note.status || 'todo';
     const nextStatus = STATUS_CYCLE[currentStatus] || 'todo';
-    onUpdateSchedule?.(note.id, note.scheduled_date, nextStatus);
+    onUpdateSchedule?.(note.id, note.scheduled_date, note.scheduled_time, nextStatus);
   };
 
   const handleDateChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     event.stopPropagation();
     const newDate = event.target.value || null;
-    onUpdateSchedule?.(note.id, newDate, note.status || 'todo');
+    onUpdateSchedule?.(note.id, newDate, note.scheduled_time, note.status || 'todo');
+  };
+
+  const handleTimeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    event.stopPropagation();
+    const newTime = event.target.value || null;
+    onUpdateSchedule?.(note.id, note.scheduled_date, newTime, note.status || 'todo');
   };
 
   const handleCalendarClick = (event: React.MouseEvent) => {
@@ -144,8 +152,8 @@ export const NoteCard: React.FC<NoteCardProps> = ({
             </button>
           )}
 
-          <div className={styles.scheduleWrapper} onClick={handleCalendarClick} title="Set scheduled date">
-            <div className={styles.calendarBtn}>
+          <div className={styles.scheduleWrapper} title="Set scheduled date and time">
+            <div className={styles.calendarBtn} onClick={handleCalendarClick}>
               <Calendar size={14} />
               <input
                 ref={dateInputRef}
@@ -158,6 +166,19 @@ export const NoteCard: React.FC<NoteCardProps> = ({
             </div>
             {note.scheduled_date && (
               <span className={styles.scheduledDate}>{formatScheduledDate(note.scheduled_date)}</span>
+            )}
+            {note.scheduled_date && (
+              <div className={styles.timeWrapper} onClick={(e) => { e.stopPropagation(); timeInputRef.current?.showPicker(); }}>
+                <span>{note.scheduled_time || '⏱'}</span>
+                <input
+                  ref={timeInputRef}
+                  type="time"
+                  className={styles.timeInput}
+                  value={note.scheduled_time || ''}
+                  onChange={handleTimeChange}
+                  onClick={(event) => event.stopPropagation()}
+                />
+              </div>
             )}
           </div>
         </div>
