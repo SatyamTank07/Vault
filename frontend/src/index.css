@@ -34,6 +34,16 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Mobile GPU rendering stability */
+@media (max-width: 600px) {
+  html, body {
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+    overscroll-behavior: none;
+  }
 }
 
 button {

@@ -72,6 +72,8 @@
     min-height: 400px;
     display: flex;
     flex-direction: column;
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
   }
   
   .canvasArea {
@@ -80,6 +82,10 @@
     width: 100%;
     flex: none;
     display: block;
+    border-radius: 0;
+    overflow: visible;
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
   }
   
   .toolbar {
