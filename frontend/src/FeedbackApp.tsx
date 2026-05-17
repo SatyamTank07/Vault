@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowLeft, LogOut, MessageSquare } from 'lucide-react';
+import { ArrowLeft, LogOut } from 'lucide-react';
 import styles from './App.module.css';
 import { ConfirmModal } from './components/ConfirmModal/ConfirmModal';
 import { FeedbackModal, type Feedback } from './components/FeedbackModal/FeedbackModal';

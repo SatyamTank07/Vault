@@ -148,7 +148,7 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
     fetchNotes();
   }, [fetchNotes]);
 
-  const handleCreateNote = async (noteData: Omit<Note, 'created_at' | 'updated_at' | 'scheduled_date' | 'status'>) => {
+  const handleCreateNote = async (noteData: Omit<Note, 'created_at' | 'updated_at' | 'scheduled_date' | 'scheduled_time' | 'status'>) => {
     try {
       const encrypted = await encryptNote(noteData, cryptoKey);
       const response = await apiFetch('/notes/', {
@@ -165,7 +165,7 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
     }
   };
 
-  const handleUpdateNote = async (noteData: Omit<Note, 'created_at' | 'updated_at' | 'scheduled_date' | 'status'>) => {
+  const handleUpdateNote = async (noteData: Omit<Note, 'created_at' | 'updated_at' | 'scheduled_date' | 'scheduled_time' | 'status'>) => {
     if (!editingNote) return;
 
     try {

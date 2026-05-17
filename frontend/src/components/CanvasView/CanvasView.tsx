@@ -256,7 +256,7 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
   };
 
   const handleSaveNewCanvasNode = async (
-    noteData: Omit<Note, 'created_at' | 'updated_at' | 'scheduled_date' | 'status'>,
+    noteData: Omit<Note, 'created_at' | 'updated_at' | 'scheduled_date' | 'scheduled_time' | 'status'>,
   ) => {
     if (!activeCanvasId) return;
 
