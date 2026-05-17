@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { CalendarDays, LayoutGrid, Network, LogOut, MessageSquare, Lock } from 'lucide-react';
 import styles from './App.module.css';
 import { CanvasView } from './components/CanvasView/CanvasView';
@@ -27,61 +27,8 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
   const [enlargedImageUrl, setEnlargedImageUrl] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<ViewMode>('grid');
   const [wrongSecret, setWrongSecret] = useState(false);
-  const navRef = useRef<HTMLDivElement>(null);
-  const isScrollingRef = useRef(false);
 
-  const scrollToView = useCallback((index: number) => {
-    if (navRef.current && window.innerWidth <= 600) {
-      const track = navRef.current;
-      const items = track.querySelectorAll(`.${styles.carouselItem}`);
-      const targetItem = items[index] as HTMLElement;
-      if (targetItem) {
-        isScrollingRef.current = true;
-        track.scrollTo({
-          left: targetItem.offsetLeft,
-          behavior: 'smooth'
-        });
-        // Reset scroll flag after animation
-        setTimeout(() => {
-          isScrollingRef.current = false;
-        }, 500);
-      }
-    }
-  }, []);
 
-  const handleNavScroll = () => {
-    if (!navRef.current || window.innerWidth > 600 || isScrollingRef.current) return;
-    
-    const container = navRef.current;
-    const containerCenter = container.scrollLeft + container.offsetWidth / 2;
-    const items = container.querySelectorAll(`.${styles.carouselItem}`);
-    
-    let closestIndex = 0;
-    let minDistance = Infinity;
-    
-    items.forEach((item, index) => {
-      const itemEl = item as HTMLElement;
-      const itemCenter = itemEl.offsetLeft + itemEl.offsetWidth / 2;
-      const distance = Math.abs(containerCenter - itemCenter);
-      if (distance < minDistance) {
-        minDistance = distance;
-        closestIndex = index;
-      }
-    });
-    
-    const views: ViewMode[] = ['grid', 'canvas', 'timeline'];
-    if (views[closestIndex] && views[closestIndex] !== activeView) {
-      setActiveView(views[closestIndex]);
-    }
-  };
-
-  useEffect(() => {
-    const views: ViewMode[] = ['grid', 'canvas', 'timeline'];
-    const index = views.indexOf(activeView);
-    if (index !== -1) {
-      scrollToView(index);
-    }
-  }, [activeView, scrollToView]);
   const [recurrenceNote, setRecurrenceNote] = useState<Note | null>(null);
   const [confirmModalConfig, setConfirmModalConfig] = useState<{
     isOpen: boolean;
@@ -315,37 +262,24 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
 
         <div className={styles.viewToggle}>
           <div className={styles.carouselPill}>
-            <div 
-              className={styles.carouselTrack} 
-              ref={navRef}
-              onScroll={handleNavScroll}
-            >
+            <div className={styles.carouselTrack}>
               <div 
                 className={`${styles.carouselItem} ${activeView === 'grid' ? styles.active : ''}`}
-                onClick={() => {
-                  setActiveView('grid');
-                  scrollToView(0);
-                }}
+                onClick={() => setActiveView('grid')}
               >
                 <LayoutGrid size={16} />
                 <span>Grid</span>
               </div>
               <div 
                 className={`${styles.carouselItem} ${activeView === 'canvas' ? styles.active : ''}`}
-                onClick={() => {
-                  setActiveView('canvas');
-                  scrollToView(1);
-                }}
+                onClick={() => setActiveView('canvas')}
               >
                 <Network size={16} />
                 <span>Canvas</span>
               </div>
               <div 
                 className={`${styles.carouselItem} ${activeView === 'timeline' ? styles.active : ''}`}
-                onClick={() => {
-                  setActiveView('timeline');
-                  scrollToView(2);
-                }}
+                onClick={() => setActiveView('timeline')}
               >
                 <CalendarDays size={16} />
                 <span>Timeline</span>

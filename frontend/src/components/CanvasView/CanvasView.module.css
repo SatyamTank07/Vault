@@ -68,24 +68,20 @@
 
 @media (max-width: 600px) {
   .container {
-    height: calc(100dvh - 160px);
+    height: calc(100vh - 160px);
     min-height: 400px;
     display: flex;
     flex-direction: column;
-    -webkit-transform: translateZ(0);
-    transform: translateZ(0);
   }
   
   .canvasArea {
-    height: calc(100dvh - 220px);
+    height: calc(100vh - 220px);
     min-height: 400px;
     width: 100%;
     flex: none;
     display: block;
     border-radius: 0;
     overflow: visible;
-    -webkit-transform: translateZ(0);
-    transform: translateZ(0);
   }
   
   .toolbar {

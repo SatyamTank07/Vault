@@ -181,10 +181,16 @@
 }
 
 @media (max-width: 600px) {
+  .overlay {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background-color: rgba(0, 0, 0, 0.6);
+  }
+
   .modal {
     width: 100%;
     max-width: 100%;
-    height: 100dvh;
+    height: 100vh;
     border-radius: 0;
     padding: 1.5rem;
     margin: 0;

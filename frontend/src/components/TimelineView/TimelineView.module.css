@@ -459,19 +459,15 @@
 
 /* ── Mobile Responsiveness ─────────────────────────────────── */
 @media (max-width: 600px) {
-  /* 1. Dynamic Container Height + GPU layer isolation */
+  /* 1. Dynamic Container Height */
   .container {
     height: auto;
-    -webkit-transform: translateZ(0);
-    transform: translateZ(0);
   }
 
-  /* Fix content border-radius + overflow combo causing mobile GPU glitches */
+  /* Remove border-radius + overflow combo that causes mobile GPU glitches */
   .content {
     border-radius: 0;
     overflow: visible;
-    -webkit-transform: translateZ(0);
-    transform: translateZ(0);
   }
 
   /* 2. Fix Horizontal Scroll (Keep Top Bar on Single Line & Scale Down) */
@@ -531,8 +527,6 @@
     overflow-y: auto;
     scrollbar-width: none;
     -ms-overflow-style: none;
-    -webkit-transform: translateZ(0);
-    transform: translateZ(0);
   }
   .weekView::-webkit-scrollbar {
     display: none;

@@ -387,6 +387,23 @@
   .actions {
     opacity: 1;
   }
-}
 
+  /* Simplify rendering: remove GPU-heavy properties on mobile */
+  .card {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    transition: none;
+  }
+
+  .card:hover {
+    transform: none;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  }
+
+  .description {
+    mask-image: none;
+    -webkit-mask-image: none;
+    max-height: 8rem;
+    overflow: hidden;
+  }
+}
 
