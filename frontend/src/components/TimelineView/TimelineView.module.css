@@ -575,6 +575,26 @@
     bottom: -12px;
     border-radius: 50%;
   }
+
+  /* 7. Strip GPU-heavy rendering from cards on mobile */
+  .taskCard {
+    transition: none;
+    box-shadow: none;
+  }
+
+  .taskCard:hover {
+    transform: none;
+    box-shadow: none;
+  }
+
+  .taskStatusDot {
+    box-shadow: none;
+    transition: none;
+  }
+
+  .taskStatusDot:hover {
+    transform: none;
+  }
 }
 
 

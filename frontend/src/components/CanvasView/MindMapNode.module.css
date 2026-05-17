@@ -283,6 +283,15 @@
 }
 
 @media (max-width: 600px) {
+  .node {
+    box-shadow: none;
+    transition: none;
+  }
+
+  .node:hover {
+    box-shadow: none;
+  }
+
   .dateBtn,
   .recurrenceBtn {
     width: 36px;
@@ -293,9 +302,26 @@
   .removeBtn {
     width: 32px;
     height: 32px;
+    transition: none;
+  }
+
+  .branchBtn:hover,
+  .removeBtn:hover {
+    transform: none;
   }
   
   .statusPill {
     padding: 6px 12px;
+    transition: none;
+  }
+
+  .statusPill:hover {
+    transform: none;
+    filter: none;
+  }
+
+  /* Make action buttons always visible on mobile (no hover) */
+  .actions {
+    opacity: 1;
   }
 }
