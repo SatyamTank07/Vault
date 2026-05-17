@@ -183,6 +183,19 @@ def set_vault_flag(
     return {"message": "Vault flag set."}
 
 
+@app.post("/api/auth/master-seed")
+def store_master_seed(
+    payload: schemas.UpdateMasterSeed,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    current_user.encrypted_master_seed = payload.encrypted_master_seed
+    if not current_user.has_set_vault:
+        current_user.has_set_vault = True
+    db.commit()
+    return {"message": "Master seed stored."}
+
+
 @app.post("/api/auth/send-reset-otp", status_code=status.HTTP_501_NOT_IMPLEMENTED)
 def send_reset_otp():
     raise HTTPException(status_code=501, detail="Password reset OTP is not implemented yet.")

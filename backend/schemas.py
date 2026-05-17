@@ -30,9 +30,14 @@ class CurrentUserResponse(BaseModel):
     is_mobile_verified: bool
     created_at: Optional[datetime] = None
     has_set_vault: bool = False
+    encrypted_master_seed: Optional[str] = None
 
     class Config:
         from_attributes = True
+
+
+class UpdateMasterSeed(BaseModel):
+    encrypted_master_seed: str
 
 
 class AuthTokenResponse(BaseModel):

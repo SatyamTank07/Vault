@@ -12,7 +12,7 @@ import {
   type AuthResponse,
   type CurrentUser,
 } from './lib/api';
-import { clearVaultSecret, deriveKey, getVaultSecret } from './lib/crypto';
+import { clearVaultSecret, deriveKey, deriveNoteKey, getVaultSecret, unwrapMasterSeed } from './lib/crypto';
 
 export default function Root() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
@@ -58,8 +58,20 @@ export default function Root() {
         const existingSecret = getVaultSecret();
         if (existingSecret && user.has_set_vault) {
           try {
-            const key = await deriveKey(existingSecret, user.created_at);
-            setVaultKey(key);
+            if (user.encrypted_master_seed) {
+              // New architecture: unwrap master seed → derive note key
+              const seed = await unwrapMasterSeed(
+                user.encrypted_master_seed,
+                existingSecret,
+                user.created_at,
+              );
+              const key = await deriveNoteKey(seed);
+              setVaultKey(key);
+            } else {
+              // Legacy fallback: direct key derivation (pre-migration user)
+              const key = await deriveKey(existingSecret, user.created_at);
+              setVaultKey(key);
+            }
           } catch {
             // Secret derivation failed — force re-entry
             clearVaultSecret();

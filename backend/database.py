@@ -28,6 +28,7 @@ def run_schema_migrations():
         "CREATE INDEX IF NOT EXISTS ix_feedbacks_user_id ON feedbacks (user_id)",
         "CREATE UNIQUE INDEX IF NOT EXISTS ix_users_mobile_number ON users (mobile_number)",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS has_set_vault BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS encrypted_master_seed TEXT",
     ]
 
     with engine.begin() as connection:

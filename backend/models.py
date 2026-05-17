@@ -15,6 +15,7 @@ class User(Base):
     password_hash = Column(String, nullable=False)
     is_mobile_verified = Column(Boolean, default=False, nullable=False)
     has_set_vault = Column(Boolean, default=False, nullable=False, server_default="false")
+    encrypted_master_seed = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
