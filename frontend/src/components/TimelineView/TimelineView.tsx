@@ -15,6 +15,7 @@ interface TimelineViewProps {
   notes: Note[];
   fetchNotes: () => void;
   cryptoKey: CryptoKey | null;
+  showCompleted?: boolean;
 }
 
 function toISODateString(date: Date): string {
@@ -60,7 +61,7 @@ function formatDateLabel(date: Date, subView: SubView): string {
   return `${startStr} - ${endStr}`;
 }
 
-export const TimelineView: React.FC<TimelineViewProps> = ({ onOpenNote, notes, fetchNotes, cryptoKey }) => {
+export const TimelineView: React.FC<TimelineViewProps> = ({ onOpenNote, notes, fetchNotes, cryptoKey, showCompleted = false }) => {
   const [subView, setSubView] = useState<SubView>('day');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [tasksByDate, setTasksByDate] = useState<Record<string, TimelineTask[]>>({});
@@ -215,7 +216,14 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ onOpenNote, notes, f
     }
   };
 
-  const dayTasks = tasksByDate[toISODateString(selectedDate)] || [];
+  const filteredTasksByDate = Object.fromEntries(
+    Object.entries(tasksByDate).map(([date, tasks]) => [
+      date,
+      showCompleted ? tasks : tasks.filter((t) => t.status !== 'done'),
+    ])
+  );
+
+  const dayTasks = filteredTasksByDate[toISODateString(selectedDate)] || [];
 
   // Null-key guard
   if (!cryptoKey) {
@@ -300,7 +308,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ onOpenNote, notes, f
         ) : (
           <WeekView
             weekStart={getWeekStart(selectedDate)}
-            tasksByDate={tasksByDate}
+            tasksByDate={filteredTasksByDate}
             onOpenNote={onOpenNote}
             onStatusChange={handleStatusChange}
             onSkip={handleSkip}

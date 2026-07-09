@@ -9,9 +9,16 @@
 .toolbar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
   padding: 12px 0;
   flex-shrink: 0;
+}
+
+.canvasActions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
 .addRootBtn {

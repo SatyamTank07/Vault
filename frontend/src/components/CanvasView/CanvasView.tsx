@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Lock } from 'lucide-react';
+import { Lock, Plus, Wand2 } from 'lucide-react';
 import {
   ReactFlow,
   Controls,
@@ -13,7 +13,7 @@ import {
   type Node,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Plus } from 'lucide-react';
+
 import { apiFetch } from '../../lib/api';
 import { decryptNote, encryptNote } from '../../lib/crypto';
 import type { Note } from '../NoteCard/NoteCard';
@@ -122,8 +122,17 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
           setCanvasData(data);
 
           const { nodes: flowNodes, edges: flowEdges } = convertToReactFlow(data.nodes);
-          const laidOutNodes = autoLayout(flowNodes, flowEdges);
-          setNodes(laidOutNodes);
+          
+          // Only auto-layout if it's a brand new or completely untouched canvas (all nodes at 0,0)
+          const allZero = flowNodes.length > 0 && flowNodes.every(n => n.position.x === 0 && n.position.y === 0);
+          
+          if (allZero) {
+            const laidOutNodes = autoLayout(flowNodes, flowEdges);
+            setNodes(laidOutNodes);
+          } else {
+            setNodes(flowNodes);
+          }
+          
           setEdges(flowEdges);
         }
       } catch (error) {
@@ -260,6 +269,24 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
   ) => {
     if (!activeCanvasId) return;
 
+    let newX = 0;
+    let newY = 0;
+    
+    if (parentNodeIdForNewNote) {
+      const parentNode = nodes.find((n) => n.id === parentNodeIdForNewNote);
+      if (parentNode) {
+        const siblingCount = edges.filter((e) => e.source === parentNodeIdForNewNote).length;
+        // Stagger siblings horizontally to avoid perfect overlap
+        newX = parentNode.position.x + (siblingCount > 0 ? (siblingCount % 2 === 0 ? siblingCount * 120 : -siblingCount * 120) : 0);
+        newY = parentNode.position.y + 160;
+      }
+    } else if (nodes.length > 0) {
+      // Find right-most root node to place next to it
+      const maxX = Math.max(...nodes.map((n) => n.position.x));
+      newX = maxX + 260;
+      newY = nodes[0].position.y;
+    }
+
     try {
       // Encrypt note before sending
       const dataToSend = cryptoKey ? await encryptNote(noteData, cryptoKey) : noteData;
@@ -276,8 +303,8 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
           body: JSON.stringify({
             note_id: newNote.id,
             parent_node_id: parentNodeIdForNewNote,
-            position_x: 0,
-            position_y: 0,
+            position_x: newX,
+            position_y: newY,
           }),
         });
 
@@ -412,6 +439,27 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
     [activeCanvasId, fetchCanvasData, setEdges],
   );
 
+  const handleAutoLayout = async () => {
+    if (!activeCanvasId || nodes.length === 0) return;
+    const laidOutNodes = autoLayout(nodes, edges);
+    setNodes(laidOutNodes);
+    
+    // Save new positions to backend in background
+    for (const node of laidOutNodes) {
+      try {
+        await apiFetch(`/api/canvases/${activeCanvasId}/nodes/${node.id}`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            position_x: node.position.x,
+            position_y: node.position.y,
+          }),
+        });
+      } catch (error) {
+        console.error('Failed to save layout position', error);
+      }
+    }
+  };
+
   // Null-key guard
   if (!cryptoKey) {
     return (
@@ -436,10 +484,16 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
           onDelete={handleDeleteCanvas}
         />
         {activeCanvasId && (
-          <button className={styles.addRootBtn} onClick={handleAddRootNote}>
-            <Plus size={16} />
-            Add Note
-          </button>
+          <div className={styles.canvasActions}>
+            <button className={styles.addRootBtn} onClick={handleAutoLayout} title="Auto Layout Canvas">
+              <Wand2 size={16} />
+              Auto Layout
+            </button>
+            <button className={styles.addRootBtn} onClick={handleAddRootNote}>
+              <Plus size={16} />
+              Add Note
+            </button>
+          </div>
         )}
       </div>
 

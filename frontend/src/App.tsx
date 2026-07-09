@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { CalendarDays, LayoutGrid, Network, LogOut, MessageSquare, Lock } from 'lucide-react';
+import { CalendarDays, LayoutGrid, Network, LogOut, MessageSquare, Lock, Eye, EyeOff } from 'lucide-react';
 import styles from './App.module.css';
 import { CanvasView } from './components/CanvasView/CanvasView';
 import { ConfirmModal } from './components/ConfirmModal/ConfirmModal';
@@ -27,6 +27,7 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
   const [enlargedImageUrl, setEnlargedImageUrl] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<ViewMode>('grid');
   const [wrongSecret, setWrongSecret] = useState(false);
+  const [showCompleted, setShowCompleted] = useState(false);
 
 
   const [recurrenceNote, setRecurrenceNote] = useState<Note | null>(null);
@@ -285,6 +286,13 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
                 <span>Timeline</span>
               </div>
               <div 
+                className={styles.carouselItem}
+                onClick={() => setShowCompleted(!showCompleted)}
+              >
+                {showCompleted ? <EyeOff size={16} /> : <Eye size={16} />}
+                <span>{showCompleted ? 'Hide Done' : 'Show Done'}</span>
+              </div>
+              <div 
                 className={`${styles.carouselItem} ${styles.desktopOnly}`}
                 onClick={() => (window.location.href = '/feedback')}
               >
@@ -317,7 +325,7 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
             </div>
           ) : (
             <div className={styles.notesGrid}>
-              {notes.map((note) => (
+              {(showCompleted ? notes : notes.filter(n => n.status !== 'done')).map((note) => (
                 <NoteCard
                   key={note.id}
                   note={note}
@@ -339,11 +347,11 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
           onOpenNote={openViewModal}
           onRecurrenceClick={(nextNote) => setRecurrenceNote(nextNote)}
           fetchNotes={fetchNotes}
-          notes={notes}
+          notes={showCompleted ? notes : notes.filter(n => n.status !== 'done')}
           cryptoKey={cryptoKey}
         />
       ) : (
-        <TimelineView onOpenNote={openViewModal} notes={notes} fetchNotes={fetchNotes} cryptoKey={cryptoKey} />
+        <TimelineView onOpenNote={openViewModal} notes={notes} fetchNotes={fetchNotes} cryptoKey={cryptoKey} showCompleted={showCompleted} />
       )}
 
       <NoteModal
