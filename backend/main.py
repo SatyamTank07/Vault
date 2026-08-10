@@ -454,6 +454,16 @@ def get_timeline(
     return crud.get_timeline(db, current_user.id, start_date, end_date)
 
 
+@app.get("/api/timestream/")
+def get_timestream_view(
+    start_date: date,
+    end_date: date,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    return crud.get_timestream(db, current_user.id, start_date, end_date)
+
+
 @app.put("/api/notes/{note_id}/recurrence", response_model=schemas.NoteResponse)
 def update_recurrence(
     note_id: str,

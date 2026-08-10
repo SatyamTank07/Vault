@@ -41,6 +41,57 @@
   font-weight: 600;
 }
 
+.headerTitleArea {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.dateSection {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dateDisplay {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  background: rgba(139, 92, 246, 0.1);
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-weight: 500;
+}
+
+.dateInput, .timeInput {
+  background-color: var(--surface-color);
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 6px;
+  padding: 0.25rem 0.5rem;
+  color: var(--text-main);
+  font-size: 0.9rem;
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.dateInput:hover, .timeInput:hover {
+  border-color: rgba(0, 0, 0, 0.3);
+}
+
+.dateInput:focus, .timeInput:focus {
+  border-color: var(--primary-purple);
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
+}
+
+.arrow {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
 .closeBtn {
   color: var(--text-muted);
   font-size: 1.5rem;

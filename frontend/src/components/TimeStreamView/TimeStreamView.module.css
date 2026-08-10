@@ -1,0 +1,324 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  background-color: var(--bg-color);
+  color: var(--text-main);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Controls Bar */
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  background-color: var(--surface-color);
+  border-bottom: 1px solid var(--surface-hover);
+  height: 60px;
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.leftControls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.navBtn {
+  background: none;
+  border: 1px solid var(--surface-hover);
+  border-radius: 6px;
+  padding: 6px;
+  cursor: pointer;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.navBtn:hover {
+  background-color: var(--surface-hover);
+  color: var(--text-main);
+}
+
+.todayBtn {
+  background: none;
+  border: 1px solid var(--surface-hover);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--text-main);
+  transition: all 0.2s ease;
+}
+
+.todayBtn:hover {
+  background-color: var(--surface-hover);
+}
+
+.dateRange {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.rightControls {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  width: 200px;
+}
+
+.zoomLabels {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.zoomSlider {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  background: var(--secondary-purple);
+  border-radius: 2px;
+  outline: none;
+}
+
+.zoomSlider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: white;
+  border: 2px solid var(--primary-purple);
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  transition: transform 0.1s ease;
+}
+
+.zoomSlider::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+}
+
+/* Canvas Area */
+.canvasContainer {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+
+.canvasContainer:active,
+.canvasDragging {
+  cursor: grabbing;
+}
+
+.axis {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 65%;
+  height: 2px;
+  background-color: rgba(139, 92, 246, 0.3);
+  z-index: 1;
+}
+
+.tick {
+  position: absolute;
+  top: 65%;
+  width: 1px;
+  height: 12px;
+  background-color: rgba(139, 92, 246, 0.15);
+  z-index: 1;
+}
+
+.majorTick {
+  height: 16px;
+  background-color: rgba(139, 92, 246, 0.3);
+}
+
+.tickLabel {
+  position: absolute;
+  top: calc(65% + 16px);
+  transform: translateX(-50%);
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.majorTickLabel {
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+/* Today Line */
+.todayLine {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background-color: var(--primary-purple);
+  box-shadow: 0 0 8px rgba(139, 92, 246, 0.5);
+  z-index: 2;
+  pointer-events: none;
+}
+
+.todayBadge {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: var(--primary-purple);
+  color: white;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 4px rgba(139, 92, 246, 0.3);
+}
+
+/* Event Bars */
+.eventBar {
+  position: absolute;
+  height: 32px;
+  border-radius: 8px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  color: white;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  z-index: 3;
+  min-width: 40px;
+  animation: fadeSlideIn 0.3s ease-out forwards;
+}
+
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.eventBar:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  z-index: 5;
+}
+
+.eventBarText {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+/* Tooltip */
+.tooltip {
+  position: absolute;
+  background: var(--surface-color);
+  border: 1px solid var(--surface-hover);
+  border-radius: 8px;
+  padding: 8px 12px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  font-size: 12px;
+  color: var(--text-main);
+  pointer-events: none;
+  z-index: 100;
+  min-width: 150px;
+  max-width: 300px;
+  transform: translate(-50%, -100%);
+  margin-top: -8px;
+}
+
+.tooltipTitle {
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.tooltipDate {
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.tooltipMeta {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+/* States */
+.lockedState, .emptyState, .loadingState {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: var(--text-muted);
+  text-align: center;
+  z-index: 10;
+}
+
+.lockedIcon {
+  width: 48px;
+  height: 48px;
+  color: var(--primary-purple);
+  margin-bottom: 16px;
+  opacity: 0.8;
+}
+
+.loadingSpinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--secondary-purple);
+  border-top-color: var(--primary-purple);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 600px) {
+  .controls {
+    flex-direction: column;
+    height: auto;
+    align-items: stretch;
+    gap: 12px;
+  }
+  
+  .rightControls {
+    width: 100%;
+    align-items: center;
+  }
+}

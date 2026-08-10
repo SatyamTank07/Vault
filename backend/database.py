@@ -34,6 +34,13 @@ def run_schema_migrations():
     with engine.begin() as connection:
         for statement in statements:
             connection.execute(text(statement))
+        
+        # Add end_date column to notes if not exists
+        try:
+            connection.execute(text("ALTER TABLE notes ADD COLUMN end_date DATE"))
+            print("Added end_date column to notes table.")
+        except Exception:
+            pass
 
 
 def get_db():

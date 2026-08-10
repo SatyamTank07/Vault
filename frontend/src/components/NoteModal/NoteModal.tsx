@@ -6,7 +6,7 @@ import { TipTapEditor } from '../TipTapEditor/TipTapEditor';
 interface NoteModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (note: Omit<Note, 'created_at' | 'updated_at' | 'scheduled_date' | 'scheduled_time' | 'status'>) => void;
+  onSave: (note: Omit<Note, 'created_at' | 'updated_at' | 'status'>) => void;
   initialData?: Note | null;
   isViewMode?: boolean;
 }
@@ -15,6 +15,10 @@ export const NoteModal: React.FC<NoteModalProps> = ({ isOpen, onClose, onSave, i
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [isEditing, setIsEditing] = useState(!isViewMode);
+
+  const [scheduledDate, setScheduledDate] = useState<string | null>(null);
+  const [scheduledTime, setScheduledTime] = useState<string | null>(null);
+  const [endDate, setEndDate] = useState<string | null>(null);
   
   // Generate a temporary ID for new notes to use as a folder name
   const generatedId = useMemo(() => crypto.randomUUID(), [isOpen, initialData]);
@@ -24,6 +28,9 @@ export const NoteModal: React.FC<NoteModalProps> = ({ isOpen, onClose, onSave, i
     if (isOpen) {
       setTitle(initialData?.title || '');
       setContent(initialData?.content || '');
+      setScheduledDate(initialData?.scheduled_date || null);
+      setScheduledTime(initialData?.scheduled_time || null);
+      setEndDate(initialData?.end_date || null);
       setIsEditing(!isViewMode);
     }
   }, [isOpen, initialData, isViewMode]);
@@ -33,7 +40,14 @@ export const NoteModal: React.FC<NoteModalProps> = ({ isOpen, onClose, onSave, i
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() && !content.trim()) return;
-    onSave({ id: currentNoteId, title, content });
+    onSave({ 
+      id: currentNoteId, 
+      title, 
+      content,
+      scheduled_date: scheduledDate,
+      scheduled_time: scheduledTime,
+      end_date: endDate,
+    });
     
     if (isViewMode) {
       setIsEditing(false);
@@ -46,7 +60,60 @@ export const NoteModal: React.FC<NoteModalProps> = ({ isOpen, onClose, onSave, i
     <div className={styles.overlay} onClick={onClose}>
       <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
         <div className={styles.header}>
-          <h2>{isEditing ? (initialData ? 'Edit Note' : 'Create Note') : 'View Note'}</h2>
+          <div className={styles.headerTitleArea}>
+            <h2>{isEditing ? (initialData ? 'Edit Note' : 'Create Note') : 'View Note'}</h2>
+            
+            <div className={styles.dateSection}>
+              {isEditing ? (
+                <>
+                  <input
+                    type="date"
+                    className={styles.dateInput}
+                    value={scheduledDate || ''}
+                    onChange={(e) => {
+                      const newStart = e.target.value || null;
+                      setScheduledDate(newStart);
+                      if (newStart && endDate && newStart > endDate) {
+                        setEndDate(newStart);
+                      }
+                    }}
+                    title="Start Date"
+                  />
+                  {scheduledDate && (
+                    <>
+                      <input
+                        type="time"
+                        className={styles.timeInput}
+                        value={scheduledTime || ''}
+                        onChange={(e) => setScheduledTime(e.target.value || null)}
+                        title="Time"
+                      />
+                      <span className={styles.arrow}>→</span>
+                      <input
+                        type="date"
+                        className={styles.dateInput}
+                        value={endDate || ''}
+                        min={scheduledDate}
+                        onChange={(e) => setEndDate(e.target.value || null)}
+                        title="End Date"
+                      />
+                    </>
+                  )}
+                </>
+              ) : (
+                (scheduledDate) && (
+                  <div className={styles.dateDisplay}>
+                    <span>{new Date(scheduledDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                    {scheduledTime && <span> at {scheduledTime}</span>}
+                    {endDate && endDate !== scheduledDate && (
+                      <span> → {new Date(endDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                    )}
+                  </div>
+                )
+              )}
+            </div>
+          </div>
+
           <div className={styles.headerActions}>
             {!isEditing && (
               <button 

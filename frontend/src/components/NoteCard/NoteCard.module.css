@@ -136,7 +136,7 @@
 .calendarBtn {
   background: none;
   border: none;
-  padding: 2px;
+  padding: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -144,6 +144,11 @@
   border-radius: 4px;
   transition: all 0.2s;
   position: relative;
+}
+
+.calendarBtn.active {
+  color: var(--primary-purple);
+  background: rgba(139, 92, 246, 0.1);
 }
 
 .hiddenDateInput {

@@ -16,6 +16,7 @@ export interface Note {
   recurrence_rule?: string | null;
   recurrence_interval?: number;
   recurrence_end_date?: string | null;
+  end_date?: string | null;
 }
 
 interface NoteCardProps {
@@ -78,7 +79,6 @@ export const NoteCard: React.FC<NoteCardProps> = ({
   onRecurrenceClick,
 }) => {
   const dateInputRef = useRef<HTMLInputElement>(null);
-  const timeInputRef = useRef<HTMLInputElement>(null);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -88,11 +88,6 @@ export const NoteCard: React.FC<NoteCardProps> = ({
       hour: 'numeric',
       minute: '2-digit',
     }).format(date);
-  };
-
-  const formatScheduledDate = (dateStr: string) => {
-    const date = new Date(dateStr + 'T00:00:00');
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
   const handleStatusClick = (event: React.MouseEvent) => {
@@ -106,12 +101,6 @@ export const NoteCard: React.FC<NoteCardProps> = ({
     event.stopPropagation();
     const newDate = event.target.value || null;
     onUpdateSchedule?.(note.id, newDate, note.scheduled_time, note.status || 'todo');
-  };
-
-  const handleTimeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    event.stopPropagation();
-    const newTime = event.target.value || null;
-    onUpdateSchedule?.(note.id, note.scheduled_date, newTime, note.status || 'todo');
   };
 
   const handleCalendarClick = (event: React.MouseEvent) => {
@@ -153,7 +142,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
           )}
 
           <div className={styles.scheduleWrapper} title="Set scheduled date and time">
-            <div className={styles.calendarBtn} onClick={handleCalendarClick}>
+            <div className={`${styles.calendarBtn} ${note.scheduled_date ? styles.active : ''}`} onClick={handleCalendarClick}>
               <Calendar size={14} />
               <input
                 ref={dateInputRef}
@@ -164,22 +153,6 @@ export const NoteCard: React.FC<NoteCardProps> = ({
                 onClick={(event) => event.stopPropagation()}
               />
             </div>
-            {note.scheduled_date && (
-              <span className={styles.scheduledDate}>{formatScheduledDate(note.scheduled_date)}</span>
-            )}
-            {note.scheduled_date && (
-              <div className={styles.timeWrapper} onClick={(e) => { e.stopPropagation(); timeInputRef.current?.showPicker(); }}>
-                <span>{note.scheduled_time || '⏱'}</span>
-                <input
-                  ref={timeInputRef}
-                  type="time"
-                  className={styles.timeInput}
-                  value={note.scheduled_time || ''}
-                  onChange={handleTimeChange}
-                  onClick={(event) => event.stopPropagation()}
-                />
-              </div>
-            )}
           </div>
         </div>
       </div>

@@ -269,6 +269,10 @@ def update_note_schedule(db: Session, user_id: str, note_id: str, data: schemas.
         db_note.scheduled_time = data.scheduled_time
     if data.clear_time:
         db_note.scheduled_time = None
+    if data.end_date is not None:
+        db_note.end_date = data.end_date
+    if data.clear_end_date:
+        db_note.end_date = None
     if data.status:
         db_note.status = data.status
 
@@ -484,6 +488,70 @@ def get_timeline(db: Session, user_id: str, start_date: date, end_date: date):
     for date_key in result:
         result[date_key].sort(key=lambda x: x["scheduled_time"] or "23:59")
 
+    return result
+
+
+def get_timestream(db: Session, user_id: str, start_date: date, end_date: date):
+    """Get all notes that overlap the given date range for the Time Stream view.
+    An event overlaps if its [scheduled_date, note.end_date] range intersects [start_date, end_date].
+    Events without end_date are treated as single-day events.
+    """
+    from sqlalchemy import or_, and_
+
+    notes = (
+        db.query(models.Note)
+        .options(joinedload(models.Note.canvas_nodes).joinedload(models.CanvasNode.canvas))
+        .filter(
+            models.Note.user_id == user_id,
+            models.Note.scheduled_date != None,
+            or_(
+                # Single-day events (no end_date): scheduled_date falls within range
+                and_(
+                    models.Note.end_date == None,
+                    models.Note.scheduled_date >= start_date,
+                    models.Note.scheduled_date <= end_date,
+                ),
+                # Multi-day events: their [scheduled_date, end_date] overlaps [start_date, end_date]
+                and_(
+                    models.Note.end_date != None,
+                    models.Note.scheduled_date <= end_date,
+                    models.Note.end_date >= start_date,
+                ),
+            ),
+        )
+        .all()
+    )
+
+    result = []
+    for note in notes:
+        event_start = note.scheduled_date
+        event_end = note.end_date if note.end_date else note.scheduled_date
+
+        result.append({
+            "id": note.id,
+            "note": {
+                "id": note.id,
+                "title": note.title,
+                "content": note.content,
+                "created_at": note.created_at.isoformat() if note.created_at else None,
+                "updated_at": note.updated_at.isoformat() if note.updated_at else None,
+                "scheduled_date": note.scheduled_date.isoformat() if note.scheduled_date else None,
+                "scheduled_time": note.scheduled_time,
+                "status": note.status or "todo",
+                "canvas_name": note.canvas_name,
+                "recurrence_rule": note.recurrence_rule,
+                "recurrence_interval": note.recurrence_interval,
+                "recurrence_end_date": note.recurrence_end_date.isoformat() if note.recurrence_end_date else None,
+                "end_date": note.end_date.isoformat() if note.end_date else None,
+            },
+            "start_date": event_start.isoformat(),
+            "end_date": event_end.isoformat(),
+            "status": note.status or "todo",
+            "canvas_name": note.canvas_name,
+        })
+
+    # Sort by start_date, then by duration (longer events first for better visual stacking)
+    result.sort(key=lambda x: (x["start_date"], x["start_date"] == x["end_date"]))
     return result
 
 

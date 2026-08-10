@@ -45,6 +45,7 @@ class Note(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     scheduled_date = Column(Date, nullable=True, index=True)
     scheduled_time = Column(String, nullable=True)
+    end_date = Column(Date, nullable=True)
     status = Column(String, default="todo")
     recurrence_rule = Column(String, nullable=True)
     recurrence_interval = Column(Integer, default=1)

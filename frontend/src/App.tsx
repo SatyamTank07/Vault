@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { CalendarDays, LayoutGrid, Network, LogOut, MessageSquare, Lock, Eye, EyeOff } from 'lucide-react';
+import { CalendarDays, LayoutGrid, Network, LogOut, MessageSquare, Lock, Eye, EyeOff, Waves } from 'lucide-react';
 import styles from './App.module.css';
 import { CanvasView } from './components/CanvasView/CanvasView';
 import { ConfirmModal } from './components/ConfirmModal/ConfirmModal';
@@ -8,10 +8,11 @@ import { NoteModal } from './components/NoteModal/NoteModal';
 import { NoteCard, type Note } from './components/NoteCard/NoteCard';
 import { RecurrenceModal } from './components/RecurrenceModal/RecurrenceModal';
 import { TimelineView } from './components/TimelineView/TimelineView';
+import { TimeStreamView } from './components/TimeStreamView/TimeStreamView';
 import { apiFetch, type CurrentUser } from './lib/api';
 import { encryptNote, decryptNote } from './lib/crypto';
 
-type ViewMode = 'grid' | 'canvas' | 'timeline';
+type ViewMode = 'grid' | 'canvas' | 'timeline' | 'stream';
 
 interface AppProps {
   currentUser: CurrentUser;
@@ -96,36 +97,72 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
     fetchNotes();
   }, [fetchNotes]);
 
-  const handleCreateNote = async (noteData: Omit<Note, 'created_at' | 'updated_at' | 'scheduled_date' | 'scheduled_time' | 'status'>) => {
+  const handleCreateNote = async (noteData: Omit<Note, 'created_at' | 'updated_at' | 'status'>) => {
     try {
-      const encrypted = await encryptNote(noteData, cryptoKey);
+      const { scheduled_date, scheduled_time, end_date, ...baseNoteData } = noteData;
+      const encrypted = await encryptNote(baseNoteData, cryptoKey);
       const response = await apiFetch('/notes/', {
         method: 'POST',
         body: JSON.stringify(encrypted),
       });
       if (response.ok) {
         const newNote = await response.json();
+        
+        if (scheduled_date !== undefined) {
+          await apiFetch(`/api/notes/${newNote.id}/schedule`, {
+            method: 'PUT',
+            body: JSON.stringify({
+              scheduled_date,
+              scheduled_time,
+              end_date,
+              clear_date: !scheduled_date,
+              clear_time: !scheduled_time,
+              clear_end_date: !end_date
+            })
+          });
+        }
+        
         const { note: decrypted } = await decryptNote(newNote, cryptoKey);
-        setNotes((prev) => [decrypted, ...prev]);
+        // Note: the decrypted note from the POST /notes/ won't have the schedule info attached.
+        // We call fetchNotes() anyway after creating/updating from the modal, but let's append it manually if needed, or just rely on fetchNotes.
+        setNotes((prev) => [{...decrypted, scheduled_date, scheduled_time, end_date}, ...prev]);
+        fetchNotes();
       }
     } catch (error) {
       console.error('Failed to create note:', error);
     }
   };
 
-  const handleUpdateNote = async (noteData: Omit<Note, 'created_at' | 'updated_at' | 'scheduled_date' | 'scheduled_time' | 'status'>) => {
-    if (!editingNote) return;
-
+  const handleUpdateNote = async (noteData: Omit<Note, 'created_at' | 'updated_at' | 'status'>) => {
     try {
-      const encrypted = await encryptNote(noteData, cryptoKey);
-      const response = await apiFetch(`/notes/${editingNote.id}`, {
+      const { scheduled_date, scheduled_time, end_date, ...baseNoteData } = noteData;
+      const encrypted = await encryptNote(baseNoteData, cryptoKey);
+      const response = await apiFetch(`/notes/${noteData.id}`, {
         method: 'PUT',
         body: JSON.stringify(encrypted),
       });
       if (response.ok) {
         const updatedNote = await response.json();
+        
+        if (scheduled_date !== undefined) {
+          await apiFetch(`/api/notes/${noteData.id}/schedule`, {
+            method: 'PUT',
+            body: JSON.stringify({
+              scheduled_date,
+              scheduled_time,
+              end_date,
+              clear_date: !scheduled_date,
+              clear_time: !scheduled_time,
+              clear_end_date: !end_date
+            })
+          });
+        }
+
         const { note: decrypted } = await decryptNote(updatedNote, cryptoKey);
-        setNotes((prev) => prev.map((note) => (note.id === editingNote.id ? decrypted : note)));
+        setNotes((prev) =>
+          prev.map((n) => (n.id === decrypted.id ? { ...decrypted, scheduled_date, scheduled_time, end_date } : n)),
+        );
+        fetchNotes();
       }
     } catch (error) {
       console.error('Failed to update note:', error);
@@ -133,24 +170,54 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
   };
 
   const handleUpdateSchedule = async (noteId: string, date: string | null, time: string | null, status: string) => {
-    setNotes((prev) => prev.map((note) => (note.id === noteId ? { ...note, scheduled_date: date, scheduled_time: time, status } : note)));
-
     try {
+      const note = notes.find((n) => n.id === noteId);
+      let finalEndDate = note?.end_date || null;
+      if (!date) {
+        finalEndDate = null;
+      } else if (finalEndDate && date > finalEndDate) {
+        finalEndDate = date;
+      }
+
       const response = await apiFetch(`/api/notes/${noteId}/schedule`, {
         method: 'PUT',
         body: JSON.stringify({
           scheduled_date: date,
           scheduled_time: time,
-          clear_date: date === null,
-          clear_time: time === null,
+          end_date: finalEndDate,
+          clear_date: !date,
+          clear_time: !time,
+          clear_end_date: !finalEndDate,
           status,
+        }),
+      });
+      if (response.ok) {
+        setNotes((prev) =>
+          prev.map((n) => (n.id === noteId ? { ...n, scheduled_date: date, scheduled_time: time, end_date: finalEndDate, status } : n)),
+        );
+      }
+    } catch (error) {
+      console.error('Failed to update schedule:', error);
+      fetchNotes();
+    }
+  };
+
+  const handleUpdateEndDate = async (noteId: string, endDate: string | null) => {
+    setNotes((prev) => prev.map((note) => (note.id === noteId ? { ...note, end_date: endDate } : note)));
+
+    try {
+      const response = await apiFetch(`/api/notes/${noteId}/schedule`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          end_date: endDate,
+          clear_end_date: endDate === null,
         }),
       });
       if (!response.ok) {
         fetchNotes();
       }
     } catch (error) {
-      console.error('Failed to update schedule:', error);
+      console.error('Failed to update end date:', error);
       fetchNotes();
     }
   };
@@ -286,6 +353,13 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
                 <span>Timeline</span>
               </div>
               <div 
+                className={`${styles.carouselItem} ${activeView === 'stream' ? styles.active : ''}`}
+                onClick={() => setActiveView('stream')}
+              >
+                <Waves size={16} />
+                <span>Stream</span>
+              </div>
+              <div 
                 className={styles.carouselItem}
                 onClick={() => setShowCompleted(!showCompleted)}
               >
@@ -333,6 +407,7 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
                   onDelete={handleDeleteNote}
                   onView={openViewModal}
                   onUpdateSchedule={handleUpdateSchedule}
+                  onUpdateEndDate={handleUpdateEndDate}
                   onRecurrenceClick={(nextNote) => setRecurrenceNote(nextNote)}
                 />
               ))}
@@ -350,9 +425,11 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
           notes={showCompleted ? notes : notes.filter(n => n.status !== 'done')}
           cryptoKey={cryptoKey}
         />
-      ) : (
+      ) : activeView === 'timeline' ? (
         <TimelineView onOpenNote={openViewModal} notes={notes} fetchNotes={fetchNotes} cryptoKey={cryptoKey} showCompleted={showCompleted} />
-      )}
+      ) : activeView === 'stream' ? (
+        <TimeStreamView onOpenNote={openViewModal} notes={notes} fetchNotes={fetchNotes} cryptoKey={cryptoKey} showCompleted={showCompleted} />
+      ) : null}
 
       <NoteModal
         isOpen={isModalOpen}

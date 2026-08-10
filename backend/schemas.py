@@ -63,8 +63,10 @@ class NoteUpdate(BaseModel):
 class NoteScheduleUpdate(BaseModel):
     scheduled_date: Optional[date] = None
     scheduled_time: Optional[str] = None
+    end_date: Optional[date] = None
     clear_date: Optional[bool] = False
     clear_time: Optional[bool] = False
+    clear_end_date: Optional[bool] = False
     status: Optional[str] = None
 
 
@@ -79,6 +81,7 @@ class NoteResponse(NoteBase):
     recurrence_rule: Optional[str] = None
     recurrence_interval: Optional[int] = 1
     recurrence_end_date: Optional[date] = None
+    end_date: Optional[date] = None
 
     class Config:
         from_attributes = True
@@ -177,6 +180,18 @@ class TimelineEntry(BaseModel):
     scheduled_date: date
     scheduled_time: Optional[str] = None
     status: Optional[str] = "todo"
+
+    class Config:
+        from_attributes = True
+
+
+class TimeStreamEntry(BaseModel):
+    id: str
+    note: NoteResponse
+    start_date: date
+    end_date: date
+    status: str
+    canvas_name: str
 
     class Config:
         from_attributes = True
