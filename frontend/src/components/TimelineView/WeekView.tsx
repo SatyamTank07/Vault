@@ -5,6 +5,7 @@ import styles from './TimelineView.module.css';
 interface WeekViewProps {
   weekStart: Date; // Monday of the week
   tasksByDate: Record<string, TimelineTask[]>;
+  layout?: 'horizontal' | 'vertical';
   onOpenNote: (note: any) => void;
   onStatusChange: (taskId: string, newStatus: string, occurrenceId?: string | null) => void;
   onSkip?: (occurrenceId: string) => void;
@@ -30,6 +31,7 @@ function toISODateString(date: Date): string {
 export const WeekView: React.FC<WeekViewProps> = ({
   weekStart,
   tasksByDate,
+  layout = 'horizontal',
   onOpenNote,
   onStatusChange,
   onSkip,
@@ -42,17 +44,29 @@ export const WeekView: React.FC<WeekViewProps> = ({
     days.push(d);
   }
 
+  const isVertical = layout === 'vertical';
+  let hasAnyTasks = false;
+
   return (
-    <div className={styles.weekView}>
+    <div className={`${styles.weekView} ${isVertical ? styles.weekViewVertical : ''}`}>
       {days.map((day, idx) => {
         const dateKey = toISODateString(day);
         const dayTasks = tasksByDate[dateKey] || [];
         const isToday = isSameDay(day, today);
 
+        if (dayTasks.length > 0) {
+          hasAnyTasks = true;
+        }
+
+        // In vertical layout, hide empty days
+        if (isVertical && dayTasks.length === 0) {
+          return null;
+        }
+
         return (
           <div
             key={dateKey}
-            className={`${styles.weekDay} ${isToday ? styles.weekDayToday : ''}`}
+            className={`${isVertical ? styles.weekDayVertical : styles.weekDay} ${isToday ? styles.weekDayToday : ''}`}
           >
             <div className={styles.weekDayHeader}>
               {DAY_NAMES[idx]}
@@ -66,7 +80,7 @@ export const WeekView: React.FC<WeekViewProps> = ({
                   <TimelineTaskCard
                     key={task.id}
                     task={task}
-                    compact
+                    compact={!isVertical}
                     onOpenNote={onOpenNote}
                     onStatusChange={onStatusChange}
                     onSkip={onSkip}
@@ -77,6 +91,12 @@ export const WeekView: React.FC<WeekViewProps> = ({
           </div>
         );
       })}
+      
+      {isVertical && !hasAnyTasks && (
+        <div className={styles.emptyState}>
+          <p>No tasks scheduled for this week.</p>
+        </div>
+      )}
     </div>
   );
 };

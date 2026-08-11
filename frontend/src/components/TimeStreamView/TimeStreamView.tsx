@@ -146,6 +146,12 @@ export const TimeStreamView: React.FC<TimeStreamViewProps> = ({
   }
 
   const visibleEvents = events.filter((e) => {
+    // Always show 'in_progress' and 'done' tasks regardless of zoom level scale
+    if (e.status === 'in_progress' || e.status === 'done') {
+      return true;
+    }
+
+    // For 'todo' tasks, apply the semantic zoom duration filter
     const start = new Date(e.start_date + 'T00:00:00').getTime();
     const end = new Date(e.end_date + 'T00:00:00').getTime();
     const durationDays = (end - start) / (1000 * 60 * 60 * 24) + 1;

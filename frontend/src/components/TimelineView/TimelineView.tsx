@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Calendar, ChevronLeft, ChevronRight, Lock } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Lock, Columns, List } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 import { decryptNote } from '../../lib/crypto';
 import type { Note } from '../NoteCard/NoteCard';
@@ -65,6 +65,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ onOpenNote, notes, f
   const [subView, setSubView] = useState<SubView>('day');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [tasksByDate, setTasksByDate] = useState<Record<string, TimelineTask[]>>({});
+  const [weekLayout, setWeekLayout] = useState<'horizontal' | 'vertical'>('horizontal');
   const [loading, setLoading] = useState(false);
 
   const getDateRange = useCallback((): { start: string; end: string } => {
@@ -278,19 +279,39 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ onOpenNote, notes, f
           </div>
         </div>
 
-        <div className={styles.viewToggle}>
-          <button
-            className={`${styles.viewBtn} ${subView === 'day' ? styles.viewBtnActive : ''}`}
-            onClick={() => setSubView('day')}
-          >
-            Day
-          </button>
-          <button
-            className={`${styles.viewBtn} ${subView === 'week' ? styles.viewBtnActive : ''}`}
-            onClick={() => setSubView('week')}
-          >
-            Week
-          </button>
+        <div className={styles.rightControls}>
+          {subView === 'week' && (
+            <div className={styles.viewToggle} title="Week Layout">
+              <button
+                className={`${styles.viewBtn} ${styles.iconBtn} ${weekLayout === 'horizontal' ? styles.viewBtnActive : ''}`}
+                onClick={() => setWeekLayout('horizontal')}
+                title="Horizontal Layout"
+              >
+                <Columns size={16} />
+              </button>
+              <button
+                className={`${styles.viewBtn} ${styles.iconBtn} ${weekLayout === 'vertical' ? styles.viewBtnActive : ''}`}
+                onClick={() => setWeekLayout('vertical')}
+                title="Vertical Layout"
+              >
+                <List size={16} />
+              </button>
+            </div>
+          )}
+          <div className={styles.viewToggle}>
+            <button
+              className={`${styles.viewBtn} ${subView === 'day' ? styles.viewBtnActive : ''}`}
+              onClick={() => setSubView('day')}
+            >
+              Day
+            </button>
+            <button
+              className={`${styles.viewBtn} ${subView === 'week' ? styles.viewBtnActive : ''}`}
+              onClick={() => setSubView('week')}
+            >
+              Week
+            </button>
+          </div>
         </div>
       </div>
 
@@ -309,6 +330,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ onOpenNote, notes, f
           <WeekView
             weekStart={getWeekStart(selectedDate)}
             tasksByDate={filteredTasksByDate}
+            layout={weekLayout}
             onOpenNote={onOpenNote}
             onStatusChange={handleStatusChange}
             onSkip={handleSkip}
