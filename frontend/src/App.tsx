@@ -202,26 +202,6 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
     }
   };
 
-  const handleUpdateEndDate = async (noteId: string, endDate: string | null) => {
-    setNotes((prev) => prev.map((note) => (note.id === noteId ? { ...note, end_date: endDate } : note)));
-
-    try {
-      const response = await apiFetch(`/api/notes/${noteId}/schedule`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          end_date: endDate,
-          clear_end_date: endDate === null,
-        }),
-      });
-      if (!response.ok) {
-        fetchNotes();
-      }
-    } catch (error) {
-      console.error('Failed to update end date:', error);
-      fetchNotes();
-    }
-  };
-
   const handleUpdateRecurrence = async (noteId: string, rule: string | null, interval: number, endDate: string | null) => {
     setNotes((prev) =>
       prev.map((note) =>
@@ -407,7 +387,6 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
                   onDelete={handleDeleteNote}
                   onView={openViewModal}
                   onUpdateSchedule={handleUpdateSchedule}
-                  onUpdateEndDate={handleUpdateEndDate}
                   onRecurrenceClick={(nextNote) => setRecurrenceNote(nextNote)}
                 />
               ))}
