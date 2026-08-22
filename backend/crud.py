@@ -655,16 +655,20 @@ def delete_feedback(db: Session, user_id: str, feedback_id: str):
     return False
 
 
-def assign_legacy_data_to_user(db: Session, user_id: str):
-    db.query(models.Note).filter(models.Note.user_id == None).update(
-        {models.Note.user_id: user_id},
-        synchronize_session=False,
-    )
-    db.query(models.Canvas).filter(models.Canvas.user_id == None).update(
-        {models.Canvas.user_id: user_id},
-        synchronize_session=False,
-    )
-    db.query(models.Feedback).filter(models.Feedback.user_id == None).update(
-        {models.Feedback.user_id: user_id},
-        synchronize_session=False,
-    )
+def delete_user(db: Session, user_id: str) -> bool:
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        return False
+
+    import shutil
+
+    user_upload_folder = os.path.join(UPLOAD_DIR, user_id)
+    if os.path.exists(user_upload_folder):
+        try:
+            shutil.rmtree(user_upload_folder)
+        except Exception as exc:
+            print(f"Error deleting user upload folder {user_upload_folder}: {exc}")
+
+    db.delete(user)
+    db.commit()
+    return True

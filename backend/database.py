@@ -21,6 +21,7 @@ def run_schema_migrations():
     statements = [
         "ALTER TABLE notes ADD COLUMN IF NOT EXISTS user_id VARCHAR",
         "ALTER TABLE notes ADD COLUMN IF NOT EXISTS scheduled_time VARCHAR",
+        "ALTER TABLE notes ADD COLUMN IF NOT EXISTS end_date DATE",
         "ALTER TABLE canvases ADD COLUMN IF NOT EXISTS user_id VARCHAR",
         "ALTER TABLE feedbacks ADD COLUMN IF NOT EXISTS user_id VARCHAR",
         "CREATE INDEX IF NOT EXISTS ix_notes_user_id ON notes (user_id)",
@@ -34,13 +35,6 @@ def run_schema_migrations():
     with engine.begin() as connection:
         for statement in statements:
             connection.execute(text(statement))
-        
-        # Add end_date column to notes if not exists
-        try:
-            connection.execute(text("ALTER TABLE notes ADD COLUMN end_date DATE"))
-            print("Added end_date column to notes table.")
-        except Exception:
-            pass
 
 
 def get_db():

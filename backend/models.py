@@ -19,9 +19,9 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
-    notes = relationship("Note", back_populates="user")
-    canvases = relationship("Canvas", back_populates="user")
-    feedbacks = relationship("Feedback", back_populates="user")
+    notes = relationship("Note", back_populates="user", cascade="all, delete-orphan")
+    canvases = relationship("Canvas", back_populates="user", cascade="all, delete-orphan")
+    feedbacks = relationship("Feedback", back_populates="user", cascade="all, delete-orphan")
 
 
 class OtpSession(Base):
@@ -38,7 +38,7 @@ class Note(Base):
     __tablename__ = "notes"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
-    user_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     title = Column(String, index=True)
     content = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -82,7 +82,7 @@ class Canvas(Base):
     __tablename__ = "canvases"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
-    user_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     name = Column(String, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
@@ -111,7 +111,7 @@ class Feedback(Base):
     __tablename__ = "feedbacks"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
-    user_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     title = Column(String, index=True)
     content = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

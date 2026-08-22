@@ -130,7 +130,6 @@ def verify_signup_otp_endpoint(
     if not is_valid_otp:
         raise HTTPException(status_code=400, detail="Invalid or expired OTP.")
 
-    existing_user_count = db.query(models.User).count()
     user = models.User(
         mobile_number=mobile_number,
         password_hash=password_hash,
@@ -138,9 +137,6 @@ def verify_signup_otp_endpoint(
     )
     db.add(user)
     db.flush()
-
-    if existing_user_count == 0:
-        crud.assign_legacy_data_to_user(db, user.id)
 
     db.delete(otp_session)
     db.commit()
@@ -171,6 +167,17 @@ def login(payload: schemas.UserLogin, db: Session = Depends(get_db)):
 @app.get("/api/auth/me", response_model=schemas.CurrentUserResponse)
 def get_me(current_user: models.User = Depends(get_current_user)):
     return current_user
+
+
+@app.delete("/api/auth/me")
+def delete_my_account(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    success = crud.delete_user(db, current_user.id)
+    if not success:
+        raise HTTPException(status_code=404, detail="User not found.")
+    return {"message": "Account deleted successfully."}
 
 
 @app.post("/api/auth/set-vault-flag")
