@@ -147,10 +147,43 @@
   font-weight: 500;
 }
 
+.endTypeToggle {
+  display: flex;
+  background: var(--bg-color);
+  padding: 3px;
+  border-radius: 8px;
+  border: 1px solid rgba(139, 92, 246, 0.12);
+  gap: 4px;
+}
+
+.togglePill {
+  flex: 1;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.togglePill:hover {
+  color: var(--text-main);
+}
+
+.togglePillActive {
+  background: var(--surface-color, #ffffff);
+  color: var(--primary-purple);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
 .endDateRow {
   display: flex;
   align-items: center;
   gap: 8px;
+  margin-top: 4px;
 }
 
 .dateInput {
@@ -158,11 +191,11 @@
 }
 
 .hint {
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   color: var(--text-muted);
-  opacity: 0.6;
+  opacity: 0.8;
   font-style: italic;
-  white-space: nowrap;
+  padding-left: 2px;
 }
 
 .clearDateBtn {

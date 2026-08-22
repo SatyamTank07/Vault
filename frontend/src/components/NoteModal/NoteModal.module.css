@@ -53,43 +53,109 @@
   gap: 0.5rem;
 }
 
+.editDateControls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.primaryDateWrapper {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.optionalDateControls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.subDateWrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
 .dateDisplay {
   display: flex;
   align-items: center;
   gap: 0.25rem;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   color: var(--text-muted);
-  background: rgba(139, 92, 246, 0.1);
-  padding: 0.25rem 0.75rem;
+  background: rgba(139, 92, 246, 0.08);
+  padding: 0.3rem 0.8rem;
   border-radius: 9999px;
   font-weight: 500;
 }
 
 .dateInput, .timeInput {
-  background-color: var(--surface-color);
-  border: 1px solid rgba(0, 0, 0, 0.15);
-  border-radius: 6px;
-  padding: 0.25rem 0.5rem;
+  background-color: var(--bg-color, #ffffff);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 8px;
+  padding: 0.3rem 0.6rem;
   color: var(--text-main);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-family: inherit;
   cursor: pointer;
   outline: none;
-  transition: border-color 0.2s;
+  transition: all 0.2s ease;
 }
 
 .dateInput:hover, .timeInput:hover {
-  border-color: rgba(0, 0, 0, 0.3);
+  border-color: var(--primary-purple);
 }
 
 .dateInput:focus, .timeInput:focus {
   border-color: var(--primary-purple);
-  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.15);
+}
+
+.clearDateBtn, .subClearBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(239, 68, 68, 0.08);
+  color: var(--danger, #ef4444);
+  font-size: 0.65rem;
+  margin-left: 0.25rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.clearDateBtn:hover, .subClearBtn:hover {
+  background: rgba(239, 68, 68, 0.18);
+  transform: scale(1.05);
+}
+
+.addOptionBtn {
+  background: rgba(139, 92, 246, 0.08);
+  color: var(--primary-purple);
+  border: 1px dashed rgba(139, 92, 246, 0.35);
+  border-radius: 9999px;
+  padding: 0.25rem 0.65rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.addOptionBtn:hover {
+  background: rgba(139, 92, 246, 0.15);
+  border-style: solid;
+  border-color: var(--primary-purple);
 }
 
 .arrow {
   color: var(--text-muted);
   font-weight: 600;
+  font-size: 0.85rem;
 }
 
 .closeBtn {

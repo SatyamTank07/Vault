@@ -99,28 +99,50 @@ export const RecurrenceModal: React.FC<RecurrenceModalProps> = ({
               </div>
 
               <div className={styles.field}>
-                <label className={styles.label}>End date</label>
-                <div className={styles.endDateRow}>
-                  <input
-                    type="date"
-                    className={styles.dateInput}
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    min={scheduledDate || ''}
-                  />
-                  {endDate && (
+                <label className={styles.label}>Repeat until</label>
+                <div className={styles.endTypeToggle}>
+                  <button
+                    type="button"
+                    className={`${styles.togglePill} ${!endDate ? styles.togglePillActive : ''}`}
+                    onClick={() => setEndDate('')}
+                  >
+                    Forever
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.togglePill} ${endDate ? styles.togglePillActive : ''}`}
+                    onClick={() => {
+                      if (!endDate) {
+                        setEndDate(scheduledDate || new Date().toISOString().split('T')[0]);
+                      }
+                    }}
+                  >
+                    On Date
+                  </button>
+                </div>
+
+                {endDate ? (
+                  <div className={styles.endDateRow}>
+                    <input
+                      type="date"
+                      className={styles.dateInput}
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      min={scheduledDate || ''}
+                      autoFocus
+                    />
                     <button
+                      type="button"
                       className={styles.clearDateBtn}
                       onClick={() => setEndDate('')}
-                      title="Remove end date"
+                      title="Switch to Repeat Forever"
                     >
                       ✕
                     </button>
-                  )}
-                  {!endDate && (
-                    <span className={styles.hint}>No end — repeats forever</span>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <span className={styles.hint}>Repeats indefinitely without an expiration date.</span>
+                )}
               </div>
             </>
           )}

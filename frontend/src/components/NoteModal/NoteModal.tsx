@@ -65,45 +65,110 @@ export const NoteModal: React.FC<NoteModalProps> = ({ isOpen, onClose, onSave, i
             
             <div className={styles.dateSection}>
               {isEditing ? (
-                <>
-                  <input
-                    type="date"
-                    className={styles.dateInput}
-                    value={scheduledDate || ''}
-                    onChange={(e) => {
-                      const newStart = e.target.value || null;
-                      setScheduledDate(newStart);
-                      if (newStart && endDate && newStart > endDate) {
-                        setEndDate(newStart);
-                      }
-                    }}
-                    title="Start Date"
-                  />
+                <div className={styles.editDateControls}>
+                  <div className={styles.primaryDateWrapper}>
+                    <input
+                      type="date"
+                      className={styles.dateInput}
+                      value={scheduledDate || ''}
+                      onChange={(e) => {
+                        const newStart = e.target.value || null;
+                        setScheduledDate(newStart);
+                        if (!newStart) {
+                          setScheduledTime(null);
+                          setEndDate(null);
+                        } else if (endDate && newStart > endDate) {
+                          setEndDate(newStart);
+                        }
+                      }}
+                      title="Schedule Date"
+                    />
+                    {scheduledDate && (
+                      <button
+                        type="button"
+                        className={styles.clearDateBtn}
+                        onClick={() => {
+                          setScheduledDate(null);
+                          setScheduledTime(null);
+                          setEndDate(null);
+                        }}
+                        title="Remove date"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+
                   {scheduledDate && (
-                    <>
-                      <input
-                        type="time"
-                        className={styles.timeInput}
-                        value={scheduledTime || ''}
-                        onChange={(e) => setScheduledTime(e.target.value || null)}
-                        title="Time"
-                      />
-                      <span className={styles.arrow}>→</span>
-                      <input
-                        type="date"
-                        className={styles.dateInput}
-                        value={endDate || ''}
-                        min={scheduledDate}
-                        onChange={(e) => setEndDate(e.target.value || null)}
-                        title="End Date"
-                      />
-                    </>
+                    <div className={styles.optionalDateControls}>
+                      {scheduledTime !== null ? (
+                        <div className={styles.subDateWrapper}>
+                          <input
+                            type="time"
+                            className={styles.timeInput}
+                            value={scheduledTime || ''}
+                            onChange={(e) => setScheduledTime(e.target.value || null)}
+                            title="Time"
+                            autoFocus
+                          />
+                          <button
+                            type="button"
+                            className={styles.subClearBtn}
+                            onClick={() => setScheduledTime(null)}
+                            title="Remove time"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          className={styles.addOptionBtn}
+                          onClick={() => setScheduledTime('09:00')}
+                          title="Add specific time"
+                        >
+                          + Add Time
+                        </button>
+                      )}
+
+                      {endDate !== null ? (
+                        <div className={styles.subDateWrapper}>
+                          <span className={styles.arrow}>→</span>
+                          <input
+                            type="date"
+                            className={styles.dateInput}
+                            value={endDate || ''}
+                            min={scheduledDate}
+                            onChange={(e) => setEndDate(e.target.value || null)}
+                            title="End Date"
+                            autoFocus
+                          />
+                          <button
+                            type="button"
+                            className={styles.subClearBtn}
+                            onClick={() => setEndDate(null)}
+                            title="Remove end date"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          className={styles.addOptionBtn}
+                          onClick={() => setEndDate(scheduledDate)}
+                          title="Add end date for multi-day task"
+                        >
+                          + Multi-day
+                        </button>
+                      )}
+                    </div>
                   )}
-                </>
+                </div>
               ) : (
-                (scheduledDate) && (
+                scheduledDate && (
                   <div className={styles.dateDisplay}>
-                    <span>{new Date(scheduledDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                    <span>📅 {new Date(scheduledDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                     {scheduledTime && <span> at {scheduledTime}</span>}
                     {endDate && endDate !== scheduledDate && (
                       <span> → {new Date(endDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
