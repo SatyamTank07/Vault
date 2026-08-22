@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
-import { CalendarDays, LayoutGrid, Network, LogOut, MessageSquare, Lock, Eye, EyeOff, Waves } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { CalendarDays, LayoutGrid, Network, LogOut, MessageSquare, Lock, Eye, EyeOff, Waves, UserX, User } from 'lucide-react';
 import styles from './App.module.css';
 import { CanvasView } from './components/CanvasView/CanvasView';
 import { ConfirmModal } from './components/ConfirmModal/ConfirmModal';
@@ -29,8 +29,7 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
   const [activeView, setActiveView] = useState<ViewMode>('grid');
   const [wrongSecret, setWrongSecret] = useState(false);
   const [showCompleted, setShowCompleted] = useState(false);
-
-
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [recurrenceNote, setRecurrenceNote] = useState<Note | null>(null);
   const [confirmModalConfig, setConfirmModalConfig] = useState<{
     isOpen: boolean;
@@ -43,6 +42,17 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
     message: '',
     onConfirm: () => {},
   });
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as HTMLElement)) {
+        setIsUserMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     const handleGlobalClick = (event: MouseEvent) => {
@@ -252,6 +262,28 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
     });
   };
 
+  const handleDeleteAccount = () => {
+    setConfirmModalConfig({
+      isOpen: true,
+      title: 'Delete Account',
+      message: 'Are you sure you want to permanently delete your account? All your notes, canvases, feedbacks, and uploaded files will be permanently erased. This action cannot be undone.',
+      onConfirm: async () => {
+        setConfirmModalConfig((prev) => ({ ...prev, isOpen: false }));
+        try {
+          const response = await apiFetch('/api/auth/me', { method: 'DELETE' });
+          if (response.ok) {
+            onLogout();
+          } else {
+            alert('Failed to delete account. Please try again.');
+          }
+        } catch (error) {
+          console.error('Failed to delete account:', error);
+          alert('Network error while deleting account.');
+        }
+      },
+    });
+  };
+
   const openCreateModal = () => {
     setEditingNote(null);
     setIsViewMode(false);
@@ -285,27 +317,8 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
   return (
     <div className={styles.container}>
       <header className={styles.header}>
-        <div className={styles.headerTop}>
-          <div className={styles.brand}>
-            <h1>Vault</h1>
-            <p>{currentUser.mobile_number}</p>
-          </div>
-          <div className={styles.headerActions}>
-            <button 
-              className={styles.actionBtn} 
-              onClick={() => (window.location.href = '/feedback')} 
-              title="Feedback"
-            >
-              <MessageSquare size={20} />
-            </button>
-            <button 
-              className={styles.actionBtn} 
-              onClick={onLogout} 
-              title="Logout"
-            >
-              <LogOut size={20} />
-            </button>
-          </div>
+        <div className={styles.brand}>
+          <h1>Vault</h1>
         </div>
 
         <div className={styles.viewToggle}>
@@ -346,19 +359,65 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
                 {showCompleted ? <EyeOff size={16} /> : <Eye size={16} />}
                 <span>{showCompleted ? 'Hide Done' : 'Show Done'}</span>
               </div>
-              <div 
-                className={`${styles.carouselItem} ${styles.desktopOnly}`}
-                onClick={() => (window.location.href = '/feedback')}
-              >
-                <MessageSquare size={16} />
-                <span>Feedback</span>
-              </div>
-              <div 
-                className={`${styles.carouselItem} ${styles.desktopOnly}`}
-                onClick={onLogout}
-              >
-                <LogOut size={16} />
-                <span>Logout</span>
+
+              {/* User Account Menu right side of Show Done */}
+              <div className={styles.userMenuWrapper} ref={userMenuRef}>
+                <div 
+                  className={`${styles.carouselItem} ${isUserMenuOpen ? styles.active : ''}`}
+                  onClick={() => setIsUserMenuOpen((prev) => !prev)}
+                  title="Account Menu"
+                >
+                  <User size={16} />
+                  <span>Account</span>
+                </div>
+
+                {isUserMenuOpen && (
+                  <div className={styles.userMenuDropdown}>
+                    <div className={styles.userMenuHeader}>
+                      <div className={styles.userMenuAvatar}>
+                        <User size={16} />
+                      </div>
+                      <div className={styles.userMenuPhone}>
+                        {currentUser.mobile_number}
+                      </div>
+                    </div>
+
+                    <div className={styles.userMenuDivider} />
+
+                    <button
+                      className={styles.userMenuItem}
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        window.location.href = '/feedback';
+                      }}
+                    >
+                      <MessageSquare size={16} />
+                      <span>Feedback</span>
+                    </button>
+
+                    <button
+                      className={styles.userMenuItem}
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        onLogout();
+                      }}
+                    >
+                      <LogOut size={16} />
+                      <span>Log Out</span>
+                    </button>
+
+                    <button
+                      className={`${styles.userMenuItem} ${styles.userMenuItemDanger}`}
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        handleDeleteAccount();
+                      }}
+                    >
+                      <UserX size={16} />
+                      <span>Delete Account</span>
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>

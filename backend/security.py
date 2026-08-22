@@ -114,25 +114,35 @@ def create_access_token(payload: dict, expires_minutes: int | None = None) -> st
 
 def decode_access_token(token: str) -> dict:
     try:
-        encoded_header, encoded_payload, encoded_signature = token.split(".")
-    except ValueError as exc:
-        raise ValueError("Invalid token format.") from exc
+        parts = token.split(".")
+        if len(parts) != 3:
+            raise ValueError("Invalid token format.")
+        encoded_header, encoded_payload, encoded_signature = parts
 
-    signing_input = f"{encoded_header}.{encoded_payload}"
-    expected_signature = hmac.new(
-        _get_jwt_secret().encode("utf-8"),
-        signing_input.encode("utf-8"),
-        hashlib.sha256,
-    ).digest()
+        signing_input = f"{encoded_header}.{encoded_payload}"
+        expected_signature = hmac.new(
+            _get_jwt_secret().encode("utf-8"),
+            signing_input.encode("utf-8"),
+            hashlib.sha256,
+        ).digest()
 
-    if not hmac.compare_digest(_base64url_decode(encoded_signature), expected_signature):
-        raise ValueError("Invalid token signature.")
+        raw_signature = _base64url_decode(encoded_signature)
+        if not hmac.compare_digest(raw_signature, expected_signature):
+            raise ValueError("Invalid token signature.")
 
-    payload = json.loads(_base64url_decode(encoded_payload))
-    if payload.get("exp", 0) < int(time.time()):
-        raise ValueError("Token has expired.")
+        raw_payload = _base64url_decode(encoded_payload)
+        payload = json.loads(raw_payload.decode("utf-8") if isinstance(raw_payload, bytes) else raw_payload)
+        if not isinstance(payload, dict):
+            raise ValueError("Invalid token payload structure.")
 
-    return payload
+        if payload.get("exp", 0) < int(time.time()):
+            raise ValueError("Token has expired.")
+
+        return payload
+    except ValueError:
+        raise
+    except Exception as exc:
+        raise ValueError("Invalid or corrupted authentication token.") from exc
 
 
 def _call_2factor_api(method: str, url: str) -> dict:
@@ -219,10 +229,10 @@ def get_current_user(
 
     try:
         payload = decode_access_token(token)
-    except ValueError as exc:
+    except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=str(exc),
+            detail=str(exc) if isinstance(exc, ValueError) else "Invalid authentication token.",
         ) from exc
 
     user_id = payload.get("sub")
