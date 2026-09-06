@@ -146,25 +146,27 @@ export const TimeStreamView: React.FC<TimeStreamViewProps> = ({
   }
 
   const visibleEvents = events.filter((e) => {
-    // Always show 'in_progress' and 'done' tasks regardless of zoom level scale
-    if (e.status === 'in_progress' || e.status === 'done') {
+    const start = new Date(e.start_date + 'T00:00:00').getTime();
+    const end = new Date(e.end_date + 'T00:00:00').getTime();
+    const durationDays = Math.max(1, Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1);
+
+    // 1. Day view: all day, week, month, year tasks appear
+    if (zoomLevel <= 0.25) {
       return true;
     }
 
-    // For 'todo' tasks, apply the semantic zoom duration filter
-    const start = new Date(e.start_date + 'T00:00:00').getTime();
-    const end = new Date(e.end_date + 'T00:00:00').getTime();
-    const durationDays = (end - start) / (1000 * 60 * 60 * 24) + 1;
-
-    if (zoomLevel <= 0.25) {
-      return durationDays < 7; // Day notes (< 1 week)
-    } else if (zoomLevel <= 0.5) {
-      return durationDays >= 7 && durationDays < 30; // Week notes (1 week to < 1 month)
-    } else if (zoomLevel <= 0.75) {
-      return durationDays >= 30 && durationDays < 365; // Month notes (1 month to < 1 year)
-    } else {
-      return durationDays >= 365; // Year notes (1 year+)
+    // 2. Week view: week, month, year tasks appear (day tasks hidden)
+    if (zoomLevel <= 0.5) {
+      return durationDays >= 7;
     }
+
+    // 3. Month view: month, year tasks appear (day and week tasks hidden)
+    if (zoomLevel <= 0.75) {
+      return durationDays >= 30;
+    }
+
+    // 4. Year view: year only tasks appear (day, week, month tasks hidden)
+    return durationDays >= 365;
   });
 
   return (
