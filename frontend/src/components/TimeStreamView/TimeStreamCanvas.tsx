@@ -8,7 +8,7 @@ export interface TimeStreamEvent {
   start_date: string;
   end_date: string;
   status: string;
-  canvas_name: string;
+  canvas_name: string | null;
 }
 
 interface TimeStreamCanvasProps {

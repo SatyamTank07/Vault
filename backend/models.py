@@ -59,7 +59,7 @@ class Note(Base):
     def canvas_name(self):
         if self.canvas_nodes and self.canvas_nodes[0].canvas:
             return self.canvas_nodes[0].canvas.name
-        return "Independent Note"
+        return None
 
 
 class TaskOccurrence(Base):

@@ -12,7 +12,7 @@ export interface Note {
   scheduled_date: string | null;
   scheduled_time: string | null;
   status: string;
-  canvas_name?: string;
+  canvas_name?: string | null;
   recurrence_rule?: string | null;
   recurrence_interval?: number;
   recurrence_end_date?: string | null;
@@ -159,7 +159,9 @@ export const NoteCard: React.FC<NoteCardProps> = ({
         <div className={styles.titleWrapper}>
           <div className={styles.titleContent}>
             <div className={styles.badgeRow}>
-              <span className={styles.canvasName}>{note.canvas_name || 'Independent Note'}</span>
+              {note.canvas_name ? (
+                <span className={styles.canvasName}>{note.canvas_name}</span>
+              ) : null}
               <div
                 className={styles.statusDropdownWrapper}
                 ref={dropdownRef}

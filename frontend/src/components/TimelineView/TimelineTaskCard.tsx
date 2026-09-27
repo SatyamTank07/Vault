@@ -23,7 +23,7 @@ const RECURRENCE_LABELS: Record<string, string> = {
 export interface TimelineTask {
   id: string;
   canvas_id: string;
-  canvas_name: string;
+  canvas_name: string | null;
   note: {
     id: string;
     title: string;
@@ -83,8 +83,12 @@ export const TimelineTaskCard: React.FC<TimelineTaskCardProps> = ({
       <div className={styles.taskInfo}>
         <div className={styles.taskTitle}>{task.note.title}</div>
         <div className={styles.taskMeta}>
-          <span className={styles.taskCanvasName}>{task.canvas_name}</span>
-          <span>·</span>
+          {task.canvas_name ? (
+            <>
+              <span className={styles.taskCanvasName}>{task.canvas_name}</span>
+              <span>·</span>
+            </>
+          ) : null}
           {task.scheduled_time && (
             <>
               <span className={styles.taskTime}>{task.scheduled_time}</span>
