@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { Calendar, Repeat } from 'lucide-react';
-import { decorateProtectedHtml } from '../../lib/api';
+import { useDecryptedHtml } from '../../lib/imageDecryption';
 import styles from './NoteCard.module.css';
 
 export interface Note {
@@ -26,6 +26,7 @@ interface NoteCardProps {
   onView: (note: Note) => void;
   onUpdateSchedule?: (noteId: string, date: string | null, time: string | null, status: string) => void;
   onRecurrenceClick?: (note: Note) => void;
+  cryptoKey?: CryptoKey | null;
 }
 
 const STATUS_CYCLE: Record<string, string> = {
@@ -77,8 +78,10 @@ export const NoteCard: React.FC<NoteCardProps> = ({
   onView,
   onUpdateSchedule,
   onRecurrenceClick,
+  cryptoKey,
 }) => {
   const dateInputRef = useRef<HTMLInputElement>(null);
+  const decryptedHtml = useDecryptedHtml(note.content || '', cryptoKey);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -157,7 +160,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
         </div>
       </div>
 
-      <div className={styles.description} dangerouslySetInnerHTML={{ __html: decorateProtectedHtml(note.content || '') }} />
+      <div className={styles.description} dangerouslySetInnerHTML={{ __html: decryptedHtml }} />
 
       <div className={styles.footer}>
         <div className={styles.footerLeft}>

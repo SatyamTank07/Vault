@@ -10,9 +10,17 @@ interface NoteModalProps {
   onSave: (note: Omit<Note, 'created_at' | 'updated_at' | 'status'>) => void;
   initialData?: Note | null;
   isViewMode?: boolean;
+  cryptoKey?: CryptoKey | null;
 }
 
-export const NoteModal: React.FC<NoteModalProps> = ({ isOpen, onClose, onSave, initialData, isViewMode = false }) => {
+export const NoteModal: React.FC<NoteModalProps> = ({
+  isOpen,
+  onClose,
+  onSave,
+  initialData,
+  isViewMode = false,
+  cryptoKey,
+}) => {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [isEditing, setIsEditing] = useState(!isViewMode);
@@ -342,6 +350,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({ isOpen, onClose, onSave, i
               onChange={setContent} 
               noteId={currentNoteId} 
               readOnly={!isEditing} 
+              cryptoKey={cryptoKey}
             />
           </div>
 

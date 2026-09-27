@@ -530,6 +530,7 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
           setParentNodeIdForNewNote(null);
         }}
         onSave={handleSaveNewCanvasNode}
+        cryptoKey={cryptoKey}
       />
 
       <ConfirmModal
