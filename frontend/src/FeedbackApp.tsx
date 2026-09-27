@@ -154,76 +154,79 @@ export function FeedbackApp({ currentUser, onLogout }: FeedbackAppProps) {
           <h2>Feedback</h2>
         </div>
 
-        <div className={styles.viewToggle}>
-          <div className={styles.carouselPill}>
-            <div className={styles.carouselTrack}>
-              <div 
-                className={styles.carouselItem}
-                onClick={() => (window.location.href = '/')}
-              >
-                <ArrowLeft size={16} />
-                <span>Back to Vault</span>
-              </div>
+        <div className={styles.headerActions}>
+          <button 
+            type="button"
+            className={styles.filterToggleBtn}
+            onClick={() => (window.location.href = '/')}
+            title="Back to Vault"
+          >
+            <ArrowLeft size={16} />
+            <span className={styles.filterBtnLabel}>Back to Vault</span>
+          </button>
 
-              <div className={styles.userMenuWrapper} ref={userMenuRef}>
-                <div 
-                  className={`${styles.carouselItem} ${isUserMenuOpen ? styles.active : ''}`} 
-                  onClick={() => setIsUserMenuOpen((prev) => !prev)}
-                  title="Account Menu"
-                >
-                  <User size={16} />
-                  <span>Account</span>
+          <div className={styles.userMenuWrapper} ref={userMenuRef}>
+            <button
+              type="button"
+              className={`${styles.userAvatarBtn} ${isUserMenuOpen ? styles.avatarActive : ''}`} 
+              onClick={() => setIsUserMenuOpen((prev) => !prev)}
+              title="Account Menu"
+              aria-label="Account Menu"
+              aria-expanded={isUserMenuOpen}
+            >
+              <User size={18} />
+            </button>
+
+            {isUserMenuOpen && (
+              <div className={styles.userMenuDropdown}>
+                <div className={styles.userMenuHeader}>
+                  <div className={styles.userMenuAvatar}>
+                    <User size={16} />
+                  </div>
+                  <div className={styles.userMenuPhone}>
+                    {currentUser.mobile_number}
+                  </div>
                 </div>
 
-                {isUserMenuOpen && (
-                  <div className={styles.userMenuDropdown}>
-                    <div className={styles.userMenuHeader}>
-                      <div className={styles.userMenuAvatar}>
-                        <User size={16} />
-                      </div>
-                      <div className={styles.userMenuPhone}>
-                        {currentUser.mobile_number}
-                      </div>
-                    </div>
+                <div className={styles.userMenuDivider} />
 
-                    <div className={styles.userMenuDivider} />
+                <button
+                  type="button"
+                  className={styles.userMenuItem}
+                  onClick={() => {
+                    setIsUserMenuOpen(false);
+                    window.location.href = '/';
+                  }}
+                >
+                  <ArrowLeft size={16} />
+                  <span>Back to Vault</span>
+                </button>
 
-                    <button
-                      className={styles.userMenuItem}
-                      onClick={() => {
-                        setIsUserMenuOpen(false);
-                        window.location.href = '/';
-                      }}
-                    >
-                      <ArrowLeft size={16} />
-                      <span>Back to Vault</span>
-                    </button>
+                <button
+                  type="button"
+                  className={styles.userMenuItem}
+                  onClick={() => {
+                    setIsUserMenuOpen(false);
+                    onLogout();
+                  }}
+                >
+                  <LogOut size={16} />
+                  <span>Log Out</span>
+                </button>
 
-                    <button
-                      className={styles.userMenuItem}
-                      onClick={() => {
-                        setIsUserMenuOpen(false);
-                        onLogout();
-                      }}
-                    >
-                      <LogOut size={16} />
-                      <span>Log Out</span>
-                    </button>
-
-                    <button
-                      className={`${styles.userMenuItem} ${styles.userMenuItemDanger}`}
-                      onClick={() => {
-                        setIsUserMenuOpen(false);
-                        handleDeleteAccount();
-                      }}
-                    >
-                      <UserX size={16} />
-                      <span>Delete Account</span>
-                    </button>
-                  </div>
-                )}
+                <button
+                  type="button"
+                  className={`${styles.userMenuItem} ${styles.userMenuItemDanger}`}
+                  onClick={() => {
+                    setIsUserMenuOpen(false);
+                    handleDeleteAccount();
+                  }}
+                >
+                  <UserX size={16} />
+                  <span>Delete Account</span>
+                </button>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </header>

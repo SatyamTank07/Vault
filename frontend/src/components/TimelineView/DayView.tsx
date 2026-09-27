@@ -22,13 +22,17 @@ function formatDayHeader(date: Date): string {
 export const DayView: React.FC<DayViewProps> = ({ date, tasks, onOpenNote, onStatusChange, onSkip }) => {
   // Group tasks by canvas name
   const grouped = tasks.reduce<Record<string, TimelineTask[]>>((acc, task) => {
-    const key = task.canvas_name;
+    const key = task.canvas_name || '';
     if (!acc[key]) acc[key] = [];
     acc[key].push(task);
     return acc;
   }, {});
 
-  const canvasNames = Object.keys(grouped).sort();
+  const canvasNames = Object.keys(grouped).sort((a, b) => {
+    if (!a) return -1;
+    if (!b) return 1;
+    return a.localeCompare(b);
+  });
 
   return (
     <div className={styles.dayView}>
@@ -46,8 +50,8 @@ export const DayView: React.FC<DayViewProps> = ({ date, tasks, onOpenNote, onSta
       ) : (
         <div className={styles.dayContent}>
           {canvasNames.map((canvasName) => (
-            <div key={canvasName} className={styles.canvasGroup}>
-              <div className={styles.canvasGroupTitle}>{canvasName}</div>
+            <div key={canvasName || 'unassigned'} className={styles.canvasGroup}>
+              {canvasName ? <div className={styles.canvasGroupTitle}>{canvasName}</div> : null}
               <div className={styles.taskList}>
                 {grouped[canvasName].map((task) => (
                   <TimelineTaskCard

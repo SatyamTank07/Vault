@@ -67,11 +67,24 @@ def get_notes(db: Session, user_id: str, skip: int = 0, limit: int = 100):
 
 
 def create_note(db: Session, user_id: str, note: schemas.NoteCreate):
+    scheduled_date = note.scheduled_date
+    scheduled_time = note.scheduled_time if scheduled_date else None
+    end_date = note.end_date if scheduled_date else None
+    if scheduled_date and end_date and scheduled_date > end_date:
+        end_date = scheduled_date
+
     db_note = models.Note(
         user_id=user_id,
         id=note.id if note.id else None,
         title=note.title,
         content=note.content,
+        scheduled_date=scheduled_date,
+        scheduled_time=scheduled_time,
+        end_date=end_date,
+        status=note.status or "todo",
+        recurrence_rule=note.recurrence_rule,
+        recurrence_interval=note.recurrence_interval if note.recurrence_interval is not None else 1,
+        recurrence_end_date=note.recurrence_end_date,
     )
     db.add(db_note)
     db.commit()
@@ -90,6 +103,12 @@ def update_note(db: Session, user_id: str, note_id: str, note: schemas.NoteUpdat
         update_data = note.dict(exclude_unset=True)
         for key, value in update_data.items():
             setattr(db_note, key, value)
+
+        if not db_note.scheduled_date:
+            db_note.scheduled_time = None
+            db_note.end_date = None
+        elif db_note.end_date and db_note.scheduled_date > db_note.end_date:
+            db_note.end_date = db_note.scheduled_date
 
         db.commit()
         db.refresh(db_note)

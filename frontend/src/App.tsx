@@ -108,34 +108,21 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
 
   const handleCreateNote = async (noteData: Omit<Note, 'created_at' | 'updated_at' | 'status'>) => {
     try {
-      const { scheduled_date, scheduled_time, end_date, ...baseNoteData } = noteData;
-      const encrypted = await encryptNote(baseNoteData, cryptoKey);
+      const payload = {
+        ...noteData,
+        scheduled_date: noteData.scheduled_date || null,
+        scheduled_time: noteData.scheduled_time || null,
+        end_date: noteData.end_date || null,
+      };
+      const encrypted = await encryptNote(payload, cryptoKey);
       const response = await apiFetch('/notes/', {
         method: 'POST',
         body: JSON.stringify(encrypted),
       });
       if (response.ok) {
         const newNote = await response.json();
-        
-        if (scheduled_date !== undefined) {
-          await apiFetch(`/api/notes/${newNote.id}/schedule`, {
-            method: 'PUT',
-            body: JSON.stringify({
-              scheduled_date,
-              scheduled_time,
-              end_date,
-              clear_date: !scheduled_date,
-              clear_time: !scheduled_time,
-              clear_end_date: !end_date
-            })
-          });
-        }
-        
         const { note: decrypted } = await decryptNote(newNote, cryptoKey);
-        // Note: the decrypted note from the POST /notes/ won't have the schedule info attached.
-        // We call fetchNotes() anyway after creating/updating from the modal, but let's append it manually if needed, or just rely on fetchNotes.
-        setNotes((prev) => [{...decrypted, scheduled_date, scheduled_time, end_date}, ...prev]);
-        fetchNotes();
+        setNotes((prev) => [decrypted, ...prev]);
       }
     } catch (error) {
       console.error('Failed to create note:', error);
@@ -144,34 +131,23 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
 
   const handleUpdateNote = async (noteData: Omit<Note, 'created_at' | 'updated_at' | 'status'>) => {
     try {
-      const { scheduled_date, scheduled_time, end_date, ...baseNoteData } = noteData;
-      const encrypted = await encryptNote(baseNoteData, cryptoKey);
+      const payload = {
+        ...noteData,
+        scheduled_date: noteData.scheduled_date || null,
+        scheduled_time: noteData.scheduled_time || null,
+        end_date: noteData.end_date || null,
+      };
+      const encrypted = await encryptNote(payload, cryptoKey);
       const response = await apiFetch(`/notes/${noteData.id}`, {
         method: 'PUT',
         body: JSON.stringify(encrypted),
       });
       if (response.ok) {
         const updatedNote = await response.json();
-        
-        if (scheduled_date !== undefined) {
-          await apiFetch(`/api/notes/${noteData.id}/schedule`, {
-            method: 'PUT',
-            body: JSON.stringify({
-              scheduled_date,
-              scheduled_time,
-              end_date,
-              clear_date: !scheduled_date,
-              clear_time: !scheduled_time,
-              clear_end_date: !end_date
-            })
-          });
-        }
-
         const { note: decrypted } = await decryptNote(updatedNote, cryptoKey);
         setNotes((prev) =>
-          prev.map((n) => (n.id === decrypted.id ? { ...decrypted, scheduled_date, scheduled_time, end_date } : n)),
+          prev.map((n) => (n.id === decrypted.id ? decrypted : n)),
         );
-        fetchNotes();
       }
     } catch (error) {
       console.error('Failed to update note:', error);
@@ -344,74 +320,84 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
                 <CalendarDays size={16} />
                 <span>Schedule</span>
               </div>
-              <div 
-                className={styles.carouselItem}
-                onClick={() => setShowCompleted(!showCompleted)}
-              >
-                {showCompleted ? <EyeOff size={16} /> : <Eye size={16} />}
-                <span>{showCompleted ? 'Hide Done' : 'Show Done'}</span>
-              </div>
+            </div>
+          </div>
+        </div>
 
-              {/* User Account Menu right side of Show Done */}
-              <div className={styles.userMenuWrapper} ref={userMenuRef}>
-                <div 
-                  className={`${styles.carouselItem} ${isUserMenuOpen ? styles.active : ''}`}
-                  onClick={() => setIsUserMenuOpen((prev) => !prev)}
-                  title="Account Menu"
-                >
-                  <User size={16} />
-                  <span>Account</span>
+        <div className={styles.headerActions}>
+          <button
+            type="button"
+            className={`${styles.filterToggleBtn} ${showCompleted ? styles.filterActive : ''}`}
+            onClick={() => setShowCompleted(!showCompleted)}
+            title={showCompleted ? 'Hide completed notes' : 'Show completed notes'}
+            aria-label={showCompleted ? 'Hide completed notes' : 'Show completed notes'}
+          >
+            {showCompleted ? <EyeOff size={16} /> : <Eye size={16} />}
+            <span className={styles.filterBtnLabel}>{showCompleted ? 'Hide Done' : 'Show Done'}</span>
+          </button>
+
+          <div className={styles.userMenuWrapper} ref={userMenuRef}>
+            <button
+              type="button"
+              className={`${styles.userAvatarBtn} ${isUserMenuOpen ? styles.avatarActive : ''}`}
+              onClick={() => setIsUserMenuOpen((prev) => !prev)}
+              title="Account Menu"
+              aria-label="Account Menu"
+              aria-expanded={isUserMenuOpen}
+            >
+              <User size={18} />
+            </button>
+
+            {isUserMenuOpen && (
+              <div className={styles.userMenuDropdown}>
+                <div className={styles.userMenuHeader}>
+                  <div className={styles.userMenuAvatar}>
+                    <User size={16} />
+                  </div>
+                  <div className={styles.userMenuPhone}>
+                    {currentUser.mobile_number}
+                  </div>
                 </div>
 
-                {isUserMenuOpen && (
-                  <div className={styles.userMenuDropdown}>
-                    <div className={styles.userMenuHeader}>
-                      <div className={styles.userMenuAvatar}>
-                        <User size={16} />
-                      </div>
-                      <div className={styles.userMenuPhone}>
-                        {currentUser.mobile_number}
-                      </div>
-                    </div>
+                <div className={styles.userMenuDivider} />
 
-                    <div className={styles.userMenuDivider} />
+                <button
+                  type="button"
+                  className={styles.userMenuItem}
+                  onClick={() => {
+                    setIsUserMenuOpen(false);
+                    window.location.href = '/feedback';
+                  }}
+                >
+                  <MessageSquare size={16} />
+                  <span>Feedback</span>
+                </button>
 
-                    <button
-                      className={styles.userMenuItem}
-                      onClick={() => {
-                        setIsUserMenuOpen(false);
-                        window.location.href = '/feedback';
-                      }}
-                    >
-                      <MessageSquare size={16} />
-                      <span>Feedback</span>
-                    </button>
+                <button
+                  type="button"
+                  className={styles.userMenuItem}
+                  onClick={() => {
+                    setIsUserMenuOpen(false);
+                    onLogout();
+                  }}
+                >
+                  <LogOut size={16} />
+                  <span>Log Out</span>
+                </button>
 
-                    <button
-                      className={styles.userMenuItem}
-                      onClick={() => {
-                        setIsUserMenuOpen(false);
-                        onLogout();
-                      }}
-                    >
-                      <LogOut size={16} />
-                      <span>Log Out</span>
-                    </button>
-
-                    <button
-                      className={`${styles.userMenuItem} ${styles.userMenuItemDanger}`}
-                      onClick={() => {
-                        setIsUserMenuOpen(false);
-                        handleDeleteAccount();
-                      }}
-                    >
-                      <UserX size={16} />
-                      <span>Delete Account</span>
-                    </button>
-                  </div>
-                )}
+                <button
+                  type="button"
+                  className={`${styles.userMenuItem} ${styles.userMenuItemDanger}`}
+                  onClick={() => {
+                    setIsUserMenuOpen(false);
+                    handleDeleteAccount();
+                  }}
+                >
+                  <UserX size={16} />
+                  <span>Delete Account</span>
+                </button>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </header>
