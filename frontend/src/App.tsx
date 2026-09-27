@@ -108,34 +108,21 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
 
   const handleCreateNote = async (noteData: Omit<Note, 'created_at' | 'updated_at' | 'status'>) => {
     try {
-      const { scheduled_date, scheduled_time, end_date, ...baseNoteData } = noteData;
-      const encrypted = await encryptNote(baseNoteData, cryptoKey);
+      const payload = {
+        ...noteData,
+        scheduled_date: noteData.scheduled_date || null,
+        scheduled_time: noteData.scheduled_time || null,
+        end_date: noteData.end_date || null,
+      };
+      const encrypted = await encryptNote(payload, cryptoKey);
       const response = await apiFetch('/notes/', {
         method: 'POST',
         body: JSON.stringify(encrypted),
       });
       if (response.ok) {
         const newNote = await response.json();
-        
-        if (scheduled_date !== undefined) {
-          await apiFetch(`/api/notes/${newNote.id}/schedule`, {
-            method: 'PUT',
-            body: JSON.stringify({
-              scheduled_date,
-              scheduled_time,
-              end_date,
-              clear_date: !scheduled_date,
-              clear_time: !scheduled_time,
-              clear_end_date: !end_date
-            })
-          });
-        }
-        
         const { note: decrypted } = await decryptNote(newNote, cryptoKey);
-        // Note: the decrypted note from the POST /notes/ won't have the schedule info attached.
-        // We call fetchNotes() anyway after creating/updating from the modal, but let's append it manually if needed, or just rely on fetchNotes.
-        setNotes((prev) => [{...decrypted, scheduled_date, scheduled_time, end_date}, ...prev]);
-        fetchNotes();
+        setNotes((prev) => [decrypted, ...prev]);
       }
     } catch (error) {
       console.error('Failed to create note:', error);
@@ -144,34 +131,23 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
 
   const handleUpdateNote = async (noteData: Omit<Note, 'created_at' | 'updated_at' | 'status'>) => {
     try {
-      const { scheduled_date, scheduled_time, end_date, ...baseNoteData } = noteData;
-      const encrypted = await encryptNote(baseNoteData, cryptoKey);
+      const payload = {
+        ...noteData,
+        scheduled_date: noteData.scheduled_date || null,
+        scheduled_time: noteData.scheduled_time || null,
+        end_date: noteData.end_date || null,
+      };
+      const encrypted = await encryptNote(payload, cryptoKey);
       const response = await apiFetch(`/notes/${noteData.id}`, {
         method: 'PUT',
         body: JSON.stringify(encrypted),
       });
       if (response.ok) {
         const updatedNote = await response.json();
-        
-        if (scheduled_date !== undefined) {
-          await apiFetch(`/api/notes/${noteData.id}/schedule`, {
-            method: 'PUT',
-            body: JSON.stringify({
-              scheduled_date,
-              scheduled_time,
-              end_date,
-              clear_date: !scheduled_date,
-              clear_time: !scheduled_time,
-              clear_end_date: !end_date
-            })
-          });
-        }
-
         const { note: decrypted } = await decryptNote(updatedNote, cryptoKey);
         setNotes((prev) =>
-          prev.map((n) => (n.id === decrypted.id ? { ...decrypted, scheduled_date, scheduled_time, end_date } : n)),
+          prev.map((n) => (n.id === decrypted.id ? decrypted : n)),
         );
-        fetchNotes();
       }
     } catch (error) {
       console.error('Failed to update note:', error);
