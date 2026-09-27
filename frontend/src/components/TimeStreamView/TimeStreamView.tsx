@@ -9,10 +9,15 @@ import styles from './TimeStreamView.module.css';
 
 interface TimeStreamViewProps {
   onOpenNote: (note: Note) => void;
-  notes: Note[];
-  fetchNotes: () => void;
+  notes?: Note[];
+  fetchNotes?: () => void;
   cryptoKey: CryptoKey | null;
   showCompleted?: boolean;
+  centerDate?: Date;
+  onCenterDateChange?: (date: Date) => void;
+  zoomLevel?: number;
+  onZoomChange?: (zoom: number) => void;
+  hideControls?: boolean;
 }
 
 function toISODateString(date: Date): string {
@@ -24,11 +29,20 @@ function toISODateString(date: Date): string {
 
 export const TimeStreamView: React.FC<TimeStreamViewProps> = ({
   onOpenNote,
+  notes = [],
   cryptoKey,
   showCompleted = true,
+  centerDate: controlledCenterDate,
+  onCenterDateChange,
+  zoomLevel: controlledZoomLevel,
+  onZoomChange,
+  hideControls = false,
 }) => {
-  const [zoomLevel, setZoomLevel] = useState<number>(0.1);
-  const [centerDate, setCenterDate] = useState<Date>(new Date());
+  const [internalZoomLevel, setInternalZoomLevel] = useState<number>(0.1);
+  const [internalCenterDate, setInternalCenterDate] = useState<Date>(new Date());
+
+  const zoomLevel = controlledZoomLevel !== undefined ? controlledZoomLevel : internalZoomLevel;
+  const centerDate = controlledCenterDate !== undefined ? controlledCenterDate : internalCenterDate;
   
   const [events, setEvents] = useState<TimeStreamEvent[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -83,8 +97,8 @@ export const TimeStreamView: React.FC<TimeStreamViewProps> = ({
         if (res.ok && isMounted) {
           const data = await res.json();
           const decryptedEvents: TimeStreamEvent[] = await Promise.all(
-            data.map(async (ev: any) => {
-              const { note: decryptedNote } = await decryptNote(ev.note as unknown as Note, cryptoKey);
+            data.map(async (ev: TimeStreamEvent) => {
+              const { note: decryptedNote } = await decryptNote(ev.note, cryptoKey);
               return {
                 ...ev,
                 note: decryptedNote,
@@ -111,28 +125,48 @@ export const TimeStreamView: React.FC<TimeStreamViewProps> = ({
       clearTimeout(fetchDebounce);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [centerDate.getTime(), zoomLevel, cryptoKey, showCompleted]);
+  }, [centerDate.getTime(), zoomLevel, cryptoKey, showCompleted, notes]);
 
   const handleZoomChange = useCallback((newZoom: number) => {
-    setZoomLevel(Math.max(0, Math.min(1, newZoom)));
-  }, []);
+    const clamped = Math.max(0, Math.min(1, newZoom));
+    if (onZoomChange) {
+      onZoomChange(clamped);
+    } else {
+      setInternalZoomLevel(clamped);
+    }
+  }, [onZoomChange]);
 
-  const handleZoomFromCanvas = useCallback((delta: number, _centerX: number) => {
-    setZoomLevel(prev => Math.max(0, Math.min(1, prev + delta)));
-  }, []);
+  const handleZoomFromCanvas = useCallback((delta: number) => {
+    handleZoomChange(zoomLevel + delta);
+  }, [handleZoomChange, zoomLevel]);
 
   const handlePan = useCallback((deltaMs: number) => {
-    setCenterDate(prev => new Date(prev.getTime() + deltaMs));
-  }, []);
+    const nextDate = new Date(centerDate.getTime() + deltaMs);
+    if (onCenterDateChange) {
+      onCenterDateChange(nextDate);
+    } else {
+      setInternalCenterDate(nextDate);
+    }
+  }, [centerDate, onCenterDateChange]);
 
   const handlePanByScreen = useCallback((direction: 1 | -1) => {
     const shiftMs = halfRangeMs * 0.75 * direction;
-    setCenterDate(prev => new Date(prev.getTime() + shiftMs));
-  }, [halfRangeMs]);
+    const nextDate = new Date(centerDate.getTime() + shiftMs);
+    if (onCenterDateChange) {
+      onCenterDateChange(nextDate);
+    } else {
+      setInternalCenterDate(nextDate);
+    }
+  }, [halfRangeMs, centerDate, onCenterDateChange]);
 
   const handleGoToToday = useCallback(() => {
-    setCenterDate(new Date());
-  }, []);
+    const today = new Date();
+    if (onCenterDateChange) {
+      onCenterDateChange(today);
+    } else {
+      setInternalCenterDate(today);
+    }
+  }, [onCenterDateChange]);
 
   if (!cryptoKey) {
     return (
@@ -170,15 +204,17 @@ export const TimeStreamView: React.FC<TimeStreamViewProps> = ({
   });
 
   return (
-    <div className={styles.container} ref={containerRef}>
-      <TimeStreamControls 
-        zoomLevel={zoomLevel}
-        onZoomChange={handleZoomChange}
-        onGoToToday={handleGoToToday}
-        viewportStart={viewportStart}
-        viewportEnd={viewportEnd}
-        onPanByScreen={handlePanByScreen}
-      />
+    <div className={`${styles.container} ${hideControls ? styles.containerNoControls : ''}`} ref={containerRef}>
+      {!hideControls && (
+        <TimeStreamControls 
+          zoomLevel={zoomLevel}
+          onZoomChange={handleZoomChange}
+          onGoToToday={handleGoToToday}
+          viewportStart={viewportStart}
+          viewportEnd={viewportEnd}
+          onPanByScreen={handlePanByScreen}
+        />
+      )}
       
       {isLoading && visibleEvents.length === 0 && (
         <div className={styles.loadingState}>

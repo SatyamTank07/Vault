@@ -367,6 +367,8 @@ export const TimeStreamCanvas: React.FC<TimeStreamCanvasProps> = ({
   }, [daySegments, weekSegments, monthSegments, yearSegments, scale]);
 
   // 2. Events Lanes Allocation (Greedy)
+  const startMs = viewportStart.getTime();
+  const endMs = viewportEnd.getTime();
   const laidOutEvents = useMemo(() => {
     const lanes: { endX: number }[] = [];
     const eventLayouts: { event: TimeStreamEvent; x: number; width: number; lane: number }[] = [];
@@ -415,7 +417,7 @@ export const TimeStreamCanvas: React.FC<TimeStreamCanvasProps> = ({
 
     return eventLayouts;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [events, viewportStart.getTime(), viewportEnd.getTime(), containerWidth, viewportRangeMs]);
+  }, [events, startMs, endMs, containerWidth, viewportRangeMs]);
 
   // Today line
   const now = new Date();

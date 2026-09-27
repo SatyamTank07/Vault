@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { CalendarDays, LayoutGrid, Network, LogOut, MessageSquare, Lock, Eye, EyeOff, Waves, UserX, User } from 'lucide-react';
+import { CalendarDays, LayoutGrid, Network, LogOut, MessageSquare, Lock, Eye, EyeOff, UserX, User } from 'lucide-react';
 import styles from './App.module.css';
 import { CanvasView } from './components/CanvasView/CanvasView';
 import { ConfirmModal } from './components/ConfirmModal/ConfirmModal';
@@ -8,11 +8,10 @@ import { NoteModal } from './components/NoteModal/NoteModal';
 import { NoteCard, type Note } from './components/NoteCard/NoteCard';
 import { RecurrenceModal } from './components/RecurrenceModal/RecurrenceModal';
 import { TimelineView } from './components/TimelineView/TimelineView';
-import { TimeStreamView } from './components/TimeStreamView/TimeStreamView';
 import { apiFetch, type CurrentUser } from './lib/api';
 import { encryptNote, decryptNote } from './lib/crypto';
 
-type ViewMode = 'grid' | 'canvas' | 'timeline' | 'stream';
+type ViewMode = 'grid' | 'canvas' | 'schedule';
 
 interface AppProps {
   currentUser: CurrentUser;
@@ -339,18 +338,11 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
                 <span>Canvas</span>
               </div>
               <div 
-                className={`${styles.carouselItem} ${activeView === 'timeline' ? styles.active : ''}`}
-                onClick={() => setActiveView('timeline')}
+                className={`${styles.carouselItem} ${activeView === 'schedule' ? styles.active : ''}`}
+                onClick={() => setActiveView('schedule')}
               >
                 <CalendarDays size={16} />
-                <span>Timeline</span>
-              </div>
-              <div 
-                className={`${styles.carouselItem} ${activeView === 'stream' ? styles.active : ''}`}
-                onClick={() => setActiveView('stream')}
-              >
-                <Waves size={16} />
-                <span>Stream</span>
+                <span>Schedule</span>
               </div>
               <div 
                 className={styles.carouselItem}
@@ -464,10 +456,8 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
           notes={showCompleted ? notes : notes.filter(n => n.status !== 'done')}
           cryptoKey={cryptoKey}
         />
-      ) : activeView === 'timeline' ? (
+      ) : activeView === 'schedule' ? (
         <TimelineView onOpenNote={openViewModal} notes={notes} fetchNotes={fetchNotes} cryptoKey={cryptoKey} showCompleted={showCompleted} />
-      ) : activeView === 'stream' ? (
-        <TimeStreamView onOpenNote={openViewModal} notes={notes} fetchNotes={fetchNotes} cryptoKey={cryptoKey} showCompleted={showCompleted} />
       ) : null}
 
       <NoteModal

@@ -104,7 +104,57 @@
   gap: 12px;
 }
 
-/* ── View Toggle (Day / Week) ──────────────────────────────── */
+/* ── Horizon Zoom Controls ─────────────────────────────────── */
+.horizonZoomWrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  width: 190px;
+}
+
+.zoomLabels {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  gap: 2px;
+}
+
+.zoomLabelBtn {
+  background: transparent;
+  border: none;
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-weight: 600;
+  transition: all 0.15s ease;
+}
+
+.zoomLabelBtn:hover {
+  color: var(--text-main);
+  background-color: var(--surface-hover);
+}
+
+.zoomLabelBtnActive {
+  color: var(--primary-purple);
+  background-color: rgba(139, 92, 246, 0.12);
+}
+
+.zoomSlider {
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--surface-hover);
+  outline: none;
+  accent-color: var(--primary-purple);
+  cursor: pointer;
+}
+
+/* ── View Toggle (Day / Week / Horizon) ────────────────────── */
 .viewToggle {
   display: flex;
   background: var(--surface-color);
@@ -581,6 +631,14 @@
   .viewBtn {
     padding: 4px 8px;
     font-size: 0.75rem;
+  }
+
+  .horizonZoomWrapper {
+    width: 100px;
+  }
+
+  .zoomLabels {
+    display: none;
   }
 
   /* 3. Optimize Day View Spacing */
