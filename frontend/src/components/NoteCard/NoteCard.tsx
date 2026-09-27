@@ -1,5 +1,5 @@
-import React, { useRef } from 'react';
-import { Calendar, Repeat } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Calendar, Repeat, Check, ChevronDown } from 'lucide-react';
 import { useDecryptedHtml } from '../../lib/imageDecryption';
 import styles from './NoteCard.module.css';
 
@@ -29,11 +29,11 @@ interface NoteCardProps {
   cryptoKey?: CryptoKey | null;
 }
 
-const STATUS_CYCLE: Record<string, string> = {
-  todo: 'in_progress',
-  in_progress: 'done',
-  done: 'todo',
-};
+const STATUS_OPTIONS = [
+  { value: 'todo', label: 'To Do', color: '#9CA3AF' },
+  { value: 'in_progress', label: 'In Progress', color: '#F59E0B' },
+  { value: 'done', label: 'Done', color: '#10B981' },
+] as const;
 
 const STATUS_LABELS: Record<string, string> = {
   todo: 'To Do',
@@ -80,8 +80,36 @@ export const NoteCard: React.FC<NoteCardProps> = ({
   onRecurrenceClick,
   cryptoKey,
 }) => {
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const dateInputRef = useRef<HTMLInputElement>(null);
   const decryptedHtml = useDecryptedHtml(note.content || '', cryptoKey);
+
+  const currentStatus = note.status || 'todo';
+  const isDone = currentStatus === 'done';
+
+  useEffect(() => {
+    if (!isDropdownOpen) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isDropdownOpen]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -93,17 +121,23 @@ export const NoteCard: React.FC<NoteCardProps> = ({
     }).format(date);
   };
 
-  const handleStatusClick = (event: React.MouseEvent) => {
+  const handleToggleDropdown = (event: React.MouseEvent) => {
     event.stopPropagation();
-    const currentStatus = note.status || 'todo';
-    const nextStatus = STATUS_CYCLE[currentStatus] || 'todo';
-    onUpdateSchedule?.(note.id, note.scheduled_date, note.scheduled_time, nextStatus);
+    setIsDropdownOpen((prev) => !prev);
+  };
+
+  const handleSelectStatus = (event: React.MouseEvent, newStatus: string) => {
+    event.stopPropagation();
+    setIsDropdownOpen(false);
+    if (newStatus !== currentStatus) {
+      onUpdateSchedule?.(note.id, note.scheduled_date, note.scheduled_time, newStatus);
+    }
   };
 
   const handleDateChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     event.stopPropagation();
     const newDate = event.target.value || null;
-    onUpdateSchedule?.(note.id, newDate, note.scheduled_time, note.status || 'todo');
+    onUpdateSchedule?.(note.id, newDate, note.scheduled_time, currentStatus);
   };
 
   const handleCalendarClick = (event: React.MouseEvent) => {
@@ -117,18 +151,71 @@ export const NoteCard: React.FC<NoteCardProps> = ({
   };
 
   return (
-    <div className={styles.card} onClick={() => onView(note)}>
+    <div
+      className={`${styles.card} ${isDropdownOpen ? styles.cardDropdownOpen : ''}`}
+      onClick={() => onView(note)}
+    >
       <div className={styles.headerRow}>
         <div className={styles.titleWrapper}>
           <div className={styles.titleContent}>
-            <span className={styles.canvasName}>{note.canvas_name || 'Independent Note'}</span>
+            <div className={styles.badgeRow}>
+              <span className={styles.canvasName}>{note.canvas_name || 'Independent Note'}</span>
+              <div
+                className={styles.statusDropdownWrapper}
+                ref={dropdownRef}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    e.stopPropagation();
+                    setIsDropdownOpen(false);
+                  }
+                }}
+              >
+                <button
+                  type="button"
+                  className={`${styles.statusBadge} ${styles[`statusBadge_${currentStatus}`]}`}
+                  onClick={handleToggleDropdown}
+                  title={`Status: ${STATUS_LABELS[currentStatus]} (click to change)`}
+                  aria-haspopup="listbox"
+                  aria-expanded={isDropdownOpen}
+                >
+                  <span className={styles.statusDot} />
+                  <span className={styles.statusLabel}>{STATUS_LABELS[currentStatus]}</span>
+                  <ChevronDown
+                    size={11}
+                    className={`${styles.statusChevron} ${isDropdownOpen ? styles.statusChevronOpen : ''}`}
+                  />
+                </button>
+
+                {isDropdownOpen && (
+                  <div
+                    className={styles.statusDropdownMenu}
+                    role="listbox"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {STATUS_OPTIONS.map((option) => {
+                      const isSelected = option.value === currentStatus;
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          role="option"
+                          aria-selected={isSelected}
+                          className={`${styles.statusOption} ${isSelected ? styles.statusOptionSelected : ''}`}
+                          onClick={(e) => handleSelectStatus(e, option.value)}
+                        >
+                          <span className={styles.optionDot} style={{ backgroundColor: option.color }} />
+                          <span className={styles.optionLabel}>{option.label}</span>
+                          {isSelected && <Check size={12} className={styles.optionCheck} />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div className={styles.titleRow}>
-              <button
-                className={`${styles.statusDotBtn} ${styles[`status_${note.status || 'todo'}`]}`}
-                onClick={handleStatusClick}
-                title={`Status: ${STATUS_LABELS[note.status || 'todo']} (click to cycle)`}
-              />
-              <h3 className={styles.title}>{note.title || 'Untitled'}</h3>
+              <h3 className={`${styles.title} ${isDone ? styles.titleDone : ''}`}>{note.title || 'Untitled'}</h3>
             </div>
           </div>
         </div>
