@@ -252,7 +252,8 @@ def get_uploaded_file(
 
     user_scoped_path = os.path.join(UPLOAD_DIR, current_user.id, safe_note_id, safe_filename)
     if os.path.exists(user_scoped_path):
-        return FileResponse(user_scoped_path)
+        media_type = "application/octet-stream" if safe_filename.endswith(".enc") else None
+        return FileResponse(user_scoped_path, media_type=media_type)
 
     note = db.query(models.Note).filter(models.Note.id == safe_note_id).first()
     if note is None or note.user_id != current_user.id:
@@ -260,7 +261,8 @@ def get_uploaded_file(
 
     legacy_path = os.path.join(UPLOAD_DIR, safe_note_id, safe_filename)
     if os.path.exists(legacy_path):
-        return FileResponse(legacy_path)
+        media_type = "application/octet-stream" if safe_filename.endswith(".enc") else None
+        return FileResponse(legacy_path, media_type=media_type)
 
     raise HTTPException(status_code=404, detail="File not found.")
 

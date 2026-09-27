@@ -447,6 +447,7 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
                   onView={openViewModal}
                   onUpdateSchedule={handleUpdateSchedule}
                   onRecurrenceClick={(nextNote) => setRecurrenceNote(nextNote)}
+                  cryptoKey={cryptoKey}
                 />
               ))}
             </div>
@@ -475,6 +476,7 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
         onSave={editingNote ? handleUpdateNote : handleCreateNote}
         initialData={editingNote}
         isViewMode={isViewMode}
+        cryptoKey={cryptoKey}
       />
 
       {enlargedImageUrl && (

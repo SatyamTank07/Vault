@@ -193,3 +193,53 @@
   color: var(--text-muted);
   margin-left: 0;
 }
+
+.imageNodeWrapper {
+  margin: 1rem 0;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.imagePlaceholder {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background-color: rgba(139, 92, 246, 0.08);
+  border: 1px dashed var(--primary-purple);
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.imageError {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background-color: rgba(239, 68, 68, 0.08);
+  border: 1px dashed #ef4444;
+  color: #ef4444;
+  font-size: 0.875rem;
+}
+
+.spinner {
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid rgba(139, 92, 246, 0.3);
+  border-top-color: var(--primary-purple);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.selectedImage {
+  outline: 2px solid var(--primary-purple);
+  outline-offset: 2px;
+}
+

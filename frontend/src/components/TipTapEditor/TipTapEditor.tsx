@@ -1,5 +1,12 @@
 import React, { useEffect, useMemo } from 'react';
-import { Editor, EditorContent, useEditor } from '@tiptap/react';
+import {
+  Editor,
+  EditorContent,
+  useEditor,
+  ReactNodeViewRenderer,
+  NodeViewWrapper,
+  type NodeViewProps,
+} from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
@@ -21,19 +28,59 @@ import {
 } from 'lucide-react';
 import {
   apiFetch,
-  appendAccessTokenToUrl,
-  decorateProtectedHtml,
   getErrorMessage,
   stripProtectedAssetTokens,
 } from '../../lib/api';
+import { encryptImageFile, getActiveVaultKey } from '../../lib/crypto';
+import {
+  cacheDecryptedBlobUrl,
+  useDecryptedImageUrl,
+} from '../../lib/imageDecryption';
 import styles from './TipTapEditor.module.css';
 
 interface MenuBarProps {
   editor: Editor | null;
   noteId: string;
+  cryptoKey?: CryptoKey | null;
 }
 
-const MenuBar: React.FC<MenuBarProps> = ({ editor, noteId }) => {
+const EncryptedImageNodeView: React.FC<NodeViewProps> = ({ node, selected }) => {
+  const src = node.attrs.src;
+  const alt = node.attrs.alt;
+  const title = node.attrs.title;
+
+  const { blobUrl, loading, error } = useDecryptedImageUrl(src);
+
+  return (
+    <NodeViewWrapper className={styles.imageNodeWrapper}>
+      {loading ? (
+        <div className={styles.imagePlaceholder}>
+          <span className={styles.spinner} />
+          <span>Decrypting image...</span>
+        </div>
+      ) : error ? (
+        <div className={styles.imageError}>
+          <span>Failed to decrypt image</span>
+        </div>
+      ) : (
+        <img
+          src={blobUrl || src}
+          alt={alt || ''}
+          title={title || ''}
+          className={`${styles.editorImage} ${selected ? styles.selectedImage : ''}`}
+        />
+      )}
+    </NodeViewWrapper>
+  );
+};
+
+const EncryptedImage = Image.extend({
+  addNodeView() {
+    return ReactNodeViewRenderer(EncryptedImageNodeView);
+  },
+});
+
+const MenuBar: React.FC<MenuBarProps> = ({ editor, noteId, cryptoKey }) => {
   if (!editor) {
     return null;
   }
@@ -152,7 +199,7 @@ const MenuBar: React.FC<MenuBarProps> = ({ editor, noteId }) => {
           input.onchange = async () => {
             if (input.files?.length) {
               const file = input.files[0];
-              const url = await uploadImage(file, noteId);
+              const url = await uploadImage(file, noteId, cryptoKey);
               if (url) {
                 editor.chain().focus().setImage({ src: url }).run();
               }
@@ -168,11 +215,24 @@ const MenuBar: React.FC<MenuBarProps> = ({ editor, noteId }) => {
   );
 };
 
-const uploadImage = async (file: File, noteId: string): Promise<string | null> => {
-  const formData = new FormData();
-  formData.append('file', file);
-
+const uploadImage = async (
+  file: File,
+  noteId: string,
+  cryptoKey?: CryptoKey | null
+): Promise<string | null> => {
   try {
+    const key = cryptoKey || getActiveVaultKey();
+    let fileToUpload: Blob = file;
+    let filename = file.name || 'image.png';
+
+    if (key) {
+      fileToUpload = await encryptImageFile(file, key);
+      filename = `${filename}.enc`;
+    }
+
+    const formData = new FormData();
+    formData.append('file', fileToUpload, filename);
+
     const response = await apiFetch(`/api/upload?note_id=${encodeURIComponent(noteId)}`, {
       method: 'POST',
       body: formData,
@@ -183,7 +243,13 @@ const uploadImage = async (file: File, noteId: string): Promise<string | null> =
     }
 
     const data = await response.json();
-    return appendAccessTokenToUrl(data.url);
+    const serverUrl = data.url;
+
+    // Immediately cache local decrypted blob URL so it displays instantly
+    const localBlobUrl = URL.createObjectURL(file);
+    cacheDecryptedBlobUrl(serverUrl, localBlobUrl);
+
+    return serverUrl;
   } catch (error) {
     console.error('Upload failed:', error);
     return null;
@@ -195,10 +261,17 @@ interface TipTapEditorProps {
   onChange: (content: string) => void;
   noteId: string;
   readOnly?: boolean;
+  cryptoKey?: CryptoKey | null;
 }
 
-export const TipTapEditor: React.FC<TipTapEditorProps> = ({ content, onChange, noteId, readOnly = false }) => {
-  const displayContent = useMemo(() => decorateProtectedHtml(content), [content]);
+export const TipTapEditor: React.FC<TipTapEditorProps> = ({
+  content,
+  onChange,
+  noteId,
+  readOnly = false,
+  cryptoKey,
+}) => {
+  const displayContent = useMemo(() => stripProtectedAssetTokens(content), [content]);
 
   const editor = useEditor({
     extensions: [
@@ -210,7 +283,7 @@ export const TipTapEditor: React.FC<TipTapEditorProps> = ({ content, onChange, n
       Placeholder.configure({
         placeholder: 'Write your note here...',
       }),
-      Image.configure({
+      EncryptedImage.configure({
         allowBase64: true,
         HTMLAttributes: {
           class: styles.editorImage,
@@ -225,7 +298,7 @@ export const TipTapEditor: React.FC<TipTapEditorProps> = ({ content, onChange, n
         if (imageItem) {
           const file = imageItem.getAsFile();
           if (file) {
-            uploadImage(file, noteId).then((url) => {
+            uploadImage(file, noteId, cryptoKey).then((url) => {
               if (url) {
                 const { schema } = view.state;
                 const node = schema.nodes.image.create({ src: url });
@@ -242,7 +315,7 @@ export const TipTapEditor: React.FC<TipTapEditorProps> = ({ content, onChange, n
         if (!moved && event.dataTransfer?.files?.[0]) {
           const file = event.dataTransfer.files[0];
           if (file.type.startsWith('image/')) {
-            uploadImage(file, noteId).then((url) => {
+            uploadImage(file, noteId, cryptoKey).then((url) => {
               if (url) {
                 const { schema } = view.state;
                 const node = schema.nodes.image.create({ src: url });
@@ -281,7 +354,7 @@ export const TipTapEditor: React.FC<TipTapEditorProps> = ({ content, onChange, n
 
   return (
     <div className={`${styles.editorContainer} ${readOnly ? styles.readOnly : ''}`}>
-      {!readOnly && <MenuBar editor={editor} noteId={noteId} />}
+      {!readOnly && <MenuBar editor={editor} noteId={noteId} cryptoKey={cryptoKey} />}
       <EditorContent editor={editor} className={styles.editorContent} />
     </div>
   );

@@ -12,7 +12,15 @@ import {
   type AuthResponse,
   type CurrentUser,
 } from './lib/api';
-import { clearVaultSecret, deriveKey, deriveNoteKey, getVaultSecret, unwrapMasterSeed } from './lib/crypto';
+import {
+  clearVaultSecret,
+  deriveKey,
+  deriveNoteKey,
+  getVaultSecret,
+  setActiveVaultKey,
+  unwrapMasterSeed,
+} from './lib/crypto';
+import { clearDecryptedImageCache } from './lib/imageDecryption';
 
 export default function Root() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
@@ -24,6 +32,8 @@ export default function Root() {
     const handleUnauthorized = () => {
       clearAuthToken();
       clearVaultSecret();
+      setActiveVaultKey(null);
+      clearDecryptedImageCache();
       setCurrentUser(null);
       setVaultKey(null);
       setAuthMessage('Your session expired. Please log in again.');
@@ -66,20 +76,26 @@ export default function Root() {
                 user.created_at,
               );
               const key = await deriveNoteKey(seed);
+              setActiveVaultKey(key);
               setVaultKey(key);
             } else {
               // Legacy fallback: direct key derivation (pre-migration user)
               const key = await deriveKey(existingSecret, user.created_at);
+              setActiveVaultKey(key);
               setVaultKey(key);
             }
           } catch {
             // Secret derivation failed — force re-entry
             clearVaultSecret();
+            setActiveVaultKey(null);
+            clearDecryptedImageCache();
           }
         }
       } catch {
         clearAuthToken();
         clearVaultSecret();
+        setActiveVaultKey(null);
+        clearDecryptedImageCache();
       } finally {
         setLoading(false);
       }
@@ -91,6 +107,8 @@ export default function Root() {
   const handleAuthenticated = (payload: AuthResponse) => {
     setAuthToken(payload.access_token);
     setCurrentUser(payload.user);
+    setActiveVaultKey(null);
+    clearDecryptedImageCache();
     setVaultKey(null); // Force vault secret entry after login
     setAuthMessage(null);
   };
@@ -98,12 +116,15 @@ export default function Root() {
   const handleLogout = () => {
     clearAuthToken();
     clearVaultSecret();
+    setActiveVaultKey(null);
+    clearDecryptedImageCache();
     setCurrentUser(null);
     setVaultKey(null);
     setAuthMessage(null);
   };
 
   const handleVaultUnlocked = (key: CryptoKey) => {
+    setActiveVaultKey(key);
     setVaultKey(key);
   };
 
