@@ -344,74 +344,84 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
                 <CalendarDays size={16} />
                 <span>Schedule</span>
               </div>
-              <div 
-                className={styles.carouselItem}
-                onClick={() => setShowCompleted(!showCompleted)}
-              >
-                {showCompleted ? <EyeOff size={16} /> : <Eye size={16} />}
-                <span>{showCompleted ? 'Hide Done' : 'Show Done'}</span>
-              </div>
+            </div>
+          </div>
+        </div>
 
-              {/* User Account Menu right side of Show Done */}
-              <div className={styles.userMenuWrapper} ref={userMenuRef}>
-                <div 
-                  className={`${styles.carouselItem} ${isUserMenuOpen ? styles.active : ''}`}
-                  onClick={() => setIsUserMenuOpen((prev) => !prev)}
-                  title="Account Menu"
-                >
-                  <User size={16} />
-                  <span>Account</span>
+        <div className={styles.headerActions}>
+          <button
+            type="button"
+            className={`${styles.filterToggleBtn} ${showCompleted ? styles.filterActive : ''}`}
+            onClick={() => setShowCompleted(!showCompleted)}
+            title={showCompleted ? 'Hide completed notes' : 'Show completed notes'}
+            aria-label={showCompleted ? 'Hide completed notes' : 'Show completed notes'}
+          >
+            {showCompleted ? <EyeOff size={16} /> : <Eye size={16} />}
+            <span className={styles.filterBtnLabel}>{showCompleted ? 'Hide Done' : 'Show Done'}</span>
+          </button>
+
+          <div className={styles.userMenuWrapper} ref={userMenuRef}>
+            <button
+              type="button"
+              className={`${styles.userAvatarBtn} ${isUserMenuOpen ? styles.avatarActive : ''}`}
+              onClick={() => setIsUserMenuOpen((prev) => !prev)}
+              title="Account Menu"
+              aria-label="Account Menu"
+              aria-expanded={isUserMenuOpen}
+            >
+              <User size={18} />
+            </button>
+
+            {isUserMenuOpen && (
+              <div className={styles.userMenuDropdown}>
+                <div className={styles.userMenuHeader}>
+                  <div className={styles.userMenuAvatar}>
+                    <User size={16} />
+                  </div>
+                  <div className={styles.userMenuPhone}>
+                    {currentUser.mobile_number}
+                  </div>
                 </div>
 
-                {isUserMenuOpen && (
-                  <div className={styles.userMenuDropdown}>
-                    <div className={styles.userMenuHeader}>
-                      <div className={styles.userMenuAvatar}>
-                        <User size={16} />
-                      </div>
-                      <div className={styles.userMenuPhone}>
-                        {currentUser.mobile_number}
-                      </div>
-                    </div>
+                <div className={styles.userMenuDivider} />
 
-                    <div className={styles.userMenuDivider} />
+                <button
+                  type="button"
+                  className={styles.userMenuItem}
+                  onClick={() => {
+                    setIsUserMenuOpen(false);
+                    window.location.href = '/feedback';
+                  }}
+                >
+                  <MessageSquare size={16} />
+                  <span>Feedback</span>
+                </button>
 
-                    <button
-                      className={styles.userMenuItem}
-                      onClick={() => {
-                        setIsUserMenuOpen(false);
-                        window.location.href = '/feedback';
-                      }}
-                    >
-                      <MessageSquare size={16} />
-                      <span>Feedback</span>
-                    </button>
+                <button
+                  type="button"
+                  className={styles.userMenuItem}
+                  onClick={() => {
+                    setIsUserMenuOpen(false);
+                    onLogout();
+                  }}
+                >
+                  <LogOut size={16} />
+                  <span>Log Out</span>
+                </button>
 
-                    <button
-                      className={styles.userMenuItem}
-                      onClick={() => {
-                        setIsUserMenuOpen(false);
-                        onLogout();
-                      }}
-                    >
-                      <LogOut size={16} />
-                      <span>Log Out</span>
-                    </button>
-
-                    <button
-                      className={`${styles.userMenuItem} ${styles.userMenuItemDanger}`}
-                      onClick={() => {
-                        setIsUserMenuOpen(false);
-                        handleDeleteAccount();
-                      }}
-                    >
-                      <UserX size={16} />
-                      <span>Delete Account</span>
-                    </button>
-                  </div>
-                )}
+                <button
+                  type="button"
+                  className={`${styles.userMenuItem} ${styles.userMenuItemDanger}`}
+                  onClick={() => {
+                    setIsUserMenuOpen(false);
+                    handleDeleteAccount();
+                  }}
+                >
+                  <UserX size={16} />
+                  <span>Delete Account</span>
+                </button>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </header>
