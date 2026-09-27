@@ -6,9 +6,11 @@ import type { Note } from '../NoteCard/NoteCard';
 import { DayView } from './DayView';
 import type { TimelineTask } from './TimelineTaskCard';
 import { WeekView } from './WeekView';
+import { TimeStreamView } from '../TimeStreamView/TimeStreamView';
+import { getISOWeekNumber } from '../TimeStreamView/TimeStreamCanvas';
 import styles from './TimelineView.module.css';
 
-type SubView = 'day' | 'week';
+type SubView = 'day' | 'week' | 'horizon';
 
 interface TimelineViewProps {
   onOpenNote: (note: Note) => void;
@@ -40,7 +42,21 @@ function getWeekEnd(weekStart: Date): Date {
   return nextDate;
 }
 
-function formatDateLabel(date: Date, subView: SubView): string {
+function getRangeDays(z: number): number {
+  if (z <= 0.25) return 14 + (z / 0.25) * (56 - 14);
+  if (z <= 0.5) return 56 + ((z - 0.25) / 0.25) * (180 - 56);
+  if (z <= 0.75) return 180 + ((z - 0.5) / 0.25) * (365 - 180);
+  return 365 + ((z - 0.75) / 0.25) * (1095 - 365);
+}
+
+function getScaleFromZoom(z: number): 'day' | 'week' | 'month' | 'year' {
+  if (z <= 0.25) return 'day';
+  if (z <= 0.5) return 'week';
+  if (z <= 0.75) return 'month';
+  return 'year';
+}
+
+function formatDateLabel(date: Date, subView: SubView, zoomLevel: number): string {
   if (subView === 'day') {
     return date.toLocaleDateString('en-US', {
       weekday: 'short',
@@ -50,23 +66,66 @@ function formatDateLabel(date: Date, subView: SubView): string {
     });
   }
 
-  const weekStart = getWeekStart(date);
-  const weekEnd = getWeekEnd(weekStart);
-  const startStr = weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  const endStr = weekEnd.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-  return `${startStr} - ${endStr}`;
+  if (subView === 'week') {
+    const weekStart = getWeekStart(date);
+    const weekEnd = getWeekEnd(weekStart);
+    const startStr = weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const endStr = weekEnd.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+    return `${startStr} - ${endStr}`;
+  }
+
+  const rangeDays = getRangeDays(zoomLevel);
+  const halfRangeMs = (rangeDays / 2) * 86400000;
+  const viewportStart = new Date(date.getTime() - halfRangeMs);
+  const viewportEnd = new Date(date.getTime() + halfRangeMs);
+  const scale = getScaleFromZoom(zoomLevel);
+
+  if (scale === 'day') {
+    const startDay = viewportStart.toLocaleDateString('en-US', { day: '2-digit', month: 'short' });
+    const endDay = viewportEnd.toLocaleDateString('en-US', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+    const startWeek = getISOWeekNumber(viewportStart);
+    const endWeek = getISOWeekNumber(viewportEnd);
+    const weekStr = startWeek === endWeek ? `W${startWeek}` : `W${startWeek}–W${endWeek}`;
+    return `${startDay} – ${endDay} · ${weekStr}`;
+  }
+
+  if (scale === 'week') {
+    const startWeek = getISOWeekNumber(viewportStart);
+    const endWeek = getISOWeekNumber(viewportEnd);
+    const startMonthYear = viewportStart.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    const endMonthYear = viewportEnd.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    const monthYearStr = startMonthYear === endMonthYear ? startMonthYear : `${startMonthYear} – ${endMonthYear}`;
+    return `W${startWeek} – W${endWeek} · ${monthYearStr}`;
+  }
+
+  if (scale === 'month') {
+    const startMonth = viewportStart.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    const endMonth = viewportEnd.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    return startMonth === endMonth ? startMonth : `${startMonth} – ${endMonth}`;
+  }
+
+  const startYear = viewportStart.getFullYear();
+  const endYear = viewportEnd.getFullYear();
+  return startYear === endYear ? `${startYear}` : `${startYear} – ${endYear}`;
 }
 
 export const TimelineView: React.FC<TimelineViewProps> = ({ onOpenNote, notes, fetchNotes, cryptoKey, showCompleted = false }) => {
   const [subView, setSubView] = useState<SubView>('day');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [zoomLevel, setZoomLevel] = useState<number>(0.1);
   const [tasksByDate, setTasksByDate] = useState<Record<string, TimelineTask[]>>({});
   const [weekLayout, setWeekLayout] = useState<'horizontal' | 'vertical'>('horizontal');
   const [loading, setLoading] = useState(false);
+
+  const zoomScale = getScaleFromZoom(zoomLevel);
 
   const getDateRange = useCallback((): { start: string; end: string } => {
     if (subView === 'day') {
@@ -117,8 +176,10 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ onOpenNote, notes, f
   }, [getDateRange, cryptoKey]);
 
   useEffect(() => {
-    fetchTimeline();
-  }, [fetchTimeline]);
+    if (subView !== 'horizon') {
+      fetchTimeline();
+    }
+  }, [fetchTimeline, subView]);
 
   useEffect(() => {
     setTasksByDate((prev) => {
@@ -150,15 +211,37 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ onOpenNote, notes, f
   const goToToday = () => setSelectedDate(new Date());
 
   const goPrev = () => {
-    const nextDate = new Date(selectedDate);
-    nextDate.setDate(nextDate.getDate() - (subView === 'day' ? 1 : 7));
-    setSelectedDate(nextDate);
+    if (subView === 'day') {
+      const nextDate = new Date(selectedDate);
+      nextDate.setDate(nextDate.getDate() - 1);
+      setSelectedDate(nextDate);
+    } else if (subView === 'week') {
+      const nextDate = new Date(selectedDate);
+      nextDate.setDate(nextDate.getDate() - 7);
+      setSelectedDate(nextDate);
+    } else {
+      const rangeDays = getRangeDays(zoomLevel);
+      const halfRangeMs = (rangeDays / 2) * 86400000;
+      const shiftMs = halfRangeMs * 0.75 * -1;
+      setSelectedDate(new Date(selectedDate.getTime() + shiftMs));
+    }
   };
 
   const goNext = () => {
-    const nextDate = new Date(selectedDate);
-    nextDate.setDate(nextDate.getDate() + (subView === 'day' ? 1 : 7));
-    setSelectedDate(nextDate);
+    if (subView === 'day') {
+      const nextDate = new Date(selectedDate);
+      nextDate.setDate(nextDate.getDate() + 1);
+      setSelectedDate(nextDate);
+    } else if (subView === 'week') {
+      const nextDate = new Date(selectedDate);
+      nextDate.setDate(nextDate.getDate() + 7);
+      setSelectedDate(nextDate);
+    } else {
+      const rangeDays = getRangeDays(zoomLevel);
+      const halfRangeMs = (rangeDays / 2) * 86400000;
+      const shiftMs = halfRangeMs * 0.75;
+      setSelectedDate(new Date(selectedDate.getTime() + shiftMs));
+    }
   };
 
   const handleStatusChange = async (taskId: string, newStatus: string, occurrenceId?: string | null) => {
@@ -252,7 +335,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ onOpenNote, notes, f
             <ChevronRight size={18} />
           </button>
           <div className={styles.dateLabelContainer}>
-            <span className={styles.dateLabel}>{formatDateLabel(selectedDate, subView)}</span>
+            <span className={styles.dateLabel}>{formatDateLabel(selectedDate, subView, zoomLevel)}</span>
             <div className={styles.datePickerBtn} title="Select Date">
               <Calendar size={16} />
               <input
@@ -298,6 +381,56 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ onOpenNote, notes, f
               </button>
             </div>
           )}
+
+          {subView === 'horizon' && (
+            <div className={styles.horizonZoomWrapper}>
+              <div className={styles.zoomLabels}>
+                <button
+                  type="button"
+                  className={`${styles.zoomLabelBtn} ${zoomScale === 'day' ? styles.zoomLabelBtnActive : ''}`}
+                  onClick={() => setZoomLevel(0.1)}
+                  title="Day Scale (14 Days)"
+                >
+                  Day
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.zoomLabelBtn} ${zoomScale === 'week' ? styles.zoomLabelBtnActive : ''}`}
+                  onClick={() => setZoomLevel(0.35)}
+                  title="Week Scale (2 Months)"
+                >
+                  Week
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.zoomLabelBtn} ${zoomScale === 'month' ? styles.zoomLabelBtnActive : ''}`}
+                  onClick={() => setZoomLevel(0.6)}
+                  title="Month Scale (6 Months)"
+                >
+                  Month
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.zoomLabelBtn} ${zoomScale === 'year' ? styles.zoomLabelBtnActive : ''}`}
+                  onClick={() => setZoomLevel(0.9)}
+                  title="Year Scale (3 Years)"
+                >
+                  Year
+                </button>
+              </div>
+              <input 
+                type="range" 
+                min="0" 
+                max="1" 
+                step="0.01" 
+                value={zoomLevel} 
+                onChange={(e) => setZoomLevel(parseFloat(e.target.value))}
+                className={styles.zoomSlider}
+                title="Zoom Level"
+              />
+            </div>
+          )}
+
           <div className={styles.viewToggle}>
             <button
               className={`${styles.viewBtn} ${subView === 'day' ? styles.viewBtnActive : ''}`}
@@ -311,12 +444,31 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ onOpenNote, notes, f
             >
               Week
             </button>
+            <button
+              className={`${styles.viewBtn} ${subView === 'horizon' ? styles.viewBtnActive : ''}`}
+              onClick={() => setSubView('horizon')}
+            >
+              Horizon
+            </button>
           </div>
         </div>
       </div>
 
       <div className={styles.content}>
-        {loading ? (
+        {subView === 'horizon' ? (
+          <TimeStreamView
+            centerDate={selectedDate}
+            onCenterDateChange={setSelectedDate}
+            zoomLevel={zoomLevel}
+            onZoomChange={setZoomLevel}
+            hideControls={true}
+            onOpenNote={onOpenNote}
+            notes={notes}
+            fetchNotes={fetchNotes}
+            cryptoKey={cryptoKey}
+            showCompleted={showCompleted}
+          />
+        ) : loading ? (
           <div className={styles.emptyState}>Loading...</div>
         ) : subView === 'day' ? (
           <DayView

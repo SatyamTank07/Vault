@@ -9,6 +9,11 @@
   overflow: hidden;
 }
 
+.containerNoControls {
+  background-color: var(--surface-color);
+  border: none;
+}
+
 /* Controls Bar */
 .controls {
   display: flex;
