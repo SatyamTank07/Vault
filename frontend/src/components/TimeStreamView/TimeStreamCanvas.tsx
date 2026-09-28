@@ -343,6 +343,8 @@ export const TimeStreamCanvas: React.FC<TimeStreamCanvasProps> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewportStart.getTime(), viewportEnd.getTime(), containerWidth, viewportRangeMs, scale]);
 
+  const avgDayWidth = daySegments.length > 0 && containerWidth > 0 ? containerWidth / daySegments.length : 20;
+
   // Background Guide Lines
   const gridLines = useMemo(() => {
     const lines: { id: string; x: number; isMajor: boolean }[] = [];
@@ -510,19 +512,22 @@ export const TimeStreamCanvas: React.FC<TimeStreamCanvasProps> = ({
           </div>
         )}
 
-        {/* Tier 4: Day (shown ONLY in Day view) - SLATE / NEUTRAL */}
-        {scale === 'day' && (
+        {/* Tier 4: Day (shown ONLY when zoomed in enough that days have readable width) */}
+        {scale === 'day' && avgDayWidth >= 14 && (
           <div className={`${styles.rulerTier} ${styles.dayTier}`}>
-            {daySegments.map(seg => (
-              <div
-                key={seg.id}
-                className={`${styles.daySegment} ${seg.isToday ? styles.dayToday : ''}`}
-                style={{ left: `${seg.left}px`, width: `${seg.width}px` }}
-              >
-                <span className={styles.dayNum}>{seg.dayNum}</span>
-                <span className={styles.dayName}>{seg.dayName}</span>
-              </div>
-            ))}
+            {daySegments.map(seg => {
+              const shouldShowNum = seg.width >= 22 || (seg.width >= 14 && (parseInt(seg.dayNum, 10) % 5 === 0 || seg.dayNum === '1')) || seg.isToday;
+              return (
+                <div
+                  key={seg.id}
+                  className={`${styles.daySegment} ${seg.isToday ? styles.dayToday : ''}`}
+                  style={{ left: `${seg.left}px`, width: `${seg.width}px` }}
+                >
+                  {shouldShowNum && <span className={styles.dayNum}>{seg.dayNum}</span>}
+                  {seg.width >= 32 && <span className={styles.dayName}>{seg.dayName}</span>}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

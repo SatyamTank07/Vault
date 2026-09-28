@@ -7,7 +7,6 @@ import { DayView } from './DayView';
 import type { TimelineTask } from './TimelineTaskCard';
 import { WeekView } from './WeekView';
 import { TimeStreamView } from '../TimeStreamView/TimeStreamView';
-import { getISOWeekNumber } from '../TimeStreamView/TimeStreamCanvas';
 import styles from './TimelineView.module.css';
 
 type SubView = 'day' | 'week' | 'horizon';
@@ -85,25 +84,21 @@ function formatDateLabel(date: Date, subView: SubView, zoomLevel: number): strin
   const scale = getScaleFromZoom(zoomLevel);
 
   if (scale === 'day') {
-    const startDay = viewportStart.toLocaleDateString('en-US', { day: '2-digit', month: 'short' });
+    const startDay = viewportStart.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
     const endDay = viewportEnd.toLocaleDateString('en-US', {
-      day: '2-digit',
+      day: 'numeric',
       month: 'short',
-      year: 'numeric',
+      year: viewportStart.getFullYear() === viewportEnd.getFullYear() ? undefined : 'numeric',
     });
-    const startWeek = getISOWeekNumber(viewportStart);
-    const endWeek = getISOWeekNumber(viewportEnd);
-    const weekStr = startWeek === endWeek ? `W${startWeek}` : `W${startWeek}–W${endWeek}`;
-    return `${startDay} – ${endDay} · ${weekStr}`;
+    return `${startDay} – ${endDay}`;
   }
 
   if (scale === 'week') {
-    const startWeek = getISOWeekNumber(viewportStart);
-    const endWeek = getISOWeekNumber(viewportEnd);
-    const startMonthYear = viewportStart.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-    const endMonthYear = viewportEnd.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-    const monthYearStr = startMonthYear === endMonthYear ? startMonthYear : `${startMonthYear} – ${endMonthYear}`;
-    return `W${startWeek} – W${endWeek} · ${monthYearStr}`;
+    const startMonth = viewportStart.toLocaleDateString('en-US', { month: 'short' });
+    const endMonth = viewportEnd.toLocaleDateString('en-US', { month: 'short' });
+    const yearStr = viewportEnd.getFullYear();
+    const monthStr = startMonth === endMonth ? startMonth : `${startMonth} – ${endMonth}`;
+    return `${monthStr} ${yearStr}`;
   }
 
   if (scale === 'month') {
