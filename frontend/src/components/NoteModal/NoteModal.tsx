@@ -307,9 +307,12 @@ export const NoteModal: React.FC<NoteModalProps> = ({
     setIsPopoverOpen((prev) => !prev);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!title.trim() && !content.trim()) return;
+    if (isPopoverOpen) {
+      setIsPopoverOpen(false);
+    }
     onSave({ 
       id: currentNoteId, 
       title, 
@@ -322,6 +325,16 @@ export const NoteModal: React.FC<NoteModalProps> = ({
       recurrence_end_date: recurrenceEndDate,
     });
     onClose();
+  };
+
+  const handleMobileDoneClick = (e: React.MouseEvent) => {
+    const form = document.getElementById('note-modal-form') as HTMLFormElement | null;
+    if (form && typeof form.requestSubmit === 'function') {
+      e.preventDefault();
+      form.requestSubmit();
+    } else {
+      handleSubmit(e);
+    }
   };
 
   if (!isOpen) return null;
@@ -340,12 +353,24 @@ export const NoteModal: React.FC<NoteModalProps> = ({
     <>
       <div className={styles.overlay} onClick={handleOverlayClick}>
         <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-          {/* 1. Clean Header: quiet category indicator (if in a canvas) and close button */}
+          {/* Header & Mobile Sheet Navigation Bar */}
           <div className={styles.header}>
-            <div className={styles.categoryArea}>
-              {initialData?.canvas_name && (
+            <button
+              type="button"
+              className={styles.mobileCancelBtn}
+              onClick={handleCancelClick}
+            >
+              Cancel
+            </button>
+
+            <div className={styles.headerCenter}>
+              {initialData?.canvas_name ? (
                 <span className={styles.categoryBadge} title={`In canvas: ${initialData.canvas_name}`}>
                   {initialData.canvas_name}
+                </span>
+              ) : (
+                <span className={styles.viewIndicator}>
+                  {initialData?.id ? 'Edit Note' : 'New Note'}
                 </span>
               )}
             </div>
@@ -360,10 +385,18 @@ export const NoteModal: React.FC<NoteModalProps> = ({
               >
                 <X size={18} />
               </button>
+              <button
+                type="button"
+                className={styles.mobileSaveBtn}
+                onClick={handleMobileDoneClick}
+                disabled={!title.trim() && !content.trim()}
+              >
+                Done
+              </button>
             </div>
           </div>
 
-          <form className={styles.form} onSubmit={handleSubmit}>
+          <form id="note-modal-form" className={styles.form} onSubmit={handleSubmit}>
             {/* 2. Typography First: borderless title input directly above content */}
             <div className={styles.titleSection}>
               <input
