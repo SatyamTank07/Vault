@@ -623,55 +623,23 @@ def update_occurrence_status(db: Session, user_id: str, occurrence_id: str, data
     return occ
 
 
-def get_feedback(db: Session, user_id: str, feedback_id: str):
-    return (
-        db.query(models.Feedback)
-        .filter(models.Feedback.id == feedback_id, models.Feedback.user_id == user_id)
-        .first()
-    )
-
-
-def get_feedbacks(db: Session, user_id: str, skip: int = 0, limit: int = 100):
-    return (
-        db.query(models.Feedback)
-        .filter(models.Feedback.user_id == user_id)
-        .order_by(models.Feedback.created_at.desc())
-        .offset(skip)
-        .limit(limit)
-        .all()
-    )
-
-
 def create_feedback(db: Session, user_id: str, feedback: schemas.FeedbackCreate):
+    title = feedback.title.strip() if feedback.title else None
+    content = feedback.content.strip() if feedback.content else None
+
+    # If title and content are both the same, strip title so it does not duplicate
+    if title and content and title.casefold() == content.casefold():
+        title = None
+
     db_feedback = models.Feedback(
         user_id=user_id,
-        title=feedback.title,
-        content=feedback.content,
+        title=title,
+        content=content,
     )
     db.add(db_feedback)
     db.commit()
     db.refresh(db_feedback)
     return db_feedback
-
-
-def update_feedback(db: Session, user_id: str, feedback_id: str, feedback: schemas.FeedbackUpdate):
-    db_feedback = get_feedback(db, user_id, feedback_id)
-    if db_feedback:
-        update_data = feedback.dict(exclude_unset=True)
-        for key, value in update_data.items():
-            setattr(db_feedback, key, value)
-        db.commit()
-        db.refresh(db_feedback)
-    return db_feedback
-
-
-def delete_feedback(db: Session, user_id: str, feedback_id: str):
-    db_feedback = get_feedback(db, user_id, feedback_id)
-    if db_feedback:
-        db.delete(db_feedback)
-        db.commit()
-        return True
-    return False
 
 
 def delete_user(db: Session, user_id: str) -> bool:

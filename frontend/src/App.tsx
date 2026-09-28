@@ -3,6 +3,7 @@ import { CalendarDays, LayoutGrid, Network, LogOut, MessageSquare, Lock, Eye, Ey
 import styles from './App.module.css';
 import { CanvasView } from './components/CanvasView/CanvasView';
 import { ConfirmModal } from './components/ConfirmModal/ConfirmModal';
+import { FeedbackModal } from './components/FeedbackModal/FeedbackModal';
 import { FloatingActionButton } from './components/FloatingActionButton/FloatingActionButton';
 import { NoteModal } from './components/NoteModal/NoteModal';
 import { NoteCard, type Note } from './components/NoteCard/NoteCard';
@@ -29,6 +30,7 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
   const [wrongSecret, setWrongSecret] = useState(false);
   const [showCompleted, setShowCompleted] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
   const [recurrenceNote, setRecurrenceNote] = useState<Note | null>(null);
   const [confirmModalConfig, setConfirmModalConfig] = useState<{
     isOpen: boolean;
@@ -247,7 +249,7 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
     setConfirmModalConfig({
       isOpen: true,
       title: 'Delete Account',
-      message: 'Are you sure you want to permanently delete your account? All your notes, canvases, feedbacks, and uploaded files will be permanently erased. This action cannot be undone.',
+      message: 'Are you sure you want to permanently delete your account? All your notes, canvases, and uploaded files will be permanently erased. This action cannot be undone.',
       onConfirm: async () => {
         setConfirmModalConfig((prev) => ({ ...prev, isOpen: false }));
         try {
@@ -372,7 +374,7 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
                   className={styles.userMenuItem}
                   onClick={() => {
                     setIsUserMenuOpen(false);
-                    window.location.href = '/feedback';
+                    setIsFeedbackModalOpen(true);
                   }}
                 >
                   <MessageSquare size={16} />
@@ -490,6 +492,11 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
         initialInterval={recurrenceNote?.recurrence_interval}
         initialEndDate={recurrenceNote?.recurrence_end_date}
         scheduledDate={recurrenceNote?.scheduled_date}
+      />
+
+      <FeedbackModal
+        isOpen={isFeedbackModalOpen}
+        onClose={() => setIsFeedbackModalOpen(false)}
       />
     </div>
   );

@@ -212,17 +212,12 @@ class TimeStreamEntry(BaseModel):
 
 
 class FeedbackBase(BaseModel):
-    title: str
+    title: Optional[str] = None
     content: Optional[str] = None
 
 
 class FeedbackCreate(FeedbackBase):
     pass
-
-
-class FeedbackUpdate(BaseModel):
-    title: Optional[str] = None
-    content: Optional[str] = None
 
 
 class FeedbackResponse(FeedbackBase):
@@ -232,3 +227,4 @@ class FeedbackResponse(FeedbackBase):
 
     class Config:
         from_attributes = True
+
