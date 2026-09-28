@@ -113,6 +113,9 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
         scheduled_date: noteData.scheduled_date || null,
         scheduled_time: noteData.scheduled_time || null,
         end_date: noteData.end_date || null,
+        recurrence_rule: noteData.recurrence_rule || null,
+        recurrence_interval: noteData.recurrence_interval || 1,
+        recurrence_end_date: noteData.recurrence_end_date || null,
       };
       const encrypted = await encryptNote(payload, cryptoKey);
       const response = await apiFetch('/notes/', {
@@ -136,6 +139,9 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
         scheduled_date: noteData.scheduled_date || null,
         scheduled_time: noteData.scheduled_time || null,
         end_date: noteData.end_date || null,
+        recurrence_rule: noteData.recurrence_rule || null,
+        recurrence_interval: noteData.recurrence_interval || 1,
+        recurrence_end_date: noteData.recurrence_end_date || null,
       };
       const encrypted = await encryptNote(payload, cryptoKey);
       const response = await apiFetch(`/notes/${noteData.id}`, {

@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { Calendar, Repeat, X, Clock, ArrowRight } from 'lucide-react';
 import styles from './NoteModal.module.css';
 import type { Note } from '../NoteCard/NoteCard';
 import { TipTapEditor } from '../TipTapEditor/TipTapEditor';
@@ -13,45 +14,135 @@ interface NoteModalProps {
   cryptoKey?: CryptoKey | null;
 }
 
+function getTodayString(): string {
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const dd = String(today.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function getTomorrowString(): string {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const yyyy = tomorrow.getFullYear();
+  const mm = String(tomorrow.getMonth() + 1).padStart(2, '0');
+  const dd = String(tomorrow.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function formatSchedulePill({
+  date,
+  time,
+  endDate,
+  rule,
+  interval,
+}: {
+  date: string;
+  time: string | null;
+  endDate: string | null;
+  rule: string | null;
+  interval: number;
+}): string {
+  const [sYear, sMonth, sDay] = date.split('-').map(Number);
+  const startDateObj = new Date(sYear, sMonth - 1, sDay);
+  const currentYear = new Date().getFullYear();
+  const showYear = sYear !== currentYear;
+
+  const formattedStart = startDateObj.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    ...(showYear ? { year: 'numeric' } : {}),
+  });
+
+  let datePart = formattedStart;
+  if (endDate && endDate !== date) {
+    const [eYear, eMonth, eDay] = endDate.split('-').map(Number);
+    const endDateObj = new Date(eYear, eMonth - 1, eDay);
+    const formattedEnd = endDateObj.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      ...(eYear !== currentYear ? { year: 'numeric' } : {}),
+    });
+    datePart = `${formattedStart} – ${formattedEnd}`;
+  }
+
+  let timePart = '';
+  if (time) {
+    const [h, m] = time.split(':').map(Number);
+    const period = h >= 12 ? 'PM' : 'AM';
+    const displayH = h % 12 || 12;
+    timePart = `${displayH}:${m.toString().padStart(2, '0')} ${period}`;
+  }
+
+  let recPart = '';
+  if (rule) {
+    if (rule === 'daily') {
+      recPart = interval > 1 ? `Every ${interval} days` : 'Daily';
+    } else if (rule === 'weekly') {
+      recPart = interval > 1 ? `Every ${interval} weeks` : 'Weekly';
+    } else if (rule === 'monthly') {
+      recPart = interval > 1 ? `Every ${interval} months` : 'Monthly';
+    }
+  }
+
+  const parts = [datePart];
+  if (timePart) parts.push(timePart);
+  if (recPart) parts.push(recPart);
+
+  return parts.join(' · ');
+}
+
 export const NoteModal: React.FC<NoteModalProps> = ({
   isOpen,
   onClose,
   onSave,
   initialData,
-  isViewMode = false,
   cryptoKey,
 }) => {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [isEditing, setIsEditing] = useState(!isViewMode);
 
   const [scheduledDate, setScheduledDate] = useState<string | null>(null);
   const [scheduledTime, setScheduledTime] = useState<string | null>(null);
   const [endDate, setEndDate] = useState<string | null>(null);
+  const [recurrenceRule, setRecurrenceRule] = useState<string | null>(null);
+  const [recurrenceInterval, setRecurrenceInterval] = useState<number>(1);
+  const [recurrenceEndDate, setRecurrenceEndDate] = useState<string | null>(null);
 
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [showConfirmDiscard, setShowConfirmDiscard] = useState(false);
-  const [discardTarget, setDiscardTarget] = useState<'close' | 'view'>('close');
-  
+
+  const popoverAnchorRef = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+
   // Generate a temporary ID for new notes to use as a folder name
-  const generatedId = useMemo(() => crypto.randomUUID(), [isOpen, initialData]);
+  const [generatedId, setGeneratedId] = useState(() => crypto.randomUUID());
   const currentNoteId = initialData?.id || generatedId;
+
+  const todayStr = getTodayString();
+  const tomorrowStr = getTomorrowString();
 
   useEffect(() => {
     if (isOpen) {
+      if (!initialData?.id) {
+        setGeneratedId(crypto.randomUUID());
+      }
       setTitle(initialData?.title || '');
       setContent(initialData?.content || '');
       setScheduledDate(initialData?.scheduled_date || null);
       setScheduledTime(initialData?.scheduled_time || null);
       setEndDate(initialData?.end_date || null);
-      setIsEditing(!isViewMode);
+      setRecurrenceRule(initialData?.recurrence_rule || null);
+      setRecurrenceInterval(initialData?.recurrence_interval || 1);
+      setRecurrenceEndDate(initialData?.recurrence_end_date || null);
+      setIsPopoverOpen(false);
       setShowConfirmDiscard(false);
     }
-  }, [isOpen, initialData, isViewMode]);
+  }, [isOpen, initialData]);
 
   // Check if current form values differ from initial values
   const hasUnsavedChanges = useMemo(() => {
-    if (!isEditing) return false;
-
     const normalizeContent = (html: string) => {
       return html
         .replace(/<p>\s*<\/p>/g, '')
@@ -76,8 +167,27 @@ export const NoteModal: React.FC<NoteModalProps> = ({
     const initialEndDate = initialData?.end_date || null;
     if ((endDate || null) !== initialEndDate) return true;
 
+    const initialRecurrenceRule = initialData?.recurrence_rule || null;
+    if ((recurrenceRule || null) !== initialRecurrenceRule) return true;
+
+    const initialRecurrenceInterval = initialData?.recurrence_interval || 1;
+    if ((recurrenceInterval || 1) !== initialRecurrenceInterval) return true;
+
+    const initialRecurrenceEndDate = initialData?.recurrence_end_date || null;
+    if ((recurrenceEndDate || null) !== initialRecurrenceEndDate) return true;
+
     return false;
-  }, [isEditing, title, content, scheduledDate, scheduledTime, endDate, initialData]);
+  }, [
+    title,
+    content,
+    scheduledDate,
+    scheduledTime,
+    endDate,
+    recurrenceRule,
+    recurrenceInterval,
+    recurrenceEndDate,
+    initialData,
+  ]);
 
   // Prevent browser reload/navigation when editing with unsaved changes
   useEffect(() => {
@@ -92,7 +202,27 @@ export const NoteModal: React.FC<NoteModalProps> = ({
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [isOpen, hasUnsavedChanges]);
 
-  // Escape key handler: prompt if unsaved changes exist
+  // Click-outside listener for the scheduling popover
+  useEffect(() => {
+    if (!isPopoverOpen) return;
+
+    const handlePointerDown = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (
+        popoverRef.current &&
+        !popoverRef.current.contains(target) &&
+        popoverAnchorRef.current &&
+        !popoverAnchorRef.current.contains(target)
+      ) {
+        setIsPopoverOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, [isPopoverOpen]);
+
+  // Escape key handler: dismiss popover first, then prompt if unsaved changes exist
   useEffect(() => {
     if (!isOpen) return;
 
@@ -102,12 +232,14 @@ export const NoteModal: React.FC<NoteModalProps> = ({
           setShowConfirmDiscard(false);
           return;
         }
-        if (isEditing && hasUnsavedChanges) {
+        if (isPopoverOpen) {
           e.preventDefault();
-          setDiscardTarget(isViewMode ? 'view' : 'close');
+          setIsPopoverOpen(false);
+          return;
+        }
+        if (hasUnsavedChanges) {
+          e.preventDefault();
           setShowConfirmDiscard(true);
-        } else if (isEditing && isViewMode) {
-          setIsEditing(false);
         } else {
           onClose();
         }
@@ -116,11 +248,14 @@ export const NoteModal: React.FC<NoteModalProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, isEditing, hasUnsavedChanges, isViewMode, showConfirmDiscard, onClose]);
+  }, [isOpen, hasUnsavedChanges, isPopoverOpen, showConfirmDiscard, onClose]);
 
   const handleOverlayClick = () => {
-    if (isEditing && hasUnsavedChanges) {
-      setDiscardTarget('close');
+    if (isPopoverOpen) {
+      setIsPopoverOpen(false);
+      return;
+    }
+    if (hasUnsavedChanges) {
       setShowConfirmDiscard(true);
       return;
     }
@@ -128,8 +263,10 @@ export const NoteModal: React.FC<NoteModalProps> = ({
   };
 
   const handleCloseClick = () => {
-    if (isEditing && hasUnsavedChanges) {
-      setDiscardTarget('close');
+    if (isPopoverOpen) {
+      setIsPopoverOpen(false);
+    }
+    if (hasUnsavedChanges) {
       setShowConfirmDiscard(true);
     } else {
       onClose();
@@ -137,15 +274,11 @@ export const NoteModal: React.FC<NoteModalProps> = ({
   };
 
   const handleCancelClick = () => {
-    if (isEditing) {
-      if (hasUnsavedChanges) {
-        setDiscardTarget(isViewMode ? 'view' : 'close');
-        setShowConfirmDiscard(true);
-      } else if (isViewMode) {
-        setIsEditing(false);
-      } else {
-        onClose();
-      }
+    if (isPopoverOpen) {
+      setIsPopoverOpen(false);
+    }
+    if (hasUnsavedChanges) {
+      setShowConfirmDiscard(true);
     } else {
       onClose();
     }
@@ -153,19 +286,26 @@ export const NoteModal: React.FC<NoteModalProps> = ({
 
   const handleConfirmDiscard = () => {
     setShowConfirmDiscard(false);
-    if (discardTarget === 'view' && isViewMode) {
-      setTitle(initialData?.title || '');
-      setContent(initialData?.content || '');
-      setScheduledDate(initialData?.scheduled_date || null);
-      setScheduledTime(initialData?.scheduled_time || null);
-      setEndDate(initialData?.end_date || null);
-      setIsEditing(false);
-    } else {
-      onClose();
-    }
+    setIsPopoverOpen(false);
+    onClose();
   };
 
-  if (!isOpen) return null;
+  const handleClearSchedule = () => {
+    setScheduledDate(null);
+    setScheduledTime(null);
+    setEndDate(null);
+    setRecurrenceRule(null);
+    setRecurrenceInterval(1);
+    setRecurrenceEndDate(null);
+    setIsPopoverOpen(false);
+  };
+
+  const handleAddDateClick = () => {
+    if (!scheduledDate) {
+      setScheduledDate(todayStr);
+    }
+    setIsPopoverOpen((prev) => !prev);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -177,207 +317,395 @@ export const NoteModal: React.FC<NoteModalProps> = ({
       scheduled_date: scheduledDate,
       scheduled_time: scheduledTime,
       end_date: endDate,
+      recurrence_rule: recurrenceRule,
+      recurrence_interval: recurrenceInterval,
+      recurrence_end_date: recurrenceEndDate,
     });
-    
-    if (isViewMode) {
-      setIsEditing(false);
-    } else {
-      onClose();
-    }
+    onClose();
   };
+
+  if (!isOpen) return null;
+
+  const formattedSchedule = scheduledDate
+    ? formatSchedulePill({
+        date: scheduledDate,
+        time: scheduledTime,
+        endDate,
+        rule: recurrenceRule,
+        interval: recurrenceInterval,
+      })
+    : '';
 
   return (
     <>
       <div className={styles.overlay} onClick={handleOverlayClick}>
         <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-        <div className={styles.header}>
-          <div className={styles.headerTitleArea}>
-            <h2>{isEditing ? (initialData ? 'Edit Note' : 'Create Note') : 'View Note'}</h2>
-            
-            <div className={styles.dateSection}>
-              {isEditing ? (
-                <div className={styles.editDateControls}>
-                  <div className={styles.primaryDateWrapper}>
-                    <input
-                      type="date"
-                      className={styles.dateInput}
-                      value={scheduledDate || ''}
-                      onChange={(e) => {
-                        const newStart = e.target.value || null;
-                        setScheduledDate(newStart);
-                        if (!newStart) {
-                          setScheduledTime(null);
-                          setEndDate(null);
-                        } else if (endDate && newStart > endDate) {
-                          setEndDate(newStart);
-                        }
-                      }}
-                      title="Schedule Date"
-                    />
-                    {scheduledDate && (
-                      <button
-                        type="button"
-                        className={styles.clearDateBtn}
-                        onClick={() => {
-                          setScheduledDate(null);
-                          setScheduledTime(null);
-                          setEndDate(null);
-                        }}
-                        title="Remove date"
-                      >
-                        ✕
-                      </button>
-                    )}
+          {/* 1. Clean Header: quiet category indicator (if in a canvas) and close button */}
+          <div className={styles.header}>
+            <div className={styles.categoryArea}>
+              {initialData?.canvas_name && (
+                <span className={styles.categoryBadge} title={`In canvas: ${initialData.canvas_name}`}>
+                  {initialData.canvas_name}
+                </span>
+              )}
+            </div>
+
+            <div className={styles.headerActions}>
+              <button
+                type="button"
+                className={styles.closeBtn}
+                onClick={handleCloseClick}
+                aria-label="Close"
+                title="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+          </div>
+
+          <form className={styles.form} onSubmit={handleSubmit}>
+            {/* 2. Typography First: borderless title input directly above content */}
+            <div className={styles.titleSection}>
+              <input
+                id="note-title"
+                type="text"
+                className={styles.titleInput}
+                placeholder="Note title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                autoFocus={!initialData?.title}
+              />
+            </div>
+
+            {/* 3. Consolidated Scheduling Pill & Unified Popover */}
+            <div className={styles.metadataStrip} ref={popoverAnchorRef}>
+              {scheduledDate ? (
+                <button
+                  type="button"
+                  className={`${styles.scheduledPill} ${isPopoverOpen ? styles.pillActive : ''}`}
+                  onClick={() => setIsPopoverOpen((prev) => !prev)}
+                  title="Edit schedule"
+                >
+                  <Calendar size={13} className={styles.pillIcon} />
+                  <span>{formattedSchedule}</span>
+                  {recurrenceRule && <Repeat size={12} className={styles.pillRecurrenceIcon} />}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className={`${styles.addDatePill} ${isPopoverOpen ? styles.pillActive : ''}`}
+                  onClick={handleAddDateClick}
+                  title="Add schedule"
+                >
+                  <Calendar size={13} className={styles.pillIcon} />
+                  <span>+ Add date</span>
+                </button>
+              )}
+
+              {isPopoverOpen && (
+                <div className={styles.popover} ref={popoverRef}>
+                  <div className={styles.popoverHeader}>
+                    <div className={styles.popoverHeaderTitle}>
+                      <Calendar size={14} className={styles.popoverIcon} />
+                      <span>Schedule</span>
+                    </div>
+                    <button
+                      type="button"
+                      className={styles.popoverCloseBtn}
+                      onClick={() => setIsPopoverOpen(false)}
+                      title="Close"
+                    >
+                      <X size={14} />
+                    </button>
                   </div>
 
+                  {/* Date section */}
+                  <div className={styles.popoverSection}>
+                    <div className={styles.presetRow}>
+                      <button
+                        type="button"
+                        className={`${styles.presetBtn} ${scheduledDate === todayStr ? styles.presetBtnActive : ''}`}
+                        onClick={() => {
+                          setScheduledDate(todayStr);
+                          if (endDate && todayStr > endDate) setEndDate(todayStr);
+                        }}
+                      >
+                        Today
+                      </button>
+                      <button
+                        type="button"
+                        className={`${styles.presetBtn} ${scheduledDate === tomorrowStr ? styles.presetBtnActive : ''}`}
+                        onClick={() => {
+                          setScheduledDate(tomorrowStr);
+                          if (endDate && tomorrowStr > endDate) setEndDate(tomorrowStr);
+                        }}
+                      >
+                        Tomorrow
+                      </button>
+                    </div>
+
+                    <div className={styles.inputGroup}>
+                      <label className={styles.popoverLabel}>Date</label>
+                      <input
+                        type="date"
+                        className={styles.popoverInput}
+                        value={scheduledDate || ''}
+                        onChange={(e) => {
+                          const newDate = e.target.value || null;
+                          setScheduledDate(newDate);
+                          if (!newDate) {
+                            setScheduledTime(null);
+                            setEndDate(null);
+                            setRecurrenceRule(null);
+                            setRecurrenceEndDate(null);
+                          } else if (endDate && newDate > endDate) {
+                            setEndDate(newDate);
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Time section */}
                   {scheduledDate && (
-                    <div className={styles.optionalDateControls}>
-                      {scheduledTime !== null ? (
-                        <div className={styles.subDateWrapper}>
-                          <input
-                            type="time"
-                            className={styles.timeInput}
-                            value={scheduledTime || ''}
-                            onChange={(e) => setScheduledTime(e.target.value || null)}
-                            title="Time"
-                            autoFocus
-                          />
+                    <div className={styles.popoverSection}>
+                      <div className={styles.sectionHeader}>
+                        <label className={styles.popoverLabel}>Time</label>
+                        {scheduledTime !== null && (
                           <button
                             type="button"
-                            className={styles.subClearBtn}
+                            className={styles.removeOptionBtn}
                             onClick={() => setScheduledTime(null)}
                             title="Remove time"
                           >
-                            ✕
+                            Remove
                           </button>
+                        )}
+                      </div>
+
+                      {scheduledTime !== null ? (
+                        <div className={styles.timeInputWrapper}>
+                          <Clock size={14} className={styles.inputIcon} />
+                          <input
+                            type="time"
+                            className={styles.popoverInput}
+                            value={scheduledTime || ''}
+                            onChange={(e) => setScheduledTime(e.target.value || null)}
+                            autoFocus
+                          />
                         </div>
                       ) : (
                         <button
                           type="button"
-                          className={styles.addOptionBtn}
+                          className={styles.popoverAddOptionBtn}
                           onClick={() => setScheduledTime('09:00')}
-                          title="Add specific time"
                         >
-                          + Add Time
+                          + Add time
                         </button>
                       )}
+                    </div>
+                  )}
 
-                      {endDate !== null ? (
-                        <div className={styles.subDateWrapper}>
-                          <span className={styles.arrow}>→</span>
-                          <input
-                            type="date"
-                            className={styles.dateInput}
-                            value={endDate || ''}
-                            min={scheduledDate}
-                            onChange={(e) => setEndDate(e.target.value || null)}
-                            title="End Date"
-                            autoFocus
-                          />
+                  {/* Multi-day section */}
+                  {scheduledDate && (
+                    <div className={styles.popoverSection}>
+                      <div className={styles.sectionHeader}>
+                        <label className={styles.popoverLabel}>End Date (Multi-day)</label>
+                        {endDate !== null && (
                           <button
                             type="button"
-                            className={styles.subClearBtn}
+                            className={styles.removeOptionBtn}
                             onClick={() => setEndDate(null)}
                             title="Remove end date"
                           >
-                            ✕
+                            Remove
                           </button>
+                        )}
+                      </div>
+
+                      {endDate !== null ? (
+                        <div className={styles.endDateWrapper}>
+                          <ArrowRight size={14} className={styles.inputIcon} />
+                          <input
+                            type="date"
+                            className={styles.popoverInput}
+                            value={endDate || ''}
+                            min={scheduledDate}
+                            onChange={(e) => setEndDate(e.target.value || null)}
+                            autoFocus
+                          />
                         </div>
                       ) : (
                         <button
                           type="button"
-                          className={styles.addOptionBtn}
+                          className={styles.popoverAddOptionBtn}
                           onClick={() => setEndDate(scheduledDate)}
-                          title="Add end date for multi-day task"
                         >
                           + Multi-day
                         </button>
                       )}
                     </div>
                   )}
-                </div>
-              ) : (
-                scheduledDate && (
-                  <div className={styles.dateDisplay}>
-                    <span>📅 {new Date(scheduledDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                    {scheduledTime && <span> at {scheduledTime}</span>}
-                    {endDate && endDate !== scheduledDate && (
-                      <span> → {new Date(endDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+
+                  {/* Recurrence section */}
+                  {scheduledDate && (
+                    <div className={styles.popoverSection}>
+                      <div className={styles.sectionHeader}>
+                        <label className={styles.popoverLabel}>Recurrence</label>
+                        {recurrenceRule && (
+                          <button
+                            type="button"
+                            className={styles.removeOptionBtn}
+                            onClick={() => {
+                              setRecurrenceRule(null);
+                              setRecurrenceInterval(1);
+                              setRecurrenceEndDate(null);
+                            }}
+                            title="Remove recurrence"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+
+                      <select
+                        className={styles.popoverSelect}
+                        value={recurrenceRule || ''}
+                        onChange={(e) => {
+                          const val = e.target.value || null;
+                          setRecurrenceRule(val);
+                          if (!val) {
+                            setRecurrenceInterval(1);
+                            setRecurrenceEndDate(null);
+                          }
+                        }}
+                      >
+                        <option value="">Does not repeat</option>
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="monthly">Monthly</option>
+                      </select>
+
+                      {recurrenceRule && (
+                        <div className={styles.recurrenceDetails}>
+                          <div className={styles.intervalRow}>
+                            <span className={styles.subLabel}>Every</span>
+                            <input
+                              type="number"
+                              className={styles.intervalInput}
+                              value={recurrenceInterval}
+                              min={1}
+                              max={99}
+                              onChange={(e) => setRecurrenceInterval(Math.max(1, parseInt(e.target.value) || 1))}
+                            />
+                            <span className={styles.intervalUnit}>
+                              {recurrenceRule === 'daily'
+                                ? recurrenceInterval === 1
+                                  ? 'day'
+                                  : 'days'
+                                : recurrenceRule === 'weekly'
+                                ? recurrenceInterval === 1
+                                  ? 'week'
+                                  : 'weeks'
+                                : recurrenceInterval === 1
+                                ? 'month'
+                                : 'months'}
+                            </span>
+                          </div>
+
+                          <div className={styles.repeatUntilSection}>
+                            <span className={styles.subLabel}>Ends</span>
+                            <div className={styles.endTypeToggle}>
+                              <button
+                                type="button"
+                                className={`${styles.togglePill} ${!recurrenceEndDate ? styles.togglePillActive : ''}`}
+                                onClick={() => setRecurrenceEndDate(null)}
+                              >
+                                Forever
+                              </button>
+                              <button
+                                type="button"
+                                className={`${styles.togglePill} ${recurrenceEndDate ? styles.togglePillActive : ''}`}
+                                onClick={() => {
+                                  if (!recurrenceEndDate) {
+                                    setRecurrenceEndDate(endDate || scheduledDate || todayStr);
+                                  }
+                                }}
+                              >
+                                On date
+                              </button>
+                            </div>
+
+                            {recurrenceEndDate && (
+                              <input
+                                type="date"
+                                className={styles.popoverInput}
+                                value={recurrenceEndDate}
+                                min={scheduledDate}
+                                onChange={(e) => setRecurrenceEndDate(e.target.value || null)}
+                              />
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Popover footer */}
+                  <div className={styles.popoverFooter}>
+                    {scheduledDate && (
+                      <button
+                        type="button"
+                        className={styles.popoverClearAllBtn}
+                        onClick={handleClearSchedule}
+                      >
+                        Clear schedule
+                      </button>
                     )}
+                    <button
+                      type="button"
+                      className={styles.popoverDoneBtn}
+                      onClick={() => setIsPopoverOpen(false)}
+                    >
+                      Done
+                    </button>
                   </div>
-                )
+                </div>
               )}
             </div>
-          </div>
 
-          <div className={styles.headerActions}>
-            {!isEditing && (
-              <button 
-                type="button" 
-                className={styles.editBtn} 
-                onClick={() => setIsEditing(true)}
-                title="Edit Note"
-              >
-                ✎
-              </button>
-            )}
-            <button className={styles.closeBtn} onClick={handleCloseClick} aria-label="Close">
-              ✕
-            </button>
-          </div>
-        </div>
-
-        <form className={styles.form} onSubmit={handleSubmit}>
-          <div className={styles.inputGroup}>
-            {isEditing ? (
-              <input
-                id="note-title"
-                type="text"
-                className={styles.input}
-                placeholder="Enter Title ..."
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                autoFocus
+            <div className={styles.contentGroup}>
+              <TipTapEditor 
+                content={content} 
+                onChange={setContent} 
+                noteId={currentNoteId} 
+                readOnly={false} 
+                cryptoKey={cryptoKey}
               />
-            ) : (
-              <h1 className={styles.viewTitle}>{title || 'Untitled'}</h1>
-            )}
-          </div>
+            </div>
 
-          <div className={`${styles.inputGroup} ${styles.contentGroup}`}>
-            <TipTapEditor 
-              content={content} 
-              onChange={setContent} 
-              noteId={currentNoteId} 
-              readOnly={!isEditing} 
-              cryptoKey={cryptoKey}
-            />
-          </div>
-
-          <div className={styles.footer}>
-            <button type="button" className={styles.cancelBtn} onClick={handleCancelClick}>
-              {isEditing ? 'Cancel' : 'Close'}
-            </button>
-            {isEditing && (
+            <div className={styles.footer}>
+              <button type="button" className={styles.cancelBtn} onClick={handleCancelClick}>
+                {hasUnsavedChanges ? 'Cancel' : 'Close'}
+              </button>
               <button type="submit" className={styles.saveBtn}>
                 Save Note
               </button>
-            )}
-          </div>
-        </form>
+            </div>
+          </form>
+        </div>
       </div>
-    </div>
 
-    <ConfirmModal
-      isOpen={showConfirmDiscard}
-      title="Discard Unsaved Changes?"
-      message="You have unsaved changes in this note. Are you sure you want to discard them and exit?"
-      confirmText="Discard Changes"
-      cancelText="Keep Editing"
-      isDestructive={true}
-      onConfirm={handleConfirmDiscard}
-      onCancel={() => setShowConfirmDiscard(false)}
-    />
-  </>
+      <ConfirmModal
+        isOpen={showConfirmDiscard}
+        title="Discard Unsaved Changes?"
+        message="You have unsaved changes in this note. Are you sure you want to discard them and exit?"
+        confirmText="Discard Changes"
+        cancelText="Keep Editing"
+        isDestructive={true}
+        onConfirm={handleConfirmDiscard}
+        onCancel={() => setShowConfirmDiscard(false)}
+      />
+    </>
   );
 };

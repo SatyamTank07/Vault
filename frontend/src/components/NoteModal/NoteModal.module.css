@@ -18,157 +18,65 @@
   border-radius: 16px;
   width: 90%;
   max-width: 900px;
-  height: 90vh; /* Fixed height relative to viewport */
-  padding: 2rem;
+  height: 90vh;
+  padding: 1.5rem 2rem 1.75rem;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
   animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
-  overflow: hidden; /* Only inner content scrolls */
+  gap: 1rem;
+  overflow: hidden;
 }
 
+/* ── 1. Clean Header ── */
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  min-height: 32px;
 }
 
-.header h2 {
-  margin: 0;
-  color: var(--text-main);
-  font-size: 1.5rem;
-  font-weight: 600;
-}
-
-.headerTitleArea {
+.categoryArea {
   display: flex;
   align-items: center;
-  gap: 1.5rem;
 }
 
-.dateSection {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.editDateControls {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.primaryDateWrapper {
-  display: flex;
-  align-items: center;
-  position: relative;
-}
-
-.optionalDateControls {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.subDateWrapper {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-}
-
-.dateDisplay {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  font-size: 0.85rem;
-  color: var(--text-muted);
-  background: rgba(139, 92, 246, 0.08);
-  padding: 0.3rem 0.8rem;
-  border-radius: 9999px;
-  font-weight: 500;
-}
-
-.dateInput, .timeInput {
-  background-color: var(--bg-color, #ffffff);
-  border: 1px solid rgba(139, 92, 246, 0.2);
-  border-radius: 8px;
-  padding: 0.3rem 0.6rem;
-  color: var(--text-main);
-  font-size: 0.85rem;
-  font-family: inherit;
-  cursor: pointer;
-  outline: none;
-  transition: all 0.2s ease;
-}
-
-.dateInput:hover, .timeInput:hover {
-  border-color: var(--primary-purple);
-}
-
-.dateInput:focus, .timeInput:focus {
-  border-color: var(--primary-purple);
-  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.15);
-}
-
-.clearDateBtn, .subClearBtn {
+.categoryBadge {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  border: none;
-  background: rgba(239, 68, 68, 0.08);
-  color: var(--danger, #ef4444);
-  font-size: 0.65rem;
-  margin-left: 0.25rem;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.clearDateBtn:hover, .subClearBtn:hover {
-  background: rgba(239, 68, 68, 0.18);
-  transform: scale(1.05);
-}
-
-.addOptionBtn {
-  background: rgba(139, 92, 246, 0.08);
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   color: var(--primary-purple);
-  border: 1px dashed rgba(139, 92, 246, 0.35);
-  border-radius: 9999px;
-  padding: 0.25rem 0.65rem;
-  font-size: 0.78rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  white-space: nowrap;
+  background: rgba(139, 92, 246, 0.08);
+  border: 1px solid rgba(139, 92, 246, 0.15);
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
 }
 
-.addOptionBtn:hover {
-  background: rgba(139, 92, 246, 0.15);
-  border-style: solid;
-  border-color: var(--primary-purple);
-}
-
-.arrow {
-  color: var(--text-muted);
-  font-weight: 600;
-  font-size: 0.85rem;
+.headerActions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-left: auto;
 }
 
 .closeBtn {
   color: var(--text-muted);
-  font-size: 1.5rem;
-  padding: 0.5rem;
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
+  font-size: 1.25rem;
+  padding: 0.4rem;
+  border-radius: 8px;
+  width: 34px;
+  height: 34px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 0.2s, color 0.2s;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  cursor: pointer;
+  border: none;
+  background: transparent;
 }
 
 .closeBtn:hover {
@@ -176,84 +84,442 @@
   color: var(--text-main);
 }
 
-.headerActions {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-}
-
-.editBtn {
-  color: var(--text-muted);
-  font-size: 1.2rem;
-  padding: 0.5rem;
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color 0.2s, color 0.2s;
-}
-
-.editBtn:hover {
-  background-color: rgba(0, 0, 0, 0.05);
-  color: var(--primary-purple);
-}
-
+/* ── Form & Content ── */
 .form {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
   flex: 1;
   overflow: hidden;
+  gap: 0.75rem;
+  min-height: 0;
+}
+
+/* ── 2. Typography First ── */
+.titleSection {
+  display: flex;
+  flex-direction: column;
+  padding: 0.25rem 0 0;
+}
+
+.titleInput {
+  background: transparent;
+  border: none;
+  outline: none;
+  box-shadow: none;
+  padding: 0;
+  margin: 0;
+  font-size: 1.85rem;
+  font-weight: 700;
+  color: var(--text-main);
+  line-height: 1.25;
+  width: 100%;
+  font-family: inherit;
+  transition: color 0.15s ease;
+}
+
+.titleInput::placeholder {
+  color: var(--text-muted);
+  opacity: 0.4;
+  font-weight: 600;
+}
+
+.titleInput:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+/* ── 3. Consolidated Scheduling Pill ── */
+.metadataStrip {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.25rem;
+}
+
+.addDatePill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px dashed rgba(139, 92, 246, 0.3);
+  border-radius: 9999px;
+  padding: 0.25rem 0.65rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.addDatePill:hover,
+.addDatePill.pillActive {
+  background: rgba(139, 92, 246, 0.08);
+  color: var(--primary-purple);
+  border-style: solid;
+  border-color: var(--primary-purple);
+}
+
+.scheduledPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--primary-purple);
+  background: rgba(139, 92, 246, 0.08);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 9999px;
+  padding: 0.28rem 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.scheduledPill:hover,
+.scheduledPill.pillActive {
+  background: rgba(139, 92, 246, 0.14);
+  border-color: var(--primary-purple);
+}
+
+.pillIcon {
+  opacity: 0.85;
+  flex-shrink: 0;
+}
+
+.pillRecurrenceIcon {
+  opacity: 0.85;
+  flex-shrink: 0;
+  margin-left: 0.15rem;
+}
+
+/* ── Unified Popover ── */
+.popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 320px;
+  max-width: 90vw;
+  background: var(--surface-color);
+  border: 1px solid rgba(139, 92, 246, 0.18);
+  border-radius: 14px;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.14), 0 2px 8px rgba(0, 0, 0, 0.06);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 200;
+  animation: popoverFadeIn 0.15s ease-out;
+}
+
+@keyframes popoverFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.popoverHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(139, 92, 246, 0.08);
+}
+
+.popoverHeaderTitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.popoverIcon {
+  color: var(--primary-purple);
+}
+
+.popoverCloseBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  transition: all 0.15s ease;
+}
+
+.popoverCloseBtn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text-main);
+}
+
+.popoverSection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.presetRow {
+  display: flex;
+  gap: 6px;
+}
+
+.presetBtn {
+  flex: 1;
+  padding: 5px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--bg-color);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.presetBtn:hover {
+  color: var(--text-main);
+  border-color: rgba(139, 92, 246, 0.3);
+}
+
+.presetBtnActive {
+  background: rgba(139, 92, 246, 0.1);
+  color: var(--primary-purple);
+  border-color: var(--primary-purple);
+  font-weight: 600;
 }
 
 .inputGroup {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 4px;
 }
 
-/* Specific style for the content area to make it fill space and scroll */
+.popoverLabel {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.removeOptionBtn {
+  font-size: 0.7rem;
+  color: var(--danger, #ef4444);
+  font-weight: 500;
+  padding: 1px 4px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.removeOptionBtn:hover {
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.popoverInput,
+.popoverSelect {
+  width: 100%;
+  background-color: var(--bg-color, #ffffff);
+  border: 1px solid rgba(139, 92, 246, 0.18);
+  border-radius: 8px;
+  padding: 0.35rem 0.6rem;
+  color: var(--text-main);
+  font-size: 0.82rem;
+  font-family: inherit;
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+.popoverInput:focus,
+.popoverSelect:focus {
+  border-color: var(--primary-purple);
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.12);
+}
+
+.timeInputWrapper,
+.endDateWrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.inputIcon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.popoverAddOptionBtn {
+  align-self: flex-start;
+  font-size: 0.75rem;
+  color: var(--primary-purple);
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgba(139, 92, 246, 0.06);
+  border: 1px dashed rgba(139, 92, 246, 0.25);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.popoverAddOptionBtn:hover {
+  background: rgba(139, 92, 246, 0.12);
+  border-color: var(--primary-purple);
+}
+
+.recurrenceDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  background: rgba(139, 92, 246, 0.04);
+  border-radius: 8px;
+  border: 1px solid rgba(139, 92, 246, 0.08);
+}
+
+.intervalRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.subLabel {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.intervalInput {
+  width: 52px;
+  text-align: center;
+  background-color: var(--bg-color);
+  border: 1px solid rgba(139, 92, 246, 0.18);
+  border-radius: 6px;
+  padding: 3px 6px;
+  font-size: 0.82rem;
+  color: var(--text-main);
+  outline: none;
+}
+
+.intervalInput:focus {
+  border-color: var(--primary-purple);
+}
+
+.intervalUnit {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.repeatUntilSection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.endTypeToggle {
+  display: flex;
+  background: var(--bg-color);
+  padding: 2px;
+  border-radius: 6px;
+  border: 1px solid rgba(139, 92, 246, 0.12);
+  gap: 2px;
+}
+
+.togglePill {
+  flex: 1;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.togglePill:hover {
+  color: var(--text-main);
+}
+
+.togglePillActive {
+  background: var(--surface-color, #ffffff);
+  color: var(--primary-purple);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.popoverFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 8px;
+  border-top: 1px solid rgba(139, 92, 246, 0.08);
+}
+
+.popoverClearAllBtn {
+  font-size: 0.75rem;
+  color: var(--danger, #ef4444);
+  font-weight: 500;
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.popoverClearAllBtn:hover {
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.popoverDoneBtn {
+  margin-left: auto;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: white;
+  background: var(--primary-purple);
+  border: none;
+  padding: 5px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+
+.popoverDoneBtn:hover {
+  filter: brightness(1.1);
+}
+
+/* ── Content Area & Editor ── */
 .contentGroup {
   flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  min-height: 0; /* Important for flex child to shrink/scroll */
+  min-height: 0;
 }
 
-.inputGroup label {
-  color: var(--text-muted);
-  font-size: 0.875rem;
-  font-weight: 500;
-}
-
-.input {
-  background-color: var(--surface-color);
-  border: 1.5px solid rgba(0, 0, 0, 0.2);
-  border-radius: 8px;
-  padding: 0.75rem 1rem;
-  color: var(--text-main);
-  font-size: 1.1rem;
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.input:focus {
-  outline: none;
-  border-color: var(--primary-purple);
-  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
-}
-
-.viewTitle {
-  margin: 0;
-  padding: 0.75rem 0;
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--text-main);
-  border-bottom: 2px solid rgba(139, 92, 246, 0.1);
-}
-
+/* ── Footer ── */
 .footer {
   display: flex;
   justify-content: flex-end;
@@ -262,10 +528,13 @@
 }
 
 .cancelBtn {
-  padding: 0.75rem 1.5rem;
+  padding: 0.65rem 1.4rem;
   border-radius: 8px;
   color: var(--text-main);
   font-weight: 500;
+  cursor: pointer;
+  border: none;
+  background: transparent;
   transition: background-color 0.2s;
 }
 
@@ -276,9 +545,11 @@
 .saveBtn {
   background-color: var(--primary-purple);
   color: white;
-  padding: 0.75rem 1.5rem;
+  padding: 0.65rem 1.4rem;
   border-radius: 8px;
   font-weight: 500;
+  cursor: pointer;
+  border: none;
   transition: background-color 0.2s, transform 0.1s;
 }
 
@@ -335,7 +606,20 @@
     max-width: 100%;
     height: 100vh;
     border-radius: 0;
-    padding: 1.5rem;
+    padding: 1.25rem;
     margin: 0;
+  }
+
+  .titleInput {
+    font-size: 1.5rem;
+  }
+
+  .popover {
+    width: calc(100% - 24px);
+    position: fixed;
+    top: auto;
+    bottom: 20px;
+    left: 12px;
+    right: 12px;
   }
 }
