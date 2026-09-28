@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Calendar, Repeat, Check, ChevronDown } from 'lucide-react';
+import { Calendar, Repeat, Check, ChevronDown, Pencil, Trash2 } from 'lucide-react';
 import { useDecryptedHtml } from '../../lib/imageDecryption';
 import styles from './NoteCard.module.css';
 
@@ -154,6 +154,15 @@ export const NoteCard: React.FC<NoteCardProps> = ({
     <div
       className={`${styles.card} ${isDropdownOpen ? styles.cardDropdownOpen : ''}`}
       onClick={() => onView(note)}
+      role="button"
+      tabIndex={0}
+      aria-label={`Note: ${note.title || 'Untitled'}`}
+      onKeyDown={(event) => {
+        if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
+          event.preventDefault();
+          onView(note);
+        }
+      }}
     >
       <div className={styles.headerRow}>
         <div className={styles.titleWrapper}>
@@ -177,6 +186,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
                   className={`${styles.statusBadge} ${styles[`statusBadge_${currentStatus}`]}`}
                   onClick={handleToggleDropdown}
                   title={`Status: ${STATUS_LABELS[currentStatus]} (click to change)`}
+                  aria-label={`Status: ${STATUS_LABELS[currentStatus]} (click to change)`}
                   aria-haspopup="listbox"
                   aria-expanded={isDropdownOpen}
                 >
@@ -222,19 +232,34 @@ export const NoteCard: React.FC<NoteCardProps> = ({
           </div>
         </div>
 
-        <div className={styles.headerRight} onClick={(event) => event.stopPropagation()}>
+        <div className={styles.headerRight}>
           {note.scheduled_date && (
             <button
+              type="button"
               className={`${styles.recurrenceBtn} ${note.recurrence_rule ? styles.recurrenceBtnActive : ''}`}
               onClick={handleRecurrenceClick}
               title={buildRecurrenceTooltip(note)}
+              aria-label={buildRecurrenceTooltip(note)}
             >
               <Repeat size={13} />
             </button>
           )}
 
-          <div className={styles.scheduleWrapper} title="Set scheduled date and time">
-            <div className={`${styles.calendarBtn} ${note.scheduled_date ? styles.active : ''}`} onClick={handleCalendarClick}>
+          <div
+            className={styles.scheduleWrapper}
+            title="Set scheduled date and time"
+            onClick={handleCalendarClick}
+            role="button"
+            tabIndex={0}
+            aria-label="Set scheduled date and time"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.stopPropagation();
+                dateInputRef.current?.showPicker();
+              }
+            }}
+          >
+            <div className={`${styles.calendarBtn} ${note.scheduled_date ? styles.active : ''}`}>
               <Calendar size={14} />
               <input
                 ref={dateInputRef}
@@ -243,6 +268,8 @@ export const NoteCard: React.FC<NoteCardProps> = ({
                 value={note.scheduled_date || ''}
                 onChange={handleDateChange}
                 onClick={(event) => event.stopPropagation()}
+                tabIndex={-1}
+                aria-label="Choose date"
               />
             </div>
           </div>
@@ -263,24 +290,28 @@ export const NoteCard: React.FC<NoteCardProps> = ({
 
         <div className={styles.actions}>
           <button
+            type="button"
             className={styles.actionBtn}
             onClick={(event) => {
               event.stopPropagation();
               onEdit(note);
             }}
-            title="Edit"
+            title="Edit note"
+            aria-label="Edit note"
           >
-            ✎
+            <Pencil size={13} />
           </button>
           <button
+            type="button"
             className={`${styles.actionBtn} ${styles.deleteBtn}`}
             onClick={(event) => {
               event.stopPropagation();
               onDelete(note.id);
             }}
-            title="Delete"
+            title="Delete note"
+            aria-label="Delete note"
           >
-            ✕
+            <Trash2 size={13} />
           </button>
         </div>
       </div>

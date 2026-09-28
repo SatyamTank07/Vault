@@ -208,9 +208,134 @@
   display: none; /* Chrome/Safari/Webkit */
 }
 
+/* ── Date Ribbon ───────────────────────────────────────────── */
+.dateRibbon {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 8px 6px;
+  background: var(--surface-color);
+  border-radius: 12px;
+  border: 1px solid rgba(139, 92, 246, 0.12);
+  margin-bottom: 16px;
+  flex-shrink: 0;
+  user-select: none;
+  touch-action: pan-y;
+}
+
+.ribbonNavBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.ribbonNavBtn:hover {
+  background: rgba(139, 92, 246, 0.1);
+  color: var(--primary-purple);
+}
+
+.ribbonDays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  flex: 1;
+  align-items: center;
+}
+
+.ribbonDayBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 2px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  outline: none;
+}
+
+.ribbonDayBtn:hover {
+  background: rgba(139, 92, 246, 0.08);
+}
+
+.ribbonDayLabel {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+
+.ribbonDayNum {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-main);
+  transition: all 0.15s ease;
+}
+
+.ribbonDaySelected .ribbonDayLabel {
+  color: var(--primary-purple);
+  font-weight: 700;
+}
+
+.ribbonDaySelected .ribbonDayNum {
+  background: var(--primary-purple);
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.35);
+}
+
+.ribbonDayToday:not(.ribbonDaySelected) .ribbonDayNum {
+  border: 1.5px solid var(--primary-purple);
+  color: var(--primary-purple);
+  font-weight: 700;
+}
+
+.ribbonDotContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 5px;
+  margin-top: 2px;
+}
+
+.ribbonDot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--primary-purple);
+}
+
+.ribbonDotDone {
+  background: #10b981;
+}
+
+.ribbonDaySelected .ribbonDot {
+  background: #ffffff;
+}
+
 /* ── Day View ──────────────────────────────────────────────── */
 .dayView {
-  padding: 24px;
+  padding: 20px 24px;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -218,13 +343,42 @@
 }
 
 .dayHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   flex-shrink: 0;
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: var(--text-main);
-  margin-bottom: 20px;
+  margin-bottom: 16px;
   padding-bottom: 12px;
   border-bottom: 1px solid rgba(139, 92, 246, 0.1);
+}
+
+.dayHeaderTitleGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dayHeaderTitle {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.todayBadge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 7px;
+  border-radius: 12px;
+  background: rgba(139, 92, 246, 0.15);
+  color: var(--primary-purple);
+}
+
+.dayHeaderSub {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-muted);
 }
 
 .dayContent {
@@ -232,36 +386,31 @@
   overflow-y: auto;
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE/Edge */
+  touch-action: pan-y;
 }
 
 .dayContent::-webkit-scrollbar {
   display: none; /* Chrome/Safari/Webkit */
 }
 
-.dayHeader .dayHeaderSub {
-  font-size: 0.8rem;
-  font-weight: 400;
-  color: var(--text-muted);
-  margin-left: 8px;
+/* ── Hourly Agenda ─────────────────────────────────────────── */
+.agendaSection {
+  margin-bottom: 20px;
 }
 
-.canvasGroup {
-  margin-bottom: 24px;
-}
-
-.canvasGroupTitle {
-  font-size: 0.75rem;
-  font-weight: 600;
+.agendaSectionTitle {
+  font-size: 0.72rem;
+  font-weight: 700;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   margin-bottom: 10px;
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
-.canvasGroupTitle::before {
+.agendaSectionTitle::before {
   content: '';
   width: 6px;
   height: 6px;
@@ -270,10 +419,44 @@
   flex-shrink: 0;
 }
 
+.agendaTimeSlot {
+  margin-bottom: 14px;
+}
+
+.agendaTimeHeader {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--primary-purple);
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  letter-spacing: 0.03em;
+}
+
 .taskList {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.emptyIcon {
+  color: var(--primary-purple);
+  opacity: 0.7;
+  margin-bottom: 8px;
+}
+
+.emptyTitle {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-main);
+  margin: 0 0 4px 0;
+}
+
+.emptyHint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin: 0;
 }
 
 /* ── Week View ─────────────────────────────────────────────── */
@@ -577,73 +760,169 @@
 
 /* ── Mobile Responsiveness ─────────────────────────────────── */
 @media (max-width: 600px) {
-  /* 1. Dynamic Container Height */
+  /* 1. Dynamic Container Height & Content Flex */
   .container {
     height: auto;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
   }
 
-  /* Remove border-radius + overflow combo that causes mobile GPU glitches */
   .content {
-    border-radius: 0;
-    overflow: visible;
+    border-radius: 12px;
+    overflow: hidden;
+    flex: 1;
+    min-height: 480px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
   }
 
-  /* 2. Fix Horizontal Scroll (Keep Top Bar on Single Line & Scale Down) */
+  /* 2. Mobile Responsive Top Bar */
   .topBar {
-    flex-wrap: nowrap;
+    display: flex;
+    flex-wrap: wrap;
     justify-content: space-between;
-    gap: 6px;
+    align-items: center;
+    gap: 8px;
     padding: 8px 0;
   }
 
   .dateNav {
-    gap: 2px;
+    order: 1;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    min-width: 0;
+    flex: 0 1 auto;
   }
 
   .navBtn {
-    width: 28px;
-    height: 28px;
+    width: 26px;
+    height: 26px;
+    flex-shrink: 0;
   }
 
   .todayBtn {
-    padding: 4px 8px;
-    font-size: 0.7rem;
+    padding: 3px 6px;
+    font-size: 0.68rem;
+    flex-shrink: 0;
   }
 
   .dateLabelContainer {
-    min-width: auto;
-    gap: 4px;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    overflow: hidden;
   }
 
   .dateLabel {
-    font-size: 0.8rem;
+    font-size: 0.72rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 105px;
   }
 
   .datePickerBtn {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+  }
+
+  .rightControls {
+    order: 2;
+    display: contents;
+  }
+
+  .viewToggle {
+    order: 2;
+    padding: 2px;
+    gap: 1px;
+    flex-shrink: 0;
+  }
+
+  .viewBtn {
+    padding: 3px 6px;
+    font-size: 0.7rem;
+  }
+
+  /* Mobile Horizon Zoom Controls: Full-width second row for effortless thumb touch */
+  .horizonZoomWrapper {
+    order: 3;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 6px 10px;
+    background: var(--surface-color);
+    border-radius: 10px;
+    border: 1px solid rgba(139, 92, 246, 0.12);
+    box-sizing: border-box;
+    margin-top: 2px;
+  }
+
+  .zoomLabels {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    gap: 4px;
+  }
+
+  .zoomLabelBtn {
+    flex: 1;
+    text-align: center;
+    padding: 3px 0;
+    font-size: 11px;
+    border-radius: 6px;
+    font-weight: 600;
+  }
+
+  .zoomSlider {
+    width: 100%;
+    height: 6px;
+  }
+
+  /* 3. Optimize Day View Spacing & Date Ribbon */
+  .dateRibbon {
+    padding: 6px 4px;
+    margin-bottom: 12px;
+    border-radius: 10px;
+    gap: 2px;
+  }
+
+  .ribbonNavBtn {
     width: 24px;
     height: 24px;
   }
 
-  .viewToggle {
-    padding: 2px;
+  .ribbonDayNum {
+    width: 28px;
+    height: 28px;
+    font-size: 0.8rem;
   }
 
-  .viewBtn {
-    padding: 4px 8px;
-    font-size: 0.75rem;
+  .ribbonDayLabel {
+    font-size: 0.65rem;
   }
 
-  .horizonZoomWrapper {
-    width: 100px;
-  }
-
-  .zoomLabels {
-    display: none;
-  }
-
-  /* 3. Optimize Day View Spacing */
   .dayView {
-    padding: 12px;
+    padding: 10px 12px;
+  }
+
+  .dayHeader {
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+  }
+
+  .dayHeaderTitle {
+    font-size: 0.95rem;
+  }
+
+  .agendaSection {
+    margin-bottom: 16px;
   }
 
   /* 4. Mobile Week View (1 Column instead of 7) */
@@ -702,8 +981,11 @@
     border-radius: 50%;
   }
 
-  /* 7. Strip GPU-heavy rendering from cards on mobile */
+  /* 7. Strip GPU-heavy rendering and allow titles to wrap on mobile */
   .taskCard {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 11px 12px;
     transition: none;
     box-shadow: none;
   }
@@ -711,6 +993,16 @@
   .taskCard:hover {
     transform: none;
     box-shadow: none;
+  }
+
+  .taskTitle {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-height: 1.35;
+    word-break: break-word;
   }
 
   .taskStatusDot {

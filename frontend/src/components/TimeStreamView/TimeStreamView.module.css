@@ -1,6 +1,8 @@
 .container {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-height: 0;
   height: 100%;
   width: 100%;
   background-color: var(--bg-color);
@@ -12,6 +14,9 @@
 .containerNoControls {
   background-color: var(--surface-color);
   border: none;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
 }
 
 /* Controls Bar */
@@ -141,6 +146,8 @@
 /* Canvas Area */
 .canvasContainer {
   flex: 1;
+  min-height: 0;
+  height: 100%;
   position: relative;
   overflow: hidden;
   cursor: grab;

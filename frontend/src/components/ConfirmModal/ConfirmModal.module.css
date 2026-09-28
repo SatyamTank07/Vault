@@ -142,7 +142,7 @@
   .modal {
     width: 100%;
     max-width: 100%;
-    border-radius: 0;
+    border-radius: 16px 16px 0 0;
     position: absolute;
     bottom: 0;
     margin: 0;
@@ -152,5 +152,20 @@
   
   .overlay {
     align-items: flex-end;
+  }
+
+  .footer {
+    padding: 16px max(20px, env(safe-area-inset-right)) max(24px, calc(12px + env(safe-area-inset-bottom))) max(20px, env(safe-area-inset-left));
+    gap: 12px;
+  }
+
+  .cancelBtn,
+  .confirmBtn {
+    min-height: 44px;
+    padding: 10px 18px;
+    font-size: 0.95rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 }

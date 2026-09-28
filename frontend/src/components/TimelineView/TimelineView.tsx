@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, Lock, Columns, List } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 import { decryptNote } from '../../lib/crypto';
@@ -7,7 +7,6 @@ import { DayView } from './DayView';
 import type { TimelineTask } from './TimelineTaskCard';
 import { WeekView } from './WeekView';
 import { TimeStreamView } from '../TimeStreamView/TimeStreamView';
-import { getISOWeekNumber } from '../TimeStreamView/TimeStreamCanvas';
 import styles from './TimelineView.module.css';
 
 type SubView = 'day' | 'week' | 'horizon';
@@ -60,7 +59,7 @@ function formatDateLabel(date: Date, subView: SubView, zoomLevel: number): strin
   if (subView === 'day') {
     return date.toLocaleDateString('en-US', {
       weekday: 'short',
-      month: 'long',
+      month: 'short',
       day: 'numeric',
       year: 'numeric',
     });
@@ -85,25 +84,21 @@ function formatDateLabel(date: Date, subView: SubView, zoomLevel: number): strin
   const scale = getScaleFromZoom(zoomLevel);
 
   if (scale === 'day') {
-    const startDay = viewportStart.toLocaleDateString('en-US', { day: '2-digit', month: 'short' });
+    const startDay = viewportStart.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
     const endDay = viewportEnd.toLocaleDateString('en-US', {
-      day: '2-digit',
+      day: 'numeric',
       month: 'short',
-      year: 'numeric',
+      year: viewportStart.getFullYear() === viewportEnd.getFullYear() ? undefined : 'numeric',
     });
-    const startWeek = getISOWeekNumber(viewportStart);
-    const endWeek = getISOWeekNumber(viewportEnd);
-    const weekStr = startWeek === endWeek ? `W${startWeek}` : `W${startWeek}–W${endWeek}`;
-    return `${startDay} – ${endDay} · ${weekStr}`;
+    return `${startDay} – ${endDay}`;
   }
 
   if (scale === 'week') {
-    const startWeek = getISOWeekNumber(viewportStart);
-    const endWeek = getISOWeekNumber(viewportEnd);
-    const startMonthYear = viewportStart.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-    const endMonthYear = viewportEnd.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-    const monthYearStr = startMonthYear === endMonthYear ? startMonthYear : `${startMonthYear} – ${endMonthYear}`;
-    return `W${startWeek} – W${endWeek} · ${monthYearStr}`;
+    const startMonth = viewportStart.toLocaleDateString('en-US', { month: 'short' });
+    const endMonth = viewportEnd.toLocaleDateString('en-US', { month: 'short' });
+    const yearStr = viewportEnd.getFullYear();
+    const monthStr = startMonth === endMonth ? startMonth : `${startMonth} – ${endMonth}`;
+    return `${monthStr} ${yearStr}`;
   }
 
   if (scale === 'month') {
@@ -118,28 +113,36 @@ function formatDateLabel(date: Date, subView: SubView, zoomLevel: number): strin
 }
 
 export const TimelineView: React.FC<TimelineViewProps> = ({ onOpenNote, notes, fetchNotes, cryptoKey, showCompleted = false }) => {
-  const [subView, setSubView] = useState<SubView>('day');
+  // Default to day view on mobile screens (<= 600px), and week view on desktop
+  const [subView, setSubView] = useState<SubView>(() => {
+    if (typeof window !== 'undefined' && window.innerWidth <= 600) {
+      return 'day';
+    }
+    return 'week';
+  });
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [zoomLevel, setZoomLevel] = useState<number>(0.1);
   const [tasksByDate, setTasksByDate] = useState<Record<string, TimelineTask[]>>({});
   const [weekLayout, setWeekLayout] = useState<'horizontal' | 'vertical'>('horizontal');
   const [loading, setLoading] = useState(false);
+  const lastFetchedRange = useRef<string>('');
 
   const zoomScale = getScaleFromZoom(zoomLevel);
 
   const getDateRange = useCallback((): { start: string; end: string } => {
-    if (subView === 'day') {
-      const dateStr = toISODateString(selectedDate);
-      return { start: dateStr, end: dateStr };
-    }
-
+    // For both 'day' and 'week' subviews, fetch the whole week range.
+    // This gives the DateRibbon full task count dots and enables 0ms instant day switching.
     const weekStart = getWeekStart(selectedDate);
     const weekEnd = getWeekEnd(weekStart);
     return { start: toISODateString(weekStart), end: toISODateString(weekEnd) };
-  }, [subView, selectedDate]);
+  }, [selectedDate]);
 
-  const fetchTimeline = useCallback(async () => {
+  const fetchTimeline = useCallback(async (force = false) => {
     const { start, end } = getDateRange();
+    const rangeKey = `${start}_${end}`;
+    if (!force && lastFetchedRange.current === rangeKey) {
+      return;
+    }
     setLoading(true);
 
     try {
@@ -167,6 +170,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ onOpenNote, notes, f
         }
 
         setTasksByDate(data);
+        lastFetchedRange.current = rangeKey;
       }
     } catch (error) {
       console.error('Failed to fetch timeline:', error);
@@ -244,6 +248,18 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ onOpenNote, notes, f
     }
   };
 
+  const goPrevWeek = () => {
+    const nextDate = new Date(selectedDate);
+    nextDate.setDate(nextDate.getDate() - 7);
+    setSelectedDate(nextDate);
+  };
+
+  const goNextWeek = () => {
+    const nextDate = new Date(selectedDate);
+    nextDate.setDate(nextDate.getDate() + 7);
+    setSelectedDate(nextDate);
+  };
+
   const handleStatusChange = async (taskId: string, newStatus: string, occurrenceId?: string | null) => {
     setTasksByDate((prev) => {
       const updated = { ...prev };
@@ -272,7 +288,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ onOpenNote, notes, f
       fetchNotes();
     } catch (error) {
       console.error('Failed to update status:', error);
-      fetchTimeline();
+      fetchTimeline(true);
     }
   };
 
@@ -296,7 +312,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ onOpenNote, notes, f
       fetchNotes();
     } catch (error) {
       console.error('Failed to skip occurrence:', error);
-      fetchTimeline();
+      fetchTimeline(true);
     }
   };
 
@@ -468,12 +484,18 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ onOpenNote, notes, f
             cryptoKey={cryptoKey}
             showCompleted={showCompleted}
           />
-        ) : loading ? (
+        ) : loading && Object.keys(tasksByDate).length === 0 ? (
           <div className={styles.emptyState}>Loading...</div>
         ) : subView === 'day' ? (
           <DayView
             date={selectedDate}
             tasks={dayTasks}
+            tasksByDate={filteredTasksByDate}
+            onSelectDate={setSelectedDate}
+            onPrevDay={goPrev}
+            onNextDay={goNext}
+            onPrevWeek={goPrevWeek}
+            onNextWeek={goNextWeek}
             onOpenNote={onOpenNote}
             onStatusChange={handleStatusChange}
             onSkip={handleSkip}
