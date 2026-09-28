@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import App from './App';
-import FeedbackApp from './FeedbackApp';
 import { AuthScreen } from './components/AuthScreen/AuthScreen';
 import { VaultSecretScreen } from './components/VaultSecretScreen/VaultSecretScreen';
 import {
@@ -29,6 +28,10 @@ export default function Root() {
   const [authMessage, setAuthMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    if (window.location.pathname === '/feedback' || window.location.pathname === '/feedback/') {
+      window.history.replaceState({}, '', '/');
+    }
+
     const handleUnauthorized = () => {
       clearAuthToken();
       clearVaultSecret();
@@ -107,6 +110,7 @@ export default function Root() {
   const handleAuthenticated = (payload: AuthResponse) => {
     setAuthToken(payload.access_token);
     setCurrentUser(payload.user);
+    clearVaultSecret();
     setActiveVaultKey(null);
     clearDecryptedImageCache();
     setVaultKey(null); // Force vault secret entry after login
@@ -153,10 +157,5 @@ export default function Root() {
   }
 
   // State 3: Fully authenticated + vault unlocked → show app
-  const isFeedbackRoute = window.location.pathname === '/feedback' || window.location.pathname === '/feedback/';
-  return isFeedbackRoute ? (
-    <FeedbackApp currentUser={currentUser} onLogout={handleLogout} />
-  ) : (
-    <App currentUser={currentUser} onLogout={handleLogout} cryptoKey={vaultKey} />
-  );
+  return <App currentUser={currentUser} onLogout={handleLogout} cryptoKey={vaultKey} />;
 }

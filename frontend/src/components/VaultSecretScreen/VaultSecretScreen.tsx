@@ -23,17 +23,31 @@ interface VaultSecretScreenProps {
 
 type Phase = 'input' | 'migrating' | 'show-phrase' | 'reset-secret' | 'done';
 
+const PENDING_PHRASE_KEY = 'vault_pending_phrase';
+const PENDING_SECRET_KEY = 'vault_pending_secret';
+
 export function VaultSecretScreen({ currentUser, onUnlocked, onUserUpdated }: VaultSecretScreenProps) {
   const isFirstTime = !currentUser.has_set_vault;
   const needsMigration = currentUser.has_set_vault && !currentUser.encrypted_master_seed;
 
-  const [phase, setPhase] = useState<Phase>('input');
-  const [secret, setSecret] = useState('');
+  // Restore pending phrase if user refreshed during the phrase confirmation step
+  const savedPendingPhrase = (() => {
+    try {
+      const raw = sessionStorage.getItem(PENDING_PHRASE_KEY);
+      return raw ? (JSON.parse(raw) as string[]) : null;
+    } catch {
+      return null;
+    }
+  })();
+  const savedPendingSecret = sessionStorage.getItem(PENDING_SECRET_KEY) || '';
+
+  const [phase, setPhase] = useState<Phase>(savedPendingPhrase ? 'show-phrase' : 'input');
+  const [secret, setSecret] = useState(savedPendingSecret);
   const [confirmSecret, setConfirmSecret] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [migrationStatus, setMigrationStatus] = useState<string | null>(null);
-  const [recoveryPhrase, setRecoveryPhrase] = useState<string[]>([]);
+  const [recoveryPhrase, setRecoveryPhrase] = useState<string[]>(savedPendingPhrase || []);
   const [phraseConfirmed, setPhraseConfirmed] = useState(false);
   const [pendingNoteKey, setPendingNoteKey] = useState<CryptoKey | null>(null);
   const [isRecoveryMode, setIsRecoveryMode] = useState(false);
@@ -41,6 +55,19 @@ export function VaultSecretScreen({ currentUser, onUnlocked, onUserUpdated }: Va
   const [recoveredSeed, setRecoveredSeed] = useState<Uint8Array | null>(null);
   const [newSecret, setNewSecret] = useState('');
   const [confirmNewSecret, setConfirmNewSecret] = useState('');
+
+  React.useEffect(() => {
+    if (savedPendingPhrase && savedPendingPhrase.length === 12 && !pendingNoteKey) {
+      try {
+        const seed = phraseToSeed(savedPendingPhrase);
+        deriveNoteKey(seed).then((key) => {
+          setPendingNoteKey(key);
+        });
+      } catch (err) {
+        console.error('Failed to restore pending note key from phrase:', err);
+      }
+    }
+  }, [savedPendingPhrase, pendingNoteKey]);
 
   // ─── Submit: Vault Secret ───
   const handleSubmit = async (event: React.FormEvent) => {
@@ -160,13 +187,14 @@ export function VaultSecretScreen({ currentUser, onUnlocked, onUserUpdated }: Va
         setPendingNoteKey(noteKey);
         setPhase('show-phrase');
 
+        sessionStorage.setItem(PENDING_PHRASE_KEY, JSON.stringify(phrase));
+        sessionStorage.setItem(PENDING_SECRET_KEY, secret);
+
         onUserUpdated({
           ...currentUser,
           has_set_vault: true,
           encrypted_master_seed: encryptedSeed,
         });
-
-        setVaultSecret(secret);
       } else {
         // ── Returning user: unwrap master seed ──
         const seed = await unwrapMasterSeed(
@@ -276,6 +304,11 @@ export function VaultSecretScreen({ currentUser, onUnlocked, onUserUpdated }: Va
 
   // ─── Confirm phrase and proceed ───
   const handlePhraseConfirmed = () => {
+    sessionStorage.removeItem(PENDING_PHRASE_KEY);
+    sessionStorage.removeItem(PENDING_SECRET_KEY);
+    if (secret) {
+      setVaultSecret(secret);
+    }
     if (pendingNoteKey) {
       onUnlocked(pendingNoteKey);
     }
@@ -293,8 +326,7 @@ export function VaultSecretScreen({ currentUser, onUnlocked, onUserUpdated }: Va
           <div className={styles.brand}>
             <h1>Recovery Phrase</h1>
             <p>
-              Write down these 12 words in order. This is the <strong>only way</strong> to
-              recover your vault if you forget your secret.
+              Write down these 12 words in order. Because your Vault Secret never leaves your device, this is the <strong>only way</strong> to recover your vault if you forget your secret.
             </p>
           </div>
 
@@ -448,15 +480,32 @@ export function VaultSecretScreen({ currentUser, onUnlocked, onUserUpdated }: Va
         </div>
 
         <div className={styles.brand}>
-          <h1>Vault</h1>
+          <h1>{isFirstTime ? 'Set Your Vault Secret' : 'Vault'}</h1>
           <p>
             {isFirstTime
-              ? 'Create a secret to encrypt your notes. This secret never leaves your device.'
+              ? 'Vault uses zero-knowledge encryption to keep your notes completely private.'
               : needsMigration
-                ? 'Enter your vault secret. We\'ll set up recovery for your account.'
+                ? "Enter your vault secret. We'll set up recovery for your account."
                 : 'Enter your vault secret to decrypt your notes.'}
           </p>
         </div>
+
+        {isFirstTime && (
+          <div className={styles.narrativeBox}>
+            <div className={styles.narrativeItem}>
+              <KeyRound size={20} className={styles.narrativeIcon} />
+              <div className={styles.narrativeText}>
+                <strong>Your account password</strong> signs you in.
+              </div>
+            </div>
+            <div className={styles.narrativeItem}>
+              <ShieldCheck size={20} className={styles.narrativeIcon} />
+              <div className={styles.narrativeText}>
+                <strong>Your Vault Secret</strong> generates the private key that encrypts your thoughts on this device. We can never see or reset your secret.
+              </div>
+            </div>
+          </div>
+        )}
 
         {error && <p className={`${styles.message} ${styles.error}`}>{error}</p>}
 
@@ -478,7 +527,7 @@ export function VaultSecretScreen({ currentUser, onUnlocked, onUserUpdated }: Va
               type="password"
               value={secret}
               onChange={(e) => setSecret(e.target.value)}
-              placeholder="Enter vault secret"
+              placeholder={isFirstTime ? 'Choose a vault secret' : 'Enter vault secret'}
               autoComplete="off"
               autoFocus
               disabled={busy}
@@ -502,7 +551,7 @@ export function VaultSecretScreen({ currentUser, onUnlocked, onUserUpdated }: Va
               </div>
 
               <p className={styles.warning}>
-                ⚠️ You'll receive a 12-word recovery phrase after setup. Your secret is never stored on our server.
+                ⚠️ After this step, you will receive a 12-word recovery phrase. Store it safely—because we never store your secret, this phrase is the only way to recover your notes if forgotten.
               </p>
             </>
           )}
@@ -510,7 +559,7 @@ export function VaultSecretScreen({ currentUser, onUnlocked, onUserUpdated }: Va
           <button className={styles.submit} disabled={busy} type="submit">
             {busy
               ? (migrationStatus ? 'Encrypting...' : 'Unlocking...')
-              : (isFirstTime ? 'Create & Encrypt' : needsMigration ? 'Unlock & Setup Recovery' : 'Unlock Vault')}
+              : (isFirstTime ? 'Create Secret & Continue' : needsMigration ? 'Unlock & Setup Recovery' : 'Unlock Vault')}
           </button>
         </form>
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import styles from './AuthScreen.module.css';
 import { apiFetch, getErrorMessage, type AuthResponse } from '../../lib/api';
 
@@ -19,11 +19,13 @@ export function AuthScreen({ onAuthenticated, initialMessage }: AuthScreenProps)
   const [confirmPassword, setConfirmPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [prevInitialMessage, setPrevInitialMessage] = useState<string | null>(initialMessage ?? null);
   const [success, setSuccess] = useState<string | null>(initialMessage ?? null);
 
-  useEffect(() => {
+  if (initialMessage !== prevInitialMessage) {
+    setPrevInitialMessage(initialMessage ?? null);
     setSuccess(initialMessage ?? null);
-  }, [initialMessage]);
+  }
 
   const resetMessages = () => {
     setError(null);
@@ -87,12 +89,12 @@ export function AuthScreen({ onAuthenticated, initialMessage }: AuthScreenProps)
       );
 
       if (!response.ok) {
-        setError(await getErrorMessage(response, 'Unable to send OTP.'));
+        setError(await getErrorMessage(response, 'Unable to send verification code.'));
         return;
       }
 
       setSignupStep('verify');
-      setSuccess('OTP sent. Enter it below and choose your password.');
+      setSuccess('Verification code sent. Enter it below and choose your account password.');
     } catch {
       setError('Unable to reach the server. Please try again.');
     } finally {
@@ -213,36 +215,36 @@ export function AuthScreen({ onAuthenticated, initialMessage }: AuthScreenProps)
               />
             </div>
 
-            <p className={styles.hint}>We will verify your number with an OTP from 2Factor.in.</p>
+            <p className={styles.hint}>We will send a 6-digit verification code to your mobile number via SMS.</p>
 
             <button className={styles.submit} disabled={busy} type="submit">
-              {busy ? 'Sending OTP...' : 'Send OTP'}
+              {busy ? 'Sending Code...' : 'Send Verification Code'}
             </button>
           </form>
         ) : (
           <form className={styles.form} onSubmit={handleSignup}>
             <div className={styles.field}>
-              <label htmlFor="signup-otp">OTP</label>
+              <label htmlFor="signup-otp">Verification Code</label>
               <input
                 id="signup-otp"
                 className={styles.input}
                 type="text"
                 value={otp}
                 onChange={(event) => setOtp(event.target.value)}
-                placeholder="Enter OTP"
+                placeholder="Enter 6-digit code"
                 autoComplete="one-time-code"
               />
             </div>
 
             <div className={styles.field}>
-              <label htmlFor="signup-password">Password</label>
+              <label htmlFor="signup-password">Account Password</label>
               <input
                 id="signup-password"
                 className={styles.input}
                 type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                placeholder="Choose password"
+                placeholder="Choose account password"
                 autoComplete="new-password"
               />
             </div>
@@ -261,7 +263,7 @@ export function AuthScreen({ onAuthenticated, initialMessage }: AuthScreenProps)
             </div>
 
             <button className={styles.submit} disabled={busy} type="submit">
-              {busy ? 'Creating Account...' : 'Verify OTP & Create Account'}
+              {busy ? 'Creating Account...' : 'Verify Code & Create Account'}
             </button>
             <button className={styles.secondary} onClick={() => setSignupStep('mobile')} type="button">
               Change mobile number
