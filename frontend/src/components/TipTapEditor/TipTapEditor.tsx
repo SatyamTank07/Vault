@@ -119,6 +119,17 @@ const MenuBar: React.FC<MenuBarProps> = ({ editor, noteId, cryptoKey }) => {
 
       <button
         type="button"
+        onClick={() => editor.chain().focus().toggleTaskList().run()}
+        className={editor.isActive('taskList') ? styles.isActive : ''}
+        title="Task List"
+      >
+        <CheckSquare size={18} />
+      </button>
+
+      <div className={styles.divider} />
+
+      <button
+        type="button"
         onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
         className={editor.isActive('heading', { level: 1 }) ? styles.isActive : ''}
         title="Heading 1"
@@ -160,33 +171,6 @@ const MenuBar: React.FC<MenuBarProps> = ({ editor, noteId, cryptoKey }) => {
       >
         <ListOrdered size={18} />
       </button>
-      <button
-        type="button"
-        onClick={() => editor.chain().focus().toggleTaskList().run()}
-        className={editor.isActive('taskList') ? styles.isActive : ''}
-        title="Task List"
-      >
-        <CheckSquare size={18} />
-      </button>
-
-      <div className={styles.divider} />
-
-      <button
-        type="button"
-        onClick={() => editor.chain().focus().toggleBlockquote().run()}
-        className={editor.isActive('blockquote') ? styles.isActive : ''}
-        title="Quote"
-      >
-        <Quote size={18} />
-      </button>
-      <button
-        type="button"
-        onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-        className={editor.isActive('codeBlock') ? styles.isActive : ''}
-        title="Code Block"
-      >
-        <Code size={18} />
-      </button>
 
       <div className={styles.divider} />
 
@@ -210,6 +194,25 @@ const MenuBar: React.FC<MenuBarProps> = ({ editor, noteId, cryptoKey }) => {
         title="Upload Image"
       >
         <ImageIcon size={18} />
+      </button>
+
+      <div className={styles.divider} />
+
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().toggleBlockquote().run()}
+        className={editor.isActive('blockquote') ? styles.isActive : ''}
+        title="Quote"
+      >
+        <Quote size={18} />
+      </button>
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+        className={editor.isActive('codeBlock') ? styles.isActive : ''}
+        title="Code Block"
+      >
+        <Code size={18} />
       </button>
     </div>
   );
