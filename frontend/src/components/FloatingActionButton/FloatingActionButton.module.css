@@ -35,14 +35,15 @@
 
 @media (max-width: 600px) {
   .fab {
-    width: 56px;
-    height: 56px;
+    width: 52px;
+    height: 52px;
     right: 1rem;
-    bottom: 1rem;
-    box-shadow: 0 8px 20px rgba(139, 92, 246, 0.32);
+    bottom: calc(max(1rem, env(safe-area-inset-bottom)) + 3.75rem);
+    box-shadow: 0 8px 20px rgba(139, 92, 246, 0.35);
+    z-index: 101;
   }
 
   .icon {
-    font-size: 30px;
+    font-size: 28px;
   }
 }
