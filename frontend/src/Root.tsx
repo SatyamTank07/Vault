@@ -107,6 +107,7 @@ export default function Root() {
   const handleAuthenticated = (payload: AuthResponse) => {
     setAuthToken(payload.access_token);
     setCurrentUser(payload.user);
+    clearVaultSecret();
     setActiveVaultKey(null);
     clearDecryptedImageCache();
     setVaultKey(null); // Force vault secret entry after login
