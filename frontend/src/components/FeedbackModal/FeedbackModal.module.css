@@ -213,6 +213,14 @@
     border-top: 1px solid rgba(139, 92, 246, 0.15);
     animation: slideUpMobile 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   }
+
+  .footer {
+    padding: 16px max(24px, env(safe-area-inset-right)) max(24px, calc(12px + env(safe-area-inset-bottom))) max(24px, env(safe-area-inset-left));
+  }
+
+  .successView {
+    padding-bottom: max(36px, calc(16px + env(safe-area-inset-bottom)));
+  }
 }
 
 @keyframes slideUpMobile {

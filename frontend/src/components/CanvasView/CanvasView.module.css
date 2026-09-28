@@ -76,6 +76,7 @@
 @media (max-width: 600px) {
   .container {
     height: calc(100vh - 160px);
+    height: calc(100dvh - 160px);
     min-height: 400px;
     display: flex;
     flex-direction: column;
@@ -83,6 +84,7 @@
   
   .canvasArea {
     height: calc(100vh - 220px);
+    height: calc(100dvh - 220px);
     min-height: 400px;
     width: 100%;
     flex: none;

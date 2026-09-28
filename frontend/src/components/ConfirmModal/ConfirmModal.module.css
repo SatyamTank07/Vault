@@ -155,7 +155,7 @@
   }
 
   .footer {
-    padding: 16px 20px 24px;
+    padding: 16px max(20px, env(safe-area-inset-right)) max(24px, calc(12px + env(safe-area-inset-bottom))) max(20px, env(safe-area-inset-left));
     gap: 12px;
   }
 

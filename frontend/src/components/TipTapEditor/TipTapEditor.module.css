@@ -74,6 +74,7 @@
   left: 50%;
   transform: translate(-50%, -50%) scale(1.5);
   max-height: 90vh;
+  max-height: 90dvh;
   max-width: 90vw;
   z-index: 9999;
   cursor: zoom-out;
