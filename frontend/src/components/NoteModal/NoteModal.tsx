@@ -115,6 +115,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
 
   const popoverAnchorRef = useRef<HTMLDivElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
+  const backdropRef = useRef<HTMLDivElement>(null);
 
   // Generate a temporary ID for new notes to use as a folder name
   const [generatedId, setGeneratedId] = useState(() => crypto.randomUUID());
@@ -208,6 +209,10 @@ export const NoteModal: React.FC<NoteModalProps> = ({
 
     const handlePointerDown = (e: MouseEvent) => {
       const target = e.target as Node;
+      if (backdropRef.current && backdropRef.current.contains(target)) {
+        setIsPopoverOpen(false);
+        return;
+      }
       if (
         popoverRef.current &&
         !popoverRef.current.contains(target) &&
@@ -436,8 +441,16 @@ export const NoteModal: React.FC<NoteModalProps> = ({
               )}
 
               {isPopoverOpen && (
-                <div className={styles.popover} ref={popoverRef}>
-                  <div className={styles.popoverHeader}>
+                <>
+                  <div
+                    ref={backdropRef}
+                    className={styles.popoverBackdrop}
+                    onClick={() => setIsPopoverOpen(false)}
+                    aria-hidden="true"
+                  />
+                  <div className={styles.popover} ref={popoverRef}>
+                    <div className={styles.dragHandle} aria-hidden="true" />
+                    <div className={styles.popoverHeader}>
                     <div className={styles.popoverHeaderTitle}>
                       <Calendar size={14} className={styles.popoverIcon} />
                       <span>Schedule</span>
@@ -704,7 +717,8 @@ export const NoteModal: React.FC<NoteModalProps> = ({
                     </button>
                   </div>
                 </div>
-              )}
+              </>
+            )}
             </div>
 
             <div className={styles.contentGroup}>
