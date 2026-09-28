@@ -36,11 +36,15 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
     isOpen: boolean;
     title: string;
     message: string;
+    confirmText?: string;
+    isDestructive?: boolean;
     onConfirm: () => void;
   }>({
     isOpen: false,
     title: '',
     message: '',
+    confirmText: 'Delete',
+    isDestructive: true,
     onConfirm: () => {},
   });
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -230,7 +234,9 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
     setConfirmModalConfig({
       isOpen: true,
       title: 'Delete Note',
-      message: 'Are you sure you want to delete this note?',
+      message: 'Are you sure you want to delete this note? This action cannot be undone.',
+      confirmText: 'Delete Note',
+      isDestructive: true,
       onConfirm: async () => {
         setConfirmModalConfig((prev) => ({ ...prev, isOpen: false }));
         try {
@@ -250,6 +256,8 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
       isOpen: true,
       title: 'Delete Account',
       message: 'Are you sure you want to permanently delete your account? All your notes, canvases, and uploaded files will be permanently erased. This action cannot be undone.',
+      confirmText: 'Delete Account',
+      isDestructive: true,
       onConfirm: async () => {
         setConfirmModalConfig((prev) => ({ ...prev, isOpen: false }));
         try {
@@ -477,7 +485,8 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
         message={confirmModalConfig.message}
         onConfirm={confirmModalConfig.onConfirm}
         onCancel={() => setConfirmModalConfig((prev) => ({ ...prev, isOpen: false }))}
-        confirmText="Delete"
+        confirmText={confirmModalConfig.confirmText || 'Delete'}
+        isDestructive={confirmModalConfig.isDestructive ?? true}
       />
 
       <RecurrenceModal

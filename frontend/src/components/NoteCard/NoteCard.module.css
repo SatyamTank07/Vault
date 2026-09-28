@@ -12,6 +12,13 @@
   border: 1px solid rgba(0, 0, 0, 0.05);
   min-height: 220px;
   cursor: pointer;
+  -webkit-tap-highlight-color: rgba(139, 92, 246, 0.1);
+  touch-action: manipulation;
+}
+
+.card:focus-visible {
+  outline: 2px solid var(--primary-purple);
+  outline-offset: 2px;
 }
 
 .card:hover {
@@ -71,6 +78,7 @@
 }
 
 .statusBadge {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -84,6 +92,19 @@
   transition: all 0.15s ease-in-out;
   background: transparent;
   user-select: none;
+}
+
+/* Enforce minimum 44px x 44px touch target */
+.statusBadge::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  min-width: 44px;
+  min-height: 44px;
+  width: 100%;
+  height: 100%;
 }
 
 .statusBadge_todo {
@@ -261,6 +282,7 @@
 }
 
 .scheduleWrapper {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -270,6 +292,19 @@
   border: 1px solid rgba(139, 92, 246, 0.1);
   cursor: pointer;
   transition: all 0.2s;
+}
+
+/* Enforce minimum 44px x 44px touch target */
+.scheduleWrapper::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  min-width: 44px;
+  min-height: 44px;
+  width: 100%;
+  height: 100%;
 }
 
 .scheduleWrapper:hover {
@@ -428,10 +463,11 @@
 
 .actions {
   display: flex;
-  gap: 6px;
+  gap: 12px;
   opacity: 0;
   transition: opacity 0.2s ease;
   flex-shrink: 0;
+  align-items: center;
 }
 
 .card:hover .actions {
@@ -439,11 +475,12 @@
 }
 
 .actionBtn {
+  position: relative;
   background: rgba(0, 0, 0, 0.04);
   color: var(--text-muted);
   border-radius: 6px;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -453,19 +490,37 @@
   cursor: pointer;
 }
 
+/* Enforce minimum 44px x 44px touch target */
+.actionBtn::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  min-width: 44px;
+  min-height: 44px;
+  width: 100%;
+  height: 100%;
+}
+
 .actionBtn:hover {
   background: var(--primary-purple);
   color: white;
 }
 
+.deleteBtn {
+  color: var(--text-muted);
+}
+
 .deleteBtn:hover {
-  background: var(--danger);
+  background: var(--danger, #ef4444);
   color: white;
 }
 
 /* ── Recurrence Button ─────────────────────────────────────── */
 
 .recurrenceBtn {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -480,6 +535,19 @@
   padding: 0;
   opacity: 0;
   flex-shrink: 0;
+}
+
+/* Enforce minimum 44px x 44px touch target */
+.recurrenceBtn::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  min-width: 44px;
+  min-height: 44px;
+  width: 100%;
+  height: 100%;
 }
 
 .card:hover .recurrenceBtn {
@@ -508,6 +576,20 @@
   .card {
     min-height: 0;
     padding: 1rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    transition: transform 0.1s ease;
+    -webkit-tap-highlight-color: rgba(139, 92, 246, 0.08);
+    touch-action: manipulation;
+  }
+
+  .card:active {
+    background-color: var(--surface-hover, rgba(0, 0, 0, 0.03));
+    transform: scale(0.99);
+  }
+
+  .card:hover {
+    transform: none;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
   }
 
   .headerRow {
@@ -519,44 +601,84 @@
   .headerRight {
     justify-content: flex-end;
     flex-shrink: 0;
+    gap: 10px;
+  }
+
+  .statusBadge {
+    padding: 4px 8px;
+    font-size: 0.7rem;
+  }
+
+  .statusOption {
+    min-height: 44px;
+    padding: 8px 12px;
+    font-size: 0.8rem;
+  }
+
+  /* Always visible on touchscreens */
+  .recurrenceBtn {
+    opacity: 1;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
   }
 
   .scheduleWrapper {
     max-width: none;
     overflow: visible;
-    padding: 2px 6px 2px 3px;
-    gap: 4px;
+    padding: 4px 8px;
+    gap: 6px;
+    min-height: 36px;
+  }
+
+  .calendarBtn {
+    padding: 6px;
   }
 
   .scheduledDate {
-    font-size: 0.65rem;
+    font-size: 0.7rem;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
   .timeWrapper {
-    font-size: 0.65rem;
+    font-size: 0.7rem;
   }
 
   .footer {
     gap: 0.75rem;
-    align-items: flex-start;
+    align-items: center;
     flex-wrap: wrap;
   }
 
   .actions {
     opacity: 1;
+    gap: 16px; /* Generous spacing prevents accidental adjacent taps */
   }
 
-  /* Simplify rendering: remove GPU-heavy properties on mobile */
-  .card {
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-    transition: none;
+  .actionBtn {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.04);
+    color: var(--text-main);
   }
 
-  .card:hover {
-    transform: none;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  .actionBtn:active {
+    background: var(--primary-purple);
+    color: white;
+  }
+
+  /* Safe deletion flow: clear destructive cues on touchscreens */
+  .deleteBtn {
+    color: var(--danger, #ef4444);
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+  }
+
+  .deleteBtn:active {
+    background: var(--danger, #ef4444);
+    color: white;
   }
 
   .description {
