@@ -30,6 +30,7 @@ def run_schema_migrations():
         "CREATE UNIQUE INDEX IF NOT EXISTS ix_users_mobile_number ON users (mobile_number)",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS has_set_vault BOOLEAN DEFAULT FALSE",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS encrypted_master_seed TEXT",
+        "UPDATE notes SET status = NULL WHERE scheduled_date IS NULL AND end_date IS NULL AND recurrence_rule IS NULL AND status = 'todo'",
     ]
 
     with engine.begin() as connection:

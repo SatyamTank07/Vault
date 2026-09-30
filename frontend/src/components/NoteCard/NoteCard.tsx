@@ -11,7 +11,7 @@ export interface Note {
   updated_at: string;
   scheduled_date: string | null;
   scheduled_time: string | null;
-  status: string;
+  status: string | null;
   canvas_name?: string | null;
   recurrence_rule?: string | null;
   recurrence_interval?: number;
@@ -85,8 +85,9 @@ export const NoteCard: React.FC<NoteCardProps> = ({
   const dateInputRef = useRef<HTMLInputElement>(null);
   const decryptedHtml = useDecryptedHtml(note.content || '', cryptoKey);
 
-  const currentStatus = note.status || 'todo';
-  const isDone = currentStatus === 'done';
+  const isTask = (note.status !== null && note.status !== undefined) || Boolean(note.scheduled_date);
+  const currentStatus = note.status || (note.scheduled_date ? 'todo' : 'todo');
+  const isDone = isTask && note.status === 'done';
 
   useEffect(() => {
     if (!isDropdownOpen) return;
@@ -137,7 +138,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
   const handleDateChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     event.stopPropagation();
     const newDate = event.target.value || null;
-    onUpdateSchedule?.(note.id, newDate, note.scheduled_time, currentStatus);
+    onUpdateSchedule?.(note.id, newDate, note.scheduled_time, note.status || 'todo');
   };
 
   const handleCalendarClick = (event: React.MouseEvent) => {
@@ -167,64 +168,68 @@ export const NoteCard: React.FC<NoteCardProps> = ({
       <div className={styles.headerRow}>
         <div className={styles.titleWrapper}>
           <div className={styles.titleContent}>
-            <div className={styles.badgeRow}>
-              {note.canvas_name ? (
-                <span className={styles.canvasName}>{note.canvas_name}</span>
-              ) : null}
-              <div
-                className={styles.statusDropdownWrapper}
-                ref={dropdownRef}
-                onKeyDown={(e) => {
-                  if (e.key === 'Escape') {
-                    e.stopPropagation();
-                    setIsDropdownOpen(false);
-                  }
-                }}
-              >
-                <button
-                  type="button"
-                  className={`${styles.statusBadge} ${styles[`statusBadge_${currentStatus}`]}`}
-                  onClick={handleToggleDropdown}
-                  title={`Status: ${STATUS_LABELS[currentStatus]} (click to change)`}
-                  aria-label={`Status: ${STATUS_LABELS[currentStatus]} (click to change)`}
-                  aria-haspopup="listbox"
-                  aria-expanded={isDropdownOpen}
-                >
-                  <span className={styles.statusDot} />
-                  <span className={styles.statusLabel}>{STATUS_LABELS[currentStatus]}</span>
-                  <ChevronDown
-                    size={11}
-                    className={`${styles.statusChevron} ${isDropdownOpen ? styles.statusChevronOpen : ''}`}
-                  />
-                </button>
-
-                {isDropdownOpen && (
+            {(note.canvas_name || isTask) && (
+              <div className={styles.badgeRow}>
+                {note.canvas_name ? (
+                  <span className={styles.canvasName}>{note.canvas_name}</span>
+                ) : null}
+                {isTask && (
                   <div
-                    className={styles.statusDropdownMenu}
-                    role="listbox"
-                    onClick={(e) => e.stopPropagation()}
+                    className={styles.statusDropdownWrapper}
+                    ref={dropdownRef}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') {
+                        e.stopPropagation();
+                        setIsDropdownOpen(false);
+                      }
+                    }}
                   >
-                    {STATUS_OPTIONS.map((option) => {
-                      const isSelected = option.value === currentStatus;
-                      return (
-                        <button
-                          key={option.value}
-                          type="button"
-                          role="option"
-                          aria-selected={isSelected}
-                          className={`${styles.statusOption} ${isSelected ? styles.statusOptionSelected : ''}`}
-                          onClick={(e) => handleSelectStatus(e, option.value)}
-                        >
-                          <span className={styles.optionDot} style={{ backgroundColor: option.color }} />
-                          <span className={styles.optionLabel}>{option.label}</span>
-                          {isSelected && <Check size={12} className={styles.optionCheck} />}
-                        </button>
-                      );
-                    })}
+                    <button
+                      type="button"
+                      className={`${styles.statusBadge} ${styles[`statusBadge_${currentStatus}`]}`}
+                      onClick={handleToggleDropdown}
+                      title={`Status: ${STATUS_LABELS[currentStatus] || currentStatus} (click to change)`}
+                      aria-label={`Status: ${STATUS_LABELS[currentStatus] || currentStatus} (click to change)`}
+                      aria-haspopup="listbox"
+                      aria-expanded={isDropdownOpen}
+                    >
+                      <span className={styles.statusDot} />
+                      <span className={styles.statusLabel}>{STATUS_LABELS[currentStatus] || currentStatus}</span>
+                      <ChevronDown
+                        size={11}
+                        className={`${styles.statusChevron} ${isDropdownOpen ? styles.statusChevronOpen : ''}`}
+                      />
+                    </button>
+
+                    {isDropdownOpen && (
+                      <div
+                        className={styles.statusDropdownMenu}
+                        role="listbox"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {STATUS_OPTIONS.map((option) => {
+                          const isSelected = option.value === currentStatus;
+                          return (
+                            <button
+                              key={option.value}
+                              type="button"
+                              role="option"
+                              aria-selected={isSelected}
+                              className={`${styles.statusOption} ${isSelected ? styles.statusOptionSelected : ''}`}
+                              onClick={(e) => handleSelectStatus(e, option.value)}
+                            >
+                              <span className={styles.optionDot} style={{ backgroundColor: option.color }} />
+                              <span className={styles.optionLabel}>{option.label}</span>
+                              {isSelected && <Check size={12} className={styles.optionCheck} />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
-            </div>
+            )}
 
             <div className={styles.titleRow}>
               <h3 className={`${styles.title} ${isDone ? styles.titleDone : ''}`}>{note.title || 'Untitled'}</h3>

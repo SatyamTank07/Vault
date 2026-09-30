@@ -388,6 +388,77 @@
   box-sizing: border-box;
 }
 
+/* Rhythmic Recurrence Cadence Track and Markers */
+.recurrenceTrack {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  border-top: 1px dashed rgba(139, 92, 246, 0.22);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.recurrenceTrackLabel {
+  position: absolute;
+  left: 12px;
+  top: -14px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--primary-purple);
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.rhythmicMarker {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  cursor: pointer;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.15s ease;
+  user-select: none;
+}
+
+.rhythmicMarker:hover {
+  transform: scale(1.4);
+  z-index: 10;
+}
+
+.rhythmicMarkerDone {
+  background: #10b981;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+  border: 1.5px solid #a7f3d0;
+  color: white;
+  font-size: 9px;
+  font-weight: bold;
+}
+
+.rhythmicMarkerProgress {
+  background: #f59e0b;
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.5);
+  border: 1.5px solid #fde68a;
+}
+
+.rhythmicMarkerTodo {
+  background: rgba(139, 92, 246, 0.25);
+  border: 2px solid #8b5cf6;
+  box-shadow: 0 0 6px rgba(139, 92, 246, 0.3);
+}
+
+.rhythmicMarkerDot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #8b5cf6;
+}
+
 /* Tooltip */
 .tooltip {
   position: absolute;

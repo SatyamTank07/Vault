@@ -9,6 +9,9 @@ export interface TimeStreamEvent {
   end_date: string;
   status: string;
   canvas_name: string | null;
+  is_recurring?: boolean;
+  is_span?: boolean;
+  occurrence_id?: string | null;
 }
 
 interface TimeStreamCanvasProps {
@@ -368,34 +371,43 @@ export const TimeStreamCanvas: React.FC<TimeStreamCanvasProps> = ({
     return lines;
   }, [daySegments, weekSegments, monthSegments, yearSegments, scale]);
 
-  // 2. Events Lanes Allocation (Greedy)
+  // 2. Events Lanes Allocation (Solid Spans & Rhythmic Recurrence)
   const startMs = viewportStart.getTime();
   const endMs = viewportEnd.getTime();
-  const laidOutEvents = useMemo(() => {
+  const { eventLayouts: laidOutEvents, recurringTracks } = useMemo(() => {
     const lanes: { endX: number }[] = [];
-    const eventLayouts: { event: TimeStreamEvent; x: number; width: number; lane: number }[] = [];
+    const recurringNoteLanes = new Map<string, { lane: number; title: string }>();
+    const layouts: {
+      event: TimeStreamEvent;
+      x: number;
+      width: number;
+      lane: number;
+      isRecurring: boolean;
+    }[] = [];
 
-    // Sort by start date, then longer events first
-    const sorted = [...events].sort((a, b) => {
+    // Separate solid project spans / tasks from recurring routines
+    const nonRecurring = events.filter((e) => !e.is_recurring);
+    const recurring = events.filter((e) => e.is_recurring);
+
+    // Sort non-recurring by start date, then longer events first
+    const sortedNonRec = [...nonRecurring].sort((a, b) => {
       const aStart = new Date(a.start_date).getTime();
       const bStart = new Date(b.start_date).getTime();
       if (aStart !== bStart) return aStart - bStart;
       const aDur = new Date(a.end_date).getTime() - aStart;
       const bDur = new Date(b.end_date).getTime() - bStart;
-      return bDur - aDur; // longer first
+      return bDur - aDur;
     });
 
-    sorted.forEach((ev) => {
+    sortedNonRec.forEach((ev) => {
       const sDate = new Date(ev.start_date + 'T00:00:00');
       const eDate = new Date(ev.end_date + 'T23:59:59');
-      
+
       let x = timeToX(sDate);
       let w = timeToX(eDate) - x;
 
-      // Min width for visibility
       if (w < 40) w = 40;
 
-      // Find lane (greedy)
       let placedLane = -1;
       const bufferPx = 6;
       for (let i = 0; i < lanes.length; i++) {
@@ -411,13 +423,44 @@ export const TimeStreamCanvas: React.FC<TimeStreamCanvasProps> = ({
         placedLane = lanes.length - 1;
       }
 
-      // Only layout if it's within/overlapping viewport
       if (x + w > 0 && x < containerWidth) {
-        eventLayouts.push({ event: ev, x, width: w, lane: placedLane });
+        layouts.push({ event: ev, x, width: w, lane: placedLane, isRecurring: false });
       }
     });
 
-    return eventLayouts;
+    // Lay out recurring occurrences: all occurrences of the same recurring note share the same lane
+    const recurringByNote = new Map<string, TimeStreamEvent[]>();
+    recurring.forEach((ev) => {
+      const list = recurringByNote.get(ev.note.id) || [];
+      list.push(ev);
+      recurringByNote.set(ev.note.id, list);
+    });
+
+    recurringByNote.forEach((occList, noteId) => {
+      lanes.push({ endX: containerWidth });
+      const noteLane = lanes.length - 1;
+      const title = occList[0]?.note.title || 'Recurring Routine';
+      recurringNoteLanes.set(noteId, { lane: noteLane, title });
+
+      occList.forEach((ev) => {
+        const occDate = new Date(ev.start_date + 'T12:00:00');
+        const cx = timeToX(occDate);
+        if (cx >= -20 && cx <= containerWidth + 20) {
+          layouts.push({
+            event: ev,
+            x: cx - 7,
+            width: 14,
+            lane: noteLane,
+            isRecurring: true,
+          });
+        }
+      });
+    });
+
+    return {
+      eventLayouts: layouts,
+      recurringTracks: Array.from(recurringNoteLanes.values()),
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [events, startMs, endMs, containerWidth, viewportRangeMs]);
 
@@ -539,10 +582,54 @@ export const TimeStreamCanvas: React.FC<TimeStreamCanvasProps> = ({
         </div>
       )}
 
-      {/* Event Bars */}
-      {laidOutEvents.map(({ event, x, width, lane }) => {
+      {/* Recurring Routine Cadence Baseline Tracks */}
+      {recurringTracks.map((track, i) => {
+        const yPos = 20 + track.lane * 42;
+        return (
+          <div
+            key={`track-${track.lane}-${i}`}
+            className={styles.recurrenceTrack}
+            style={{ top: `${yPos + 18}px` }}
+          >
+            <span className={styles.recurrenceTrackLabel}>{track.title}</span>
+          </div>
+        );
+      })}
+
+      {/* Event Items: Solid Project Spans or Rhythmic Cadence Markers */}
+      {laidOutEvents.map(({ event, x, width, lane, isRecurring }) => {
         const yPos = 20 + lane * 42;
-        
+
+        if (isRecurring) {
+          const isDone = event.status === 'done';
+          const isInProgress = event.status === 'in_progress';
+          return (
+            <div
+              key={`${event.id}-${event.start_date}`}
+              className={`${styles.rhythmicMarker} ${
+                isDone
+                  ? styles.rhythmicMarkerDone
+                  : isInProgress
+                    ? styles.rhythmicMarkerProgress
+                    : styles.rhythmicMarkerTodo
+              }`}
+              style={{
+                left: `${x}px`,
+                top: `${yPos + 11}px`,
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenNote(event.note);
+              }}
+              onMouseEnter={(e) => handleEventMouseEnter(e, event)}
+              onMouseLeave={() => setHoveredEvent(null)}
+              title={`${event.note.title} (${event.start_date})`}
+            >
+              {isDone ? '✓' : isInProgress ? null : <div className={styles.rhythmicMarkerDot} />}
+            </div>
+          );
+        }
+
         // Calculate offset to keep title visible on screen if bar starts off-screen
         const visibleStartX = Math.max(0, x);
         const offsetInsideBar = visibleStartX - x;
@@ -598,8 +685,8 @@ export const TimeStreamCanvas: React.FC<TimeStreamCanvasProps> = ({
             </div>
             <div className={styles.tooltipMeta}>
               <span>{STATUS_LABELS[hoveredEvent.status] || 'To Do'}</span>
-              <span style={{ fontWeight: 600, color: barStyle.color }}>
-                · {barStyle.typeLabel}
+              <span style={{ fontWeight: 600, color: hoveredEvent.is_recurring ? '#8b5cf6' : barStyle.color }}>
+                · {hoveredEvent.is_recurring ? 'Recurring Routine' : barStyle.typeLabel}
               </span>
               {hoveredEvent.canvas_name && <span> · {hoveredEvent.canvas_name}</span>}
             </div>

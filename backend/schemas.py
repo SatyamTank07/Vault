@@ -56,7 +56,7 @@ class NoteCreate(NoteBase):
     scheduled_date: Optional[date] = None
     scheduled_time: Optional[str] = None
     end_date: Optional[date] = None
-    status: Optional[str] = "todo"
+    status: Optional[str] = None
     recurrence_rule: Optional[str] = None
     recurrence_interval: Optional[int] = 1
     recurrence_end_date: Optional[date] = None
@@ -90,7 +90,7 @@ class NoteResponse(NoteBase):
     updated_at: Optional[datetime] = None
     scheduled_date: Optional[date] = None
     scheduled_time: Optional[str] = None
-    status: Optional[str] = "todo"
+    status: Optional[str] = None
     canvas_name: Optional[str] = None
     recurrence_rule: Optional[str] = None
     recurrence_interval: Optional[int] = 1
@@ -193,7 +193,13 @@ class TimelineEntry(BaseModel):
     note: NoteResponse
     scheduled_date: date
     scheduled_time: Optional[str] = None
-    status: Optional[str] = "todo"
+    status: Optional[str] = None
+    is_recurring: Optional[bool] = False
+    is_span: Optional[bool] = False
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    occurrence_id: Optional[str] = None
+    recurrence_rule: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -204,8 +210,11 @@ class TimeStreamEntry(BaseModel):
     note: NoteResponse
     start_date: date
     end_date: date
-    status: str
+    status: Optional[str] = None
     canvas_name: Optional[str] = None
+    is_recurring: Optional[bool] = False
+    is_span: Optional[bool] = False
+    occurrence_id: Optional[str] = None
 
     class Config:
         from_attributes = True

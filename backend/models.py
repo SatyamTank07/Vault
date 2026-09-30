@@ -46,7 +46,7 @@ class Note(Base):
     scheduled_date = Column(Date, nullable=True, index=True)
     scheduled_time = Column(String, nullable=True)
     end_date = Column(Date, nullable=True)
-    status = Column(String, default="todo")
+    status = Column(String, nullable=True, default=None)
     recurrence_rule = Column(String, nullable=True)
     recurrence_interval = Column(Integer, default=1)
     recurrence_end_date = Column(Date, nullable=True)

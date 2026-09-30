@@ -73,6 +73,10 @@ def create_note(db: Session, user_id: str, note: schemas.NoteCreate):
     if scheduled_date and end_date and scheduled_date > end_date:
         end_date = scheduled_date
 
+    status = note.status
+    if status is None and scheduled_date is not None:
+        status = "todo"
+
     db_note = models.Note(
         user_id=user_id,
         id=note.id if note.id else None,
@@ -81,7 +85,7 @@ def create_note(db: Session, user_id: str, note: schemas.NoteCreate):
         scheduled_date=scheduled_date,
         scheduled_time=scheduled_time,
         end_date=end_date,
-        status=note.status or "todo",
+        status=status,
         recurrence_rule=note.recurrence_rule,
         recurrence_interval=note.recurrence_interval if note.recurrence_interval is not None else 1,
         recurrence_end_date=note.recurrence_end_date,
@@ -109,6 +113,9 @@ def update_note(db: Session, user_id: str, note_id: str, note: schemas.NoteUpdat
             db_note.end_date = None
         elif db_note.end_date and db_note.scheduled_date > db_note.end_date:
             db_note.end_date = db_note.scheduled_date
+
+        if db_note.scheduled_date and db_note.status is None:
+            db_note.status = "todo"
 
         db.commit()
         db.refresh(db_note)
@@ -282,8 +289,12 @@ def update_note_schedule(db: Session, user_id: str, note_id: str, data: schemas.
 
     if data.scheduled_date is not None:
         db_note.scheduled_date = data.scheduled_date
+        if not db_note.status:
+            db_note.status = "todo"
     if data.clear_date:
         db_note.scheduled_date = None
+        db_note.scheduled_time = None
+        db_note.end_date = None
     if data.scheduled_time is not None:
         db_note.scheduled_time = data.scheduled_time
     if data.clear_time:
@@ -292,7 +303,7 @@ def update_note_schedule(db: Session, user_id: str, note_id: str, data: schemas.
         db_note.end_date = data.end_date
     if data.clear_end_date:
         db_note.end_date = None
-    if data.status:
+    if data.status is not None:
         db_note.status = data.status
 
     db.commit()
@@ -414,14 +425,30 @@ def ensure_occurrences(db: Session, note, dates: list[date]) -> list:
 
 
 def get_timeline(db: Session, user_id: str, start_date: date, end_date: date):
+    from sqlalchemy import or_, and_
+
     one_off_notes = (
         db.query(models.Note)
         .options(joinedload(models.Note.canvas_nodes).joinedload(models.CanvasNode.canvas))
         .filter(
             models.Note.user_id == user_id,
-            models.Note.scheduled_date >= start_date,
-            models.Note.scheduled_date <= end_date,
+            models.Note.scheduled_date != None,
             models.Note.recurrence_rule == None,
+            or_(
+                # Single-day notes:
+                and_(
+                    or_(models.Note.end_date == None, models.Note.end_date == models.Note.scheduled_date),
+                    models.Note.scheduled_date >= start_date,
+                    models.Note.scheduled_date <= end_date,
+                ),
+                # Multi-day spans:
+                and_(
+                    models.Note.end_date != None,
+                    models.Note.end_date > models.Note.scheduled_date,
+                    models.Note.scheduled_date <= end_date,
+                    models.Note.end_date >= start_date,
+                ),
+            ),
         )
         .order_by(models.Note.scheduled_date)
         .all()
@@ -446,30 +473,66 @@ def get_timeline(db: Session, user_id: str, start_date: date, end_date: date):
     result: dict[str, list] = {}
 
     for note in one_off_notes:
-        date_key = note.scheduled_date.isoformat()
-        result.setdefault(date_key, [])
         canvas_id = note.canvas_nodes[0].canvas_id if note.canvas_nodes else ""
-        result[date_key].append(
-            {
-                "id": note.id,
-                "canvas_id": canvas_id,
-                "canvas_name": note.canvas_name,
-                "note": {
+        note_dict = {
+            "id": note.id,
+            "title": note.title,
+            "content": note.content,
+            "created_at": note.created_at.isoformat() if note.created_at else None,
+            "updated_at": note.updated_at.isoformat() if note.updated_at else None,
+            "scheduled_date": note.scheduled_date.isoformat() if note.scheduled_date else None,
+            "scheduled_time": note.scheduled_time,
+            "end_date": note.end_date.isoformat() if note.end_date else None,
+            "status": note.status,
+            "canvas_name": note.canvas_name,
+        }
+
+        is_span = bool(note.end_date and note.end_date > note.scheduled_date)
+        if is_span:
+            span_start = max(note.scheduled_date, start_date)
+            span_end = min(note.end_date, end_date)
+            curr = span_start
+            while curr <= span_end:
+                date_key = curr.isoformat()
+                result.setdefault(date_key, [])
+                result[date_key].append(
+                    {
+                        "id": note.id,
+                        "canvas_id": canvas_id,
+                        "canvas_name": note.canvas_name,
+                        "note": note_dict,
+                        "scheduled_date": date_key,
+                        "scheduled_time": note.scheduled_time,
+                        "status": note.status or "todo",
+                        "is_recurring": False,
+                        "occurrence_id": None,
+                        "recurrence_rule": None,
+                        "is_span": True,
+                        "start_date": note.scheduled_date.isoformat(),
+                        "end_date": note.end_date.isoformat(),
+                    }
+                )
+                curr += timedelta(days=1)
+        else:
+            date_key = note.scheduled_date.isoformat()
+            result.setdefault(date_key, [])
+            result[date_key].append(
+                {
                     "id": note.id,
-                    "title": note.title,
-                    "content": note.content,
-                    "created_at": note.created_at.isoformat() if note.created_at else None,
-                    "updated_at": note.updated_at.isoformat() if note.updated_at else None,
+                    "canvas_id": canvas_id,
+                    "canvas_name": note.canvas_name,
+                    "note": note_dict,
+                    "scheduled_date": date_key,
                     "scheduled_time": note.scheduled_time,
-                },
-                "scheduled_date": note.scheduled_date.isoformat(),
-                "scheduled_time": note.scheduled_time,
-                "status": note.status or "todo",
-                "is_recurring": False,
-                "occurrence_id": None,
-                "recurrence_rule": None,
-            }
-        )
+                    "status": note.status or "todo",
+                    "is_recurring": False,
+                    "occurrence_id": None,
+                    "recurrence_rule": None,
+                    "is_span": False,
+                    "start_date": note.scheduled_date.isoformat(),
+                    "end_date": note.scheduled_date.isoformat(),
+                }
+            )
 
     for note in recurring_notes:
         occurrence_dates = expand_recurrence(note, start_date, end_date)
@@ -493,7 +556,14 @@ def get_timeline(db: Session, user_id: str, start_date: date, end_date: date):
                         "content": note.content,
                         "created_at": note.created_at.isoformat() if note.created_at else None,
                         "updated_at": note.updated_at.isoformat() if note.updated_at else None,
+                        "scheduled_date": occ.occurrence_date.isoformat(),
                         "scheduled_time": note.scheduled_time,
+                        "end_date": None,
+                        "status": occ.status or "todo",
+                        "canvas_name": note.canvas_name,
+                        "recurrence_rule": note.recurrence_rule,
+                        "recurrence_interval": note.recurrence_interval,
+                        "recurrence_end_date": note.recurrence_end_date.isoformat() if note.recurrence_end_date else None,
                     },
                     "scheduled_date": occ.occurrence_date.isoformat(),
                     "scheduled_time": note.scheduled_time,
@@ -501,38 +571,46 @@ def get_timeline(db: Session, user_id: str, start_date: date, end_date: date):
                     "is_recurring": True,
                     "occurrence_id": occ.id,
                     "recurrence_rule": note.recurrence_rule,
+                    "is_span": False,
+                    "start_date": occ.occurrence_date.isoformat(),
+                    "end_date": occ.occurrence_date.isoformat(),
                 }
             )
 
     for date_key in result:
-        result[date_key].sort(key=lambda x: x["scheduled_time"] or "23:59")
+        result[date_key].sort(key=lambda x: (not x.get("is_span", False), x["scheduled_time"] or "23:59"))
 
     return result
 
 
 def get_timestream(db: Session, user_id: str, start_date: date, end_date: date):
-    """Get all notes that overlap the given date range for the Time Stream view.
-    An event overlaps if its [scheduled_date, note.end_date] range intersects [start_date, end_date].
-    Events without end_date are treated as single-day events.
+    """Get all notes and recurring occurrences that overlap the given date range for the Time Stream view.
+    - Continuous spans and single-day tasks are queried with range overlap.
+    - Recurring routines are expanded purely in Python memory.
+    - Existing TaskOccurrence status overrides (e.g. 'done', 'skipped') are merged in memory.
+    - NEVER call db.commit() or db.add() on read.
     """
     from sqlalchemy import or_, and_
 
-    notes = (
+    # 1. Non-recurring notes (single-day and multi-day spans)
+    non_recurring_notes = (
         db.query(models.Note)
         .options(joinedload(models.Note.canvas_nodes).joinedload(models.CanvasNode.canvas))
         .filter(
             models.Note.user_id == user_id,
             models.Note.scheduled_date != None,
+            models.Note.recurrence_rule == None,
             or_(
-                # Single-day events (no end_date): scheduled_date falls within range
+                # Single-day events (no end_date or end_date == scheduled_date): scheduled_date falls within range
                 and_(
-                    models.Note.end_date == None,
+                    or_(models.Note.end_date == None, models.Note.end_date == models.Note.scheduled_date),
                     models.Note.scheduled_date >= start_date,
                     models.Note.scheduled_date <= end_date,
                 ),
                 # Multi-day events: their [scheduled_date, end_date] overlaps [start_date, end_date]
                 and_(
                     models.Note.end_date != None,
+                    models.Note.end_date > models.Note.scheduled_date,
                     models.Note.scheduled_date <= end_date,
                     models.Note.end_date >= start_date,
                 ),
@@ -542,9 +620,10 @@ def get_timestream(db: Session, user_id: str, start_date: date, end_date: date):
     )
 
     result = []
-    for note in notes:
+    for note in non_recurring_notes:
         event_start = note.scheduled_date
         event_end = note.end_date if note.end_date else note.scheduled_date
+        is_span = bool(note.end_date and note.end_date > note.scheduled_date)
 
         result.append({
             "id": note.id,
@@ -558,16 +637,88 @@ def get_timestream(db: Session, user_id: str, start_date: date, end_date: date):
                 "scheduled_time": note.scheduled_time,
                 "status": note.status or "todo",
                 "canvas_name": note.canvas_name,
-                "recurrence_rule": note.recurrence_rule,
+                "recurrence_rule": None,
                 "recurrence_interval": note.recurrence_interval,
-                "recurrence_end_date": note.recurrence_end_date.isoformat() if note.recurrence_end_date else None,
+                "recurrence_end_date": None,
                 "end_date": note.end_date.isoformat() if note.end_date else None,
             },
             "start_date": event_start.isoformat(),
             "end_date": event_end.isoformat(),
             "status": note.status or "todo",
             "canvas_name": note.canvas_name,
+            "is_recurring": False,
+            "is_span": is_span,
+            "occurrence_id": None,
         })
+
+    # 2. Recurring routines: expand in-memory without db.add / db.commit
+    recurring_notes = (
+        db.query(models.Note)
+        .options(joinedload(models.Note.canvas_nodes).joinedload(models.CanvasNode.canvas))
+        .filter(
+            models.Note.user_id == user_id,
+            models.Note.scheduled_date != None,
+            models.Note.recurrence_rule != None,
+            models.Note.scheduled_date <= end_date,
+        )
+        .all()
+    )
+    recurring_notes = [
+        note
+        for note in recurring_notes
+        if note.recurrence_end_date is None or note.recurrence_end_date >= start_date
+    ]
+
+    for note in recurring_notes:
+        occurrence_dates = expand_recurrence(note, start_date, end_date)
+        if not occurrence_dates:
+            continue
+
+        # In-memory query for existing TaskOccurrence overrides only:
+        existing_occs = {
+            occ.occurrence_date: occ
+            for occ in db.query(models.TaskOccurrence)
+            .filter(
+                models.TaskOccurrence.note_id == note.id,
+                models.TaskOccurrence.occurrence_date >= start_date,
+                models.TaskOccurrence.occurrence_date <= end_date,
+            )
+            .all()
+        }
+
+        for occ_date in occurrence_dates:
+            occ = existing_occs.get(occ_date)
+            if occ and occ.skipped:
+                continue
+
+            occ_status = occ.status if (occ and occ.status) else (note.status or "todo")
+            occ_id = occ.id if occ else None
+
+            result.append({
+                "id": f"{note.id}_{occ_date.isoformat()}",
+                "note": {
+                    "id": note.id,
+                    "title": note.title,
+                    "content": note.content,
+                    "created_at": note.created_at.isoformat() if note.created_at else None,
+                    "updated_at": note.updated_at.isoformat() if note.updated_at else None,
+                    "scheduled_date": occ_date.isoformat(),
+                    "scheduled_time": note.scheduled_time,
+                    "status": occ_status,
+                    "canvas_name": note.canvas_name,
+                    "recurrence_rule": note.recurrence_rule,
+                    "recurrence_interval": note.recurrence_interval,
+                    "recurrence_end_date": note.recurrence_end_date.isoformat() if note.recurrence_end_date else None,
+                    "end_date": None,
+                },
+                "start_date": occ_date.isoformat(),
+                "end_date": occ_date.isoformat(),
+                "status": occ_status,
+                "canvas_name": note.canvas_name,
+                "is_recurring": True,
+                "is_span": False,
+                "occurrence_id": occ_id,
+            })
 
     # Sort by start_date, then by duration (longer events first for better visual stacking)
     result.sort(key=lambda x: (x["start_date"], x["start_date"] == x["end_date"]))

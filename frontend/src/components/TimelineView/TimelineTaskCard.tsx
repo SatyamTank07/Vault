@@ -37,6 +37,9 @@ export interface TimelineTask {
   is_recurring: boolean;
   occurrence_id: string | null;
   recurrence_rule: string | null;
+  is_span?: boolean;
+  start_date?: string;
+  end_date?: string;
 }
 
 interface TimelineTaskCardProps {
