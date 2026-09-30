@@ -48,6 +48,7 @@ export const TimeStreamView: React.FC<TimeStreamViewProps> = ({
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [containerWidth, setContainerWidth] = useState<number>(1000);
   const containerRef = useRef<HTMLDivElement>(null);
+  const decryptedNotesCache = useRef<Map<string, { note: Note; updatedAt: string | null }>>(new Map());
 
   // Measure container width
   useEffect(() => {
@@ -96,15 +97,35 @@ export const TimeStreamView: React.FC<TimeStreamViewProps> = ({
         const res = await apiFetch(`/api/timestream/?start_date=${fetchStart}&end_date=${fetchEnd}`);
         if (res.ok && isMounted) {
           const data = await res.json();
-          const decryptedEvents: TimeStreamEvent[] = await Promise.all(
-            data.map(async (ev: TimeStreamEvent) => {
-              const { note: decryptedNote } = await decryptNote(ev.note, cryptoKey);
-              return {
-                ...ev,
-                note: decryptedNote,
-              };
-            })
-          );
+
+          // Refinement #2: Memoized decryption cache to ensure 60fps panning
+          const distinctNotesToDecrypt = new Map<string, Note>();
+          for (const ev of data) {
+            const cached = decryptedNotesCache.current.get(ev.note.id);
+            if (!cached || cached.updatedAt !== ev.note.updated_at) {
+              distinctNotesToDecrypt.set(ev.note.id, ev.note);
+            }
+          }
+
+          if (distinctNotesToDecrypt.size > 0) {
+            await Promise.all(
+              Array.from(distinctNotesToDecrypt.entries()).map(async ([noteId, rawNote]) => {
+                const { note: decrypted } = await decryptNote(rawNote, cryptoKey);
+                decryptedNotesCache.current.set(noteId, {
+                  note: decrypted,
+                  updatedAt: rawNote.updated_at,
+                });
+              })
+            );
+          }
+
+          const decryptedEvents: TimeStreamEvent[] = data.map((ev: TimeStreamEvent) => {
+            const cached = decryptedNotesCache.current.get(ev.note.id);
+            return {
+              ...ev,
+              note: cached ? cached.note : ev.note,
+            };
+          });
           
           let filtered = decryptedEvents;
           if (!showCompleted) {

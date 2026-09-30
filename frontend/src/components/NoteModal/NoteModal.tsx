@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Calendar, Repeat, X, Clock, ArrowRight } from 'lucide-react';
+import { Calendar, Repeat, X, Clock, ArrowRight, CheckSquare } from 'lucide-react';
 import styles from './NoteModal.module.css';
 import type { Note } from '../NoteCard/NoteCard';
 import { TipTapEditor } from '../TipTapEditor/TipTapEditor';
@@ -8,7 +8,7 @@ import { ConfirmModal } from '../ConfirmModal/ConfirmModal';
 interface NoteModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (note: Omit<Note, 'created_at' | 'updated_at' | 'status'>) => void;
+  onSave: (note: Omit<Note, 'created_at' | 'updated_at'>) => void;
   initialData?: Note | null;
   isViewMode?: boolean;
   cryptoKey?: CryptoKey | null;
@@ -102,6 +102,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
 }) => {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [status, setStatus] = useState<string | null>(null);
 
   const [scheduledDate, setScheduledDate] = useState<string | null>(null);
   const [scheduledTime, setScheduledTime] = useState<string | null>(null);
@@ -131,6 +132,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
       }
       setTitle(initialData?.title || '');
       setContent(initialData?.content || '');
+      setStatus(initialData?.status ?? null);
       setScheduledDate(initialData?.scheduled_date || null);
       setScheduledTime(initialData?.scheduled_time || null);
       setEndDate(initialData?.end_date || null);
@@ -159,6 +161,9 @@ export const NoteModal: React.FC<NoteModalProps> = ({
     const currentNormalized = normalizeContent(content || '');
     if (currentNormalized !== initialNormalized) return true;
 
+    const initialStatus = initialData?.status ?? null;
+    if ((status || null) !== initialStatus) return true;
+
     const initialScheduledDate = initialData?.scheduled_date || null;
     if ((scheduledDate || null) !== initialScheduledDate) return true;
 
@@ -181,6 +186,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
   }, [
     title,
     content,
+    status,
     scheduledDate,
     scheduledTime,
     endDate,
@@ -305,9 +311,20 @@ export const NoteModal: React.FC<NoteModalProps> = ({
     setIsPopoverOpen(false);
   };
 
+  const handleToggleTask = () => {
+    if (status !== null) {
+      setStatus(null);
+    } else {
+      setStatus('todo');
+    }
+  };
+
   const handleAddDateClick = () => {
     if (!scheduledDate) {
       setScheduledDate(todayStr);
+    }
+    if (status === null) {
+      setStatus('todo');
     }
     setIsPopoverOpen((prev) => !prev);
   };
@@ -322,6 +339,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
       id: currentNoteId, 
       title, 
       content,
+      status: status || (scheduledDate ? 'todo' : null),
       scheduled_date: scheduledDate,
       scheduled_time: scheduledTime,
       end_date: endDate,
@@ -417,6 +435,16 @@ export const NoteModal: React.FC<NoteModalProps> = ({
 
             {/* 3. Consolidated Scheduling Pill & Unified Popover */}
             <div className={styles.metadataStrip} ref={popoverAnchorRef}>
+              <button
+                type="button"
+                className={`${styles.taskTogglePill} ${status ? styles.taskTogglePillActive : ''}`}
+                onClick={handleToggleTask}
+                title={status ? 'Marked as task (click to convert to pure note)' : 'Convert to actionable task'}
+              >
+                <CheckSquare size={13} className={styles.pillIcon} />
+                <span>{status ? 'Task' : 'Make Task'}</span>
+              </button>
+
               {scheduledDate ? (
                 <button
                   type="button"
@@ -473,6 +501,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
                         className={`${styles.presetBtn} ${scheduledDate === todayStr ? styles.presetBtnActive : ''}`}
                         onClick={() => {
                           setScheduledDate(todayStr);
+                          if (status === null) setStatus('todo');
                           if (endDate && todayStr > endDate) setEndDate(todayStr);
                         }}
                       >
@@ -483,6 +512,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
                         className={`${styles.presetBtn} ${scheduledDate === tomorrowStr ? styles.presetBtnActive : ''}`}
                         onClick={() => {
                           setScheduledDate(tomorrowStr);
+                          if (status === null) setStatus('todo');
                           if (endDate && tomorrowStr > endDate) setEndDate(tomorrowStr);
                         }}
                       >
@@ -504,8 +534,11 @@ export const NoteModal: React.FC<NoteModalProps> = ({
                             setEndDate(null);
                             setRecurrenceRule(null);
                             setRecurrenceEndDate(null);
-                          } else if (endDate && newDate > endDate) {
-                            setEndDate(newDate);
+                          } else {
+                            if (status === null) setStatus('todo');
+                            if (endDate && newDate > endDate) {
+                              setEndDate(newDate);
+                            }
                           }
                         }}
                       />

@@ -112,10 +112,11 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
     fetchNotes();
   }, [fetchNotes]);
 
-  const handleCreateNote = async (noteData: Omit<Note, 'created_at' | 'updated_at' | 'status'>) => {
+  const handleCreateNote = async (noteData: Omit<Note, 'created_at' | 'updated_at'>) => {
     try {
       const payload = {
         ...noteData,
+        status: noteData.status !== undefined ? noteData.status : null,
         scheduled_date: noteData.scheduled_date || null,
         scheduled_time: noteData.scheduled_time || null,
         end_date: noteData.end_date || null,
@@ -138,10 +139,11 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
     }
   };
 
-  const handleUpdateNote = async (noteData: Omit<Note, 'created_at' | 'updated_at' | 'status'>) => {
+  const handleUpdateNote = async (noteData: Omit<Note, 'created_at' | 'updated_at'>) => {
     try {
       const payload = {
         ...noteData,
+        status: noteData.status !== undefined ? noteData.status : null,
         scheduled_date: noteData.scheduled_date || null,
         scheduled_time: noteData.scheduled_time || null,
         end_date: noteData.end_date || null,

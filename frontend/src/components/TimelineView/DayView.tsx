@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Clock, CalendarCheck2 } from 'lucide-react';
+import { Clock, CalendarCheck2, Layers, Calendar } from 'lucide-react';
 import { DateRibbon } from './DateRibbon';
 import { TimelineTaskCard, type TimelineTask } from './TimelineTaskCard';
 import type { Note } from '../NoteCard/NoteCard';
@@ -46,6 +46,16 @@ function formatTimeSlot(timeStr: string): string {
   return `${hour12}${minuteStr} ${period}`;
 }
 
+function formatSpanRange(startStr?: string, endStr?: string): string {
+  if (!startStr) return '';
+  const s = new Date(startStr + 'T00:00:00');
+  const sFormatted = s.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  if (!endStr || endStr === startStr) return sFormatted;
+  const e = new Date(endStr + 'T00:00:00');
+  const eFormatted = e.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return `${sFormatted} – ${eFormatted}`;
+}
+
 export const DayView: React.FC<DayViewProps> = ({
   date,
   tasks,
@@ -65,12 +75,15 @@ export const DayView: React.FC<DayViewProps> = ({
   const today = new Date();
   const isToday = isSameDay(date, today);
 
-  // Split tasks into all-day and timed tasks
+  // Split tasks into multi-day horizon spans, all-day tasks, and timed tasks
+  const spanTasks: TimelineTask[] = [];
   const allDayTasks: TimelineTask[] = [];
   const timedTasks: TimelineTask[] = [];
 
   for (const task of tasks) {
-    if (task.scheduled_time && task.scheduled_time.trim() !== '') {
+    if (task.is_span) {
+      spanTasks.push(task);
+    } else if (task.scheduled_time && task.scheduled_time.trim() !== '') {
       timedTasks.push(task);
     } else {
       allDayTasks.push(task);
@@ -132,7 +145,7 @@ export const DayView: React.FC<DayViewProps> = ({
           {isToday && <span className={styles.todayBadge}>Today</span>}
         </div>
         <span className={styles.dayHeaderSub}>
-          {tasks.length} task{tasks.length !== 1 ? 's' : ''}
+          {tasks.length} item{tasks.length !== 1 ? 's' : ''}
         </span>
       </div>
 
@@ -153,6 +166,48 @@ export const DayView: React.FC<DayViewProps> = ({
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         >
+          {/* Pinned All-Day Horizon Banners */}
+          {spanTasks.length > 0 && (
+            <div className={styles.horizonSection}>
+              <div className={styles.horizonSectionHeader}>
+                <Layers size={13} />
+                <span>Active Horizons ({spanTasks.length})</span>
+              </div>
+              <div className={styles.horizonBannerList}>
+                {spanTasks.map((task) => (
+                  <div
+                    key={`horizon-${task.id}`}
+                    className={styles.horizonBanner}
+                    onClick={() => onOpenNote(task.note as Note)}
+                    title={`${task.note.title} — Active Horizon (${formatSpanRange(task.start_date, task.end_date)})`}
+                  >
+                    <div className={styles.horizonBannerLeft}>
+                      <button
+                        className={`${styles.taskStatusDot} ${styles[task.status] || styles.todo}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const nextStatus = task.status === 'todo' ? 'in_progress' : task.status === 'in_progress' ? 'done' : 'todo';
+                          onStatusChange(task.id, nextStatus, task.occurrence_id);
+                        }}
+                        title={`Status: ${task.status} (click to cycle)`}
+                      />
+                      <span className={styles.horizonBannerTitle}>{task.note.title || 'Untitled'}</span>
+                      {task.canvas_name && (
+                        <span className={styles.taskCanvasName}>{task.canvas_name}</span>
+                      )}
+                    </div>
+                    <div className={styles.horizonBannerRight}>
+                      <span className={styles.horizonDateBadge}>
+                        <Calendar size={11} />
+                        <span>{formatSpanRange(task.start_date, task.end_date)}</span>
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* All Day Section */}
           {allDayTasks.length > 0 && (
             <div className={styles.agendaSection}>

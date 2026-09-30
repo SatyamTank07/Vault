@@ -1015,4 +1015,142 @@
   }
 }
 
+/* ── Horizon Banners & Multi-Day Spans ─────────────────────── */
+.horizonSection {
+  margin-bottom: 20px;
+  flex-shrink: 0;
+}
+
+.horizonSectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--primary-purple);
+  margin-bottom: 10px;
+}
+
+.horizonBannerList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.horizonBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, rgba(99, 102, 241, 0.05) 100%);
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  border-left: 4px solid var(--primary-purple);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.horizonBanner:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(139, 92, 246, 0.15);
+  border-color: var(--primary-purple);
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.12) 0%, rgba(99, 102, 241, 0.08) 100%);
+}
+
+.horizonBannerLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.horizonBannerTitle {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.horizonBannerRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.horizonDateBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: rgba(139, 92, 246, 0.12);
+  color: var(--primary-purple);
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* ── Week View Multi-Day Horizon Ribbon ────────────────────── */
+.weekHorizonRibbonContainer {
+  padding: 10px 16px 6px 16px;
+  background: var(--surface-color);
+  border-bottom: 1px solid rgba(139, 92, 246, 0.12);
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.weekHorizonRibbonGrid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.weekHorizonRibbon {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.12) 0%, rgba(99, 102, 241, 0.08) 100%);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-left: 3px solid var(--primary-purple);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  overflow: hidden;
+  min-width: 0;
+  box-shadow: 0 1px 4px rgba(139, 92, 246, 0.08);
+}
+
+.weekHorizonRibbon:hover {
+  transform: translateY(-1px);
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(99, 102, 241, 0.14) 100%);
+  border-color: var(--primary-purple);
+  box-shadow: 0 3px 10px rgba(139, 92, 246, 0.18);
+}
+
+.weekHorizonRibbonTitle {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-right: 6px;
+}
+
+.weekHorizonRibbonDates {
+  font-size: 0.65rem;
+  color: var(--primary-purple);
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 
