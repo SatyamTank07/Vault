@@ -341,13 +341,15 @@ export const TipTapEditor: React.FC<TipTapEditorProps> = ({
 
   useEffect(() => {
     if (editor && displayContent !== editor.getHTML()) {
-      editor.commands.setContent(displayContent);
+      // Syncing from props is not a user edit; emitting would echo back through onChange.
+      editor.commands.setContent(displayContent, { emitUpdate: false });
     }
   }, [editor, displayContent]);
 
   useEffect(() => {
     if (editor) {
-      editor.setEditable(!readOnly);
+      // Don't emit: an update here would echo the current (possibly stale) HTML through onChange.
+      editor.setEditable(!readOnly, false);
     }
   }, [editor, readOnly]);
 
