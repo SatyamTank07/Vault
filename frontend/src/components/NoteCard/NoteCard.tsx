@@ -17,6 +17,8 @@ export interface Note {
   recurrence_interval?: number;
   recurrence_end_date?: string | null;
   end_date?: string | null;
+  parent_note_id?: string | null;
+  canvas_only?: boolean;
 }
 
 interface NoteCardProps {
@@ -27,6 +29,7 @@ interface NoteCardProps {
   onUpdateSchedule?: (noteId: string, date: string | null, time: string | null, status: string) => void;
   onRecurrenceClick?: (note: Note) => void;
   cryptoKey?: CryptoKey | null;
+  parentNote?: Note;
 }
 
 const STATUS_OPTIONS = [
@@ -79,6 +82,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
   onUpdateSchedule,
   onRecurrenceClick,
   cryptoKey,
+  parentNote,
 }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -168,11 +172,24 @@ export const NoteCard: React.FC<NoteCardProps> = ({
       <div className={styles.headerRow}>
         <div className={styles.titleWrapper}>
           <div className={styles.titleContent}>
-            {(note.canvas_name || isTask) && (
+            {(note.canvas_name || isTask || parentNote) && (
               <div className={styles.badgeRow}>
                 {note.canvas_name ? (
                   <span className={styles.canvasName}>{note.canvas_name}</span>
                 ) : null}
+                {parentNote && (
+                  <button
+                    type="button"
+                    className={styles.parentChip}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onView(parentNote);
+                    }}
+                    title={`Part of: ${parentNote.title || 'Untitled'}`}
+                  >
+                    ↳ {parentNote.title || 'Untitled'}
+                  </button>
+                )}
                 {isTask && (
                   <div
                     className={styles.statusDropdownWrapper}

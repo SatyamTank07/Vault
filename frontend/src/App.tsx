@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarDays, LayoutGrid, Network, LogOut, MessageSquare, Lock, Eye, EyeOff, UserX, User } from 'lucide-react';
 import styles from './App.module.css';
 import { CanvasView } from './components/CanvasView/CanvasView';
@@ -78,7 +78,7 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
 
   const fetchNotes = useCallback(async () => {
     try {
-      const response = await apiFetch('/notes/');
+      const response = await apiFetch('/notes/?limit=1000');
       if (response.ok) {
         const data: Note[] = await response.json();
 
@@ -123,6 +123,8 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
         recurrence_rule: noteData.recurrence_rule || null,
         recurrence_interval: noteData.recurrence_interval || 1,
         recurrence_end_date: noteData.recurrence_end_date || null,
+        parent_note_id: noteData.parent_note_id || null,
+        ...(noteData.canvas_only !== undefined ? { canvas_only: noteData.canvas_only } : {}),
       };
       const encrypted = await encryptNote(payload, cryptoKey);
       const response = await apiFetch('/notes/', {
@@ -133,11 +135,34 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
         const newNote = await response.json();
         const { note: decrypted } = await decryptNote(newNote, cryptoKey);
         setNotes((prev) => [decrypted, ...prev]);
+        if (payload.parent_note_id) {
+          fetchNotes();
+        }
       }
     } catch (error) {
       console.error('Failed to create note:', error);
     }
   };
+
+  const handleSetParent = useCallback(
+    async (noteId: string, parentId: string | null) => {
+      try {
+        const response = await apiFetch(`/api/notes/${noteId}/parent`, {
+          method: 'PUT',
+          body: JSON.stringify(parentId ? { parent_note_id: parentId } : { clear_parent: true }),
+        });
+        if (!response.ok) {
+          console.error('Failed to set parent:', await response.text());
+        }
+      } catch (error) {
+        console.error('Failed to set parent:', error);
+      } finally {
+        // Parent changes can mirror canvas nodes and flip visibility on other rows.
+        fetchNotes();
+      }
+    },
+    [fetchNotes],
+  );
 
   const handleUpdateNote = async (noteData: Omit<Note, 'created_at' | 'updated_at'>) => {
     try {
@@ -150,6 +175,8 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
         recurrence_rule: noteData.recurrence_rule || null,
         recurrence_interval: noteData.recurrence_interval || 1,
         recurrence_end_date: noteData.recurrence_end_date || null,
+        parent_note_id: noteData.parent_note_id || null,
+        ...(noteData.canvas_only !== undefined ? { canvas_only: noteData.canvas_only } : {}),
       };
       const encrypted = await encryptNote(payload, cryptoKey);
       const response = await apiFetch(`/notes/${noteData.id}`, {
@@ -162,6 +189,14 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
         setNotes((prev) =>
           prev.map((n) => (n.id === decrypted.id ? decrypted : n)),
         );
+        // `undefined` means the caller doesn't manage parents; never treat that as "clear".
+        if (noteData.parent_note_id !== undefined) {
+          const previousParent = notes.find((n) => n.id === noteData.id)?.parent_note_id ?? null;
+          const nextParent = noteData.parent_note_id ?? null;
+          if (previousParent !== nextParent) {
+            await handleSetParent(noteData.id, nextParent);
+          }
+        }
       }
     } catch (error) {
       console.error('Failed to update note:', error);
@@ -294,6 +329,9 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
     setIsViewMode(true);
     setIsModalOpen(true);
   };
+
+  const notesById = useMemo(() => new Map(notes.map((note) => [note.id, note])), [notes]);
+  const gridNotes = notes.filter((note) => !note.canvas_only && (showCompleted || note.status !== 'done'));
 
   // Null-key guard (defense in depth — Root.tsx should prevent this)
   if (!cryptoKey) {
@@ -434,7 +472,7 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
             </div>
           ) : (
             <div className={styles.notesGrid}>
-              {(showCompleted ? notes : notes.filter(n => n.status !== 'done')).map((note) => (
+              {gridNotes.map((note) => (
                 <NoteCard
                   key={note.id}
                   note={note}
@@ -444,6 +482,7 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
                   onUpdateSchedule={handleUpdateSchedule}
                   onRecurrenceClick={(nextNote) => setRecurrenceNote(nextNote)}
                   cryptoKey={cryptoKey}
+                  parentNote={note.parent_note_id ? notesById.get(note.parent_note_id) : undefined}
                 />
               ))}
             </div>
