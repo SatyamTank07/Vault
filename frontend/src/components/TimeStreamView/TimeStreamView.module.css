@@ -544,3 +544,39 @@
     align-items: center;
   }
 }
+
+.childMarker {
+  position: absolute;
+  top: 10px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  font-weight: bold;
+  color: white;
+  cursor: pointer;
+  z-index: 2;
+  transition: transform 0.15s ease;
+}
+
+.childMarker:hover {
+  transform: scale(1.35);
+}
+
+.childMarkerTodo {
+  background: rgba(255, 255, 255, 0.25);
+  border: 2px solid rgba(255, 255, 255, 0.95);
+}
+
+.childMarkerProgress {
+  background: linear-gradient(90deg, #ffffff 50%, rgba(255, 255, 255, 0.25) 50%);
+  border: 2px solid rgba(255, 255, 255, 0.95);
+}
+
+.childMarkerDone {
+  background: #10b981;
+  border: 1.5px solid #a7f3d0;
+}

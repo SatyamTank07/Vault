@@ -12,6 +12,7 @@ export interface TimeStreamEvent {
   is_recurring?: boolean;
   is_span?: boolean;
   occurrence_id?: string | null;
+  parent_note_id?: string | null;
 }
 
 interface TimeStreamCanvasProps {
@@ -23,6 +24,8 @@ interface TimeStreamCanvasProps {
   onPan: (deltaMs: number) => void;
   onZoom: (delta: number, centerX: number) => void;
   containerWidth: number;
+  markersByParent: Map<string, TimeStreamEvent[]>;
+  onOpenEvent: (event: TimeStreamEvent) => void;
 }
 
 export function getEventDurationDays(startDate: string, endDate: string): number {
@@ -97,6 +100,8 @@ export const TimeStreamCanvas: React.FC<TimeStreamCanvasProps> = ({
   onPan,
   onZoom,
   containerWidth,
+  markersByParent,
+  onOpenEvent,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   
@@ -651,7 +656,11 @@ export const TimeStreamCanvas: React.FC<TimeStreamCanvasProps> = ({
             }}
             onClick={(e) => {
               e.stopPropagation();
-              onOpenNote(event.note);
+              if (event.is_span) {
+                onOpenEvent(event);
+              } else {
+                onOpenNote(event.note);
+              }
             }}
             onMouseEnter={(e) => handleEventMouseEnter(e, event)}
             onMouseLeave={() => setHoveredEvent(null)}
@@ -666,6 +675,32 @@ export const TimeStreamCanvas: React.FC<TimeStreamCanvasProps> = ({
               {event.status === 'done' && <span style={{ marginRight: '4px', fontWeight: 'bold' }}>✓</span>}
               {event.note.title || 'Untitled'}
             </div>
+            {(markersByParent.get(event.note.id) ?? []).map((child) => {
+              const markerX = timeToX(new Date(child.start_date + 'T12:00:00')) - x;
+              const isDone = child.status === 'done';
+              const isInProgress = child.status === 'in_progress';
+              return (
+                <span
+                  key={child.id}
+                  className={`${styles.childMarker} ${
+                    isDone
+                      ? styles.childMarkerDone
+                      : isInProgress
+                        ? styles.childMarkerProgress
+                        : styles.childMarkerTodo
+                  }`}
+                  style={{ left: `${markerX - 6}px` }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenNote(child.note);
+                  }}
+                  onMouseEnter={(e) => handleEventMouseEnter(e, child)}
+                  onMouseLeave={(e) => handleEventMouseEnter(e, event)}
+                >
+                  {isDone ? '✓' : null}
+                </span>
+              );
+            })}
           </div>
         );
       })}

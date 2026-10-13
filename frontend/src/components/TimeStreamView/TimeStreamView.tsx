@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Lock } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 import { decryptNote } from '../../lib/crypto';
 import type { Note } from '../NoteCard/NoteCard';
 import { TimeStreamControls } from './TimeStreamControls';
 import { TimeStreamCanvas, type TimeStreamEvent } from './TimeStreamCanvas';
+import { groupChildMarkers } from './streamGrouping';
 import styles from './TimeStreamView.module.css';
 
 interface TimeStreamViewProps {
@@ -189,6 +190,10 @@ export const TimeStreamView: React.FC<TimeStreamViewProps> = ({
     }
   }, [onCenterDateChange]);
 
+  // Group before the zoom filter so markers stay on a visible parent bar even
+  // when single-day events are hidden at this zoom level.
+  const { laneEvents, markersByParent } = useMemo(() => groupChildMarkers(events), [events]);
+
   if (!cryptoKey) {
     return (
       <div className={styles.container}>
@@ -200,7 +205,7 @@ export const TimeStreamView: React.FC<TimeStreamViewProps> = ({
     );
   }
 
-  const visibleEvents = events.filter((e) => {
+  const visibleEvents = laneEvents.filter((e) => {
     const start = new Date(e.start_date + 'T00:00:00').getTime();
     const end = new Date(e.end_date + 'T00:00:00').getTime();
     const durationDays = Math.max(1, Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1);
@@ -260,6 +265,8 @@ export const TimeStreamView: React.FC<TimeStreamViewProps> = ({
         onPan={handlePan}
         onZoom={handleZoomFromCanvas}
         containerWidth={containerWidth}
+        markersByParent={markersByParent}
+        onOpenEvent={(event) => onOpenNote(event.note)}
       />
     </div>
   );
