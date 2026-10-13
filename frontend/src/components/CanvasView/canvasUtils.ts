@@ -1,8 +1,8 @@
 import dagre from 'dagre';
 import type { Node, Edge } from '@xyflow/react';
 
-const NODE_WIDTH = 220;
-const NODE_HEIGHT = 64;
+const NODE_WIDTH = 236;
+const NODE_HEIGHT = 96;
 
 export interface BackendCanvasNode {
   id: string;
@@ -16,6 +16,7 @@ export interface BackendCanvasNode {
     scheduled_date: string | null;
     scheduled_time: string | null;
     status: string;
+    end_date?: string | null;
     recurrence_rule?: string | null;
     recurrence_interval?: number;
     recurrence_end_date?: string | null;
@@ -48,11 +49,19 @@ export function convertToReactFlow(backendNodes: BackendCanvasNode[]): {
   nodes: Node[];
   edges: Edge[];
 } {
+  const nodeIdByNoteId = new Map(backendNodes.map((bn) => [bn.note.id, bn.id]));
+  // Nodes whose parent note is also on this canvas.
+  const childNodeIds = new Set(
+    backendNodes
+      .filter((bn) => bn.note.parent_note_id && nodeIdByNoteId.has(bn.note.parent_note_id))
+      .map((bn) => bn.id),
+  );
   const nodes: Node[] = backendNodes.map((bn) => ({
     id: bn.id,
     type: 'mindMapNode',
     position: { x: bn.position_x, y: bn.position_y },
     data: {
+      isRoot: !childNodeIds.has(bn.id),
       title: bn.note.title || 'Untitled',
       noteId: bn.note.id,
       note: bn.note,
@@ -63,7 +72,6 @@ export function convertToReactFlow(backendNodes: BackendCanvasNode[]): {
     },
   }));
 
-  const nodeIdByNoteId = new Map(backendNodes.map((bn) => [bn.note.id, bn.id]));
   const edges: Edge[] = backendNodes.flatMap((bn) => {
     const parentNodeId = bn.note.parent_note_id ? nodeIdByNoteId.get(bn.note.parent_note_id) : undefined;
     if (!parentNodeId || parentNodeId === bn.id) return [];
@@ -74,7 +82,6 @@ export function convertToReactFlow(backendNodes: BackendCanvasNode[]): {
         target: bn.id,
         type: 'default',
         animated: false,
-        style: { stroke: '#8B5CF6', strokeWidth: 2 },
       },
     ];
   });

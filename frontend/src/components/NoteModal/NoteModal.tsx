@@ -23,6 +23,8 @@ interface NoteModalProps {
   defaultScheduledDate?: string | null;
   /** Open with the schedule popover showing (used by the repeat buttons). */
   initialPopover?: 'schedule' | null;
+  /** New notes created on a canvas: shown as the canvas chip in the header. */
+  canvasName?: string | null;
 }
 
 function getTodayString(): string {
@@ -115,6 +117,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
   defaultCanvasOnly = false,
   defaultScheduledDate = null,
   initialPopover = null,
+  canvasName = null,
 }) => {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -429,9 +432,9 @@ export const NoteModal: React.FC<NoteModalProps> = ({
         <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
           <div className={styles.header}>
             <span className={styles.kind}>
-              {initialData?.canvas_name && (
-                <span className={`${ui.chip} ${ui.chipCanvas}`} title={`In canvas: ${initialData.canvas_name}`}>
-                  {initialData.canvas_name}
+              {(initialData?.canvas_name || canvasName) && (
+                <span className={`${ui.chip} ${ui.chipCanvas}`} title={`In canvas: ${initialData?.canvas_name || canvasName}`}>
+                  {initialData?.canvas_name || canvasName}
                 </span>
               )}
               {initialData?.id ? 'Edit note' : 'New note'}

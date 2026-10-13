@@ -1,327 +1,88 @@
 .node {
-  background: var(--surface-color);
-  border: 2px solid rgba(139, 92, 246, 0.3);
-  border-radius: 12px;
-  padding: 0;
-  min-width: 200px;
-  max-width: 280px;
-  box-shadow: 0 4px 16px rgba(139, 92, 246, 0.1);
-  transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
   position: relative;
-  overflow: visible;
+  width: 236px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 12px 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--fg);
+  font-family: var(--font);
+}
+.node:hover { border-color: var(--line-strong); }
+
+.root::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: 22px;
+  right: 22px;
+  height: 3px;
+  border-radius: 0 0 3px 3px;
+  background: var(--accent);
 }
 
-.node:hover {
-  border-color: var(--primary-purple);
-  box-shadow: 0 6px 24px rgba(139, 92, 246, 0.2);
+/* Border grows to 2px when selected; padding shrinks by 1px so the content doesn't shift. */
+.selected {
+  border: 2px solid var(--accent);
+  padding: 11px 11px 9px;
+  box-shadow: 0 0 0 4px var(--accent-soft), var(--shadow-md);
 }
+.selected:hover { border-color: var(--accent); }
 
-.titleRow {
+.head { display: flex; align-items: flex-start; gap: 4px; }
+.title {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  color: var(--fg);
+}
+.title:hover { color: var(--accent); }
+.done .title { color: var(--muted); text-decoration: line-through; }
+
+.meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+.handle {
+  width: 10px !important;
+  height: 10px !important;
+  border-radius: 50% !important;
+  background: var(--surface) !important;
+  border: 2px solid var(--line-strong) !important;
+}
+.selected .handle { border-color: var(--accent) !important; }
+
+/* Action bar above the selected node (XYFlow NodeToolbar). */
+.bar {
   display: flex;
   align-items: center;
   gap: 2px;
-}
-
-.titleArea {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 4px 12px 16px;
-  cursor: pointer;
-  border-radius: 10px 0 0 10px;
-  transition: background 0.15s;
-  flex: 1;
-  min-width: 0;
-}
-
-.titleArea:hover {
-  background: rgba(139, 92, 246, 0.06);
-}
-
-.icon {
-  font-size: 1rem;
-  flex-shrink: 0;
-}
-
-.title {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--text-main);
+  padding: 3px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  box-shadow: var(--shadow-md);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  line-height: 1.3;
+  font-family: var(--font);
 }
-
-/* Calendar date picker button */
-.dateBtn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-  position: relative;
-  flex-shrink: 0;
-  margin-right: 8px;
-}
-
-.dateBtn:hover {
-  background: rgba(139, 92, 246, 0.1);
-  color: var(--primary-purple);
-}
-
-.hiddenDateInput {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0;
-  cursor: pointer;
-  pointer-events: none;
-}
-
-/* Meta row — status pill + date */
-.metaRow {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 16px 10px 16px;
-  font-size: 0.7rem;
-}
-
-/* Status pill — always visible, clickable */
-.statusPill {
+.bar button {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 3px 10px 3px 8px;
-  border-radius: 20px;
-  font-size: 0.68rem;
-  font-weight: 600;
-  cursor: pointer;
-  border: none;
-  transition: all 0.15s;
-  letter-spacing: 0.01em;
-}
-
-.statusPill:hover {
-  transform: scale(1.05);
-  filter: brightness(0.95);
-}
-
-.statusPill:active {
-  transform: scale(0.97);
-}
-
-.statusPillDot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-/* Status colors */
-.status_todo {
-  background: rgba(156, 163, 175, 0.15);
-  color: #6B7280;
-}
-.status_todo .statusPillDot {
-  background: #9CA3AF;
-}
-
-.status_in_progress {
-  background: rgba(245, 158, 11, 0.12);
-  color: #D97706;
-}
-.status_in_progress .statusPillDot {
-  background: #F59E0B;
-}
-
-.status_done {
-  background: rgba(16, 185, 129, 0.12);
-  color: #059669;
-}
-.status_done .statusPillDot {
-  background: #10B981;
-}
-
-.dateSep {
-  color: var(--text-muted);
-  opacity: 0.5;
-}
-
-.dateText {
-  color: var(--text-muted);
-}
-
-/* Time picker button */
-.timeBtn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: none;
-  border: none;
-  padding: 2px 6px;
-  border-radius: 4px;
-  cursor: pointer;
-  color: var(--text-muted);
-  font-size: 0.68rem;
-  font-weight: 600;
-  position: relative;
-  transition: background 0.15s, color 0.15s;
-  margin-left: 4px;
-}
-
-.timeBtn:hover {
-  background: rgba(139, 92, 246, 0.1);
-  color: var(--primary-purple);
-}
-
-.timeText {
-  white-space: nowrap;
-}
-
-/* Action buttons */
-.actions {
-  position: absolute;
-  top: -10px;
-  right: -10px;
-  display: flex;
-  gap: 4px;
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-
-.node:hover .actions {
-  opacity: 1;
-}
-
-.branchBtn,
-.removeBtn {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  cursor: pointer;
-  transition: background 0.15s, transform 0.15s;
-}
-
-.branchBtn {
-  background: var(--primary-purple);
-  color: white;
-}
-
-.branchBtn:hover {
-  background: var(--primary-purple-hover);
-  transform: scale(1.15);
-}
-
-.removeBtn {
-  background: rgba(0, 0, 0, 0.08);
-  color: var(--text-muted);
-}
-
-.removeBtn:hover {
-  background: var(--danger);
-  color: white;
-  transform: scale(1.15);
-}
-
-.handle {
-  width: 8px;
-  height: 8px;
-  background: var(--primary-purple);
-  border: 2px solid var(--surface-color);
-  border-radius: 50%;
-}
-
-/* Recurrence Button */
-.recurrenceBtn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
   height: 28px;
-  border-radius: 6px;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: all 0.2s;
-  padding: 0;
-  opacity: 0;
-  flex-shrink: 0;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fg-2);
 }
-
-.node:hover .recurrenceBtn {
-  opacity: 1;
-}
-
-.recurrenceBtn:hover {
-  background: rgba(139, 92, 246, 0.08);
-  color: var(--primary-purple);
-  border-color: rgba(139, 92, 246, 0.2);
-}
-
-.recurrenceBtnActive {
-  opacity: 1;
-  background: rgba(139, 92, 246, 0.1);
-  color: var(--primary-purple);
-  border-color: rgba(139, 92, 246, 0.25);
-}
-
-.recurrenceBtnActive:hover {
-  background: rgba(139, 92, 246, 0.18);
-}
-
-@media (max-width: 600px) {
-  .node {
-    box-shadow: none;
-    transition: none;
-  }
-
-  .node:hover {
-    box-shadow: none;
-  }
-
-  .dateBtn,
-  .recurrenceBtn {
-    width: 36px;
-    height: 36px;
-  }
-  
-  .branchBtn,
-  .removeBtn {
-    width: 32px;
-    height: 32px;
-    transition: none;
-  }
-
-  .branchBtn:hover,
-  .removeBtn:hover {
-    transform: none;
-  }
-  
-  .statusPill {
-    padding: 6px 12px;
-    transition: none;
-  }
-
-  .statusPill:hover {
-    transform: none;
-    filter: none;
-  }
-
-  /* Make action buttons always visible on mobile (no hover) */
-  .actions {
-    opacity: 1;
-  }
-}
+.bar button:hover { background: var(--subtle); color: var(--fg); }
+.bar .barPrimary { color: var(--accent); }
+.bar .barDanger:hover { color: var(--danger); background: var(--danger-bg); }
+.barSep { width: 1px; height: 16px; background: var(--line); }

@@ -3,102 +3,82 @@
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  gap: 0;
-}
-
-.toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 0;
-  flex-shrink: 0;
-}
-
-.canvasActions {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.addRootBtn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  background: var(--primary-purple);
-  color: white;
-  border-radius: 10px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  transition: background 0.2s, transform 0.15s;
-}
-
-.addRootBtn:hover {
-  background: var(--primary-purple-hover);
-  transform: translateY(-1px);
 }
 
 .canvasArea {
+  position: relative;
   flex: 1;
-  border-radius: 16px;
-  overflow: hidden;
-  border: 1px solid rgba(139, 92, 246, 0.15);
-  background: var(--bg-color);
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  /* XYFlow reads these for the pane and its own chrome in both color modes. */
+  --xy-background-color: var(--bg);
+  --xy-edge-stroke: var(--line-strong);
+  --xy-edge-stroke-width: 2;
+  --xy-connectionline-stroke: var(--accent);
+  --xy-connectionline-stroke-width: 2;
 }
+
+.canvasArea :global(.react-flow) { flex: 1; }
+
+.canvasArea :global(.react-flow__edge-path) {
+  stroke: var(--line-strong);
+  stroke-width: 2;
+}
+.hotEdge :global(.react-flow__edge-path) {
+  stroke: var(--accent);
+  stroke-width: 2.5;
+}
+
+/* Custom nodes carry their own card; drop XYFlow's selection outline. */
+.canvasArea :global(.react-flow__node-mindMapNode) { border: 0; padding: 0; background: none; box-shadow: none; }
+.canvasArea :global(.react-flow__node-mindMapNode.selected),
+.canvasArea :global(.react-flow__node-mindMapNode:focus-visible) { outline: none; box-shadow: none; }
+
+.controls {
+  margin: 16px !important;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-sm) !important;
+  overflow: hidden;
+}
+.controls button {
+  width: 34px !important;
+  height: 32px !important;
+  background: var(--surface) !important;
+  color: var(--fg-2) !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--line) !important;
+}
+.controls button:last-child { border-bottom: 0 !important; }
+.controls button:hover { background: var(--subtle) !important; color: var(--fg) !important; }
+.controls button svg { fill: currentColor !important; max-width: 12px; max-height: 12px; }
+
+.zoomChip {
+  display: inline-block;
+  margin: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 10px;
+}
+
+.emptyPanel { margin-top: 15vh !important; pointer-events: none; }
 
 .emptyState {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100%;
-  color: var(--text-muted);
-  font-size: 1rem;
-}
-
-/* Override React Flow controls to match theme */
-.controls {
-  border-radius: 10px !important;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08) !important;
-  border: 1px solid rgba(139, 92, 246, 0.15) !important;
-}
-
-.controls button {
-  background: var(--surface-color) !important;
-  color: var(--text-main) !important;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06) !important;
-}
-
-.controls button:hover {
-  background: rgba(139, 92, 246, 0.08) !important;
-}
-
-@media (max-width: 600px) {
-  .container {
-    height: calc(100vh - 160px);
-    height: calc(100dvh - 160px);
-    min-height: 400px;
-    display: flex;
-    flex-direction: column;
-  }
-  
-  .canvasArea {
-    height: calc(100vh - 220px);
-    height: calc(100dvh - 220px);
-    min-height: 400px;
-    width: 100%;
-    flex: none;
-    display: block;
-    border-radius: 0;
-    overflow: visible;
-  }
-  
-  .toolbar {
-    flex-wrap: wrap;
-    justify-content: space-between;
-  }
-  
-  .controls {
-    display: none !important;
-  }
+  gap: 8px;
+  flex: 1;
+  color: var(--muted);
 }

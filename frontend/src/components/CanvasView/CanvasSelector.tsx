@@ -1,5 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { ChevronDown, Plus, Pencil, Trash2 } from 'lucide-react';
+import React, { useCallback, useState } from 'react';
+import { Check, ChevronDown, Network, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Menu, MenuSeparator } from '../ui/Menu';
+import ui from '../ui/ui.module.css';
 import type { CanvasListItem } from './canvasUtils';
 import styles from './CanvasSelector.module.css';
 
@@ -9,6 +11,7 @@ interface CanvasSelectorProps {
   onSelect: (id: string) => void;
   onCreate: (name: string) => void;
   onRename: (id: string, name: string) => void;
+  /** Asks for confirmation itself (CanvasView shows the dialog). */
   onDelete: (id: string) => void;
 }
 
@@ -20,151 +23,146 @@ export const CanvasSelector: React.FC<CanvasSelectorProps> = ({
   onRename,
   onDelete,
 }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [newName, setNewName] = useState('');
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const activeCanvas = canvases.find((c) => c.id === activeCanvasId);
 
-  // Close dropdown on outside click
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as HTMLElement)) {
-        setIsOpen(false);
-        setIsCreating(false);
-        setRenamingId(null);
-      }
-    };
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
+  const close = useCallback(() => {
+    setAnchor(null);
+    setRenamingId(null);
+    setNewName('');
   }, []);
-
-  // Focus input when creating
-  useEffect(() => {
-    if (isCreating && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [isCreating]);
 
   const handleCreate = () => {
     const trimmed = newName.trim();
-    if (trimmed) {
-      onCreate(trimmed);
-      setNewName('');
-      setIsCreating(false);
-    }
+    if (!trimmed) return;
+    onCreate(trimmed);
+    close();
   };
 
   const handleRename = (id: string) => {
     const trimmed = renameValue.trim();
-    if (trimmed) {
-      onRename(id, trimmed);
-      setRenamingId(null);
-    }
+    if (trimmed) onRename(id, trimmed);
+    setRenamingId(null);
   };
 
   return (
-    <div className={styles.wrapper} ref={dropdownRef}>
-      <button className={styles.trigger} onClick={() => setIsOpen(!isOpen)}>
-        <span className={styles.triggerLabel}>
-          {activeCanvas ? activeCanvas.name : 'Select Canvas'}
-        </span>
-        <ChevronDown size={16} className={`${styles.chevron} ${isOpen ? styles.chevronOpen : ''}`} />
+    <>
+      <button
+        type="button"
+        className={styles.selector}
+        onClick={(event) => {
+          const target = event.currentTarget;
+          if (anchor) close();
+          else setAnchor(target);
+        }}
+        aria-haspopup="menu"
+        aria-expanded={anchor !== null}
+      >
+        <Network size={15} className={styles.selectorIcon} />
+        <span className={styles.selectorLabel}>{activeCanvas ? activeCanvas.name : 'Select a canvas'}</span>
+        <ChevronDown size={14} />
       </button>
 
-      {isOpen && (
-        <div className={styles.dropdown}>
-          {canvases.length === 0 && !isCreating && (
-            <div className={styles.empty}>No canvases yet</div>
-          )}
+      <Menu anchor={anchor} open={anchor !== null} onClose={close} label="Canvases" minWidth={240}>
+        {canvases.length === 0 && <div className={styles.empty}>No canvases yet</div>}
 
-          {canvases.map((canvas) => (
-            <div
-              key={canvas.id}
-              className={`${styles.item} ${canvas.id === activeCanvasId ? styles.itemActive : ''}`}
-            >
-              {renamingId === canvas.id ? (
-                <input
-                  className={styles.renameInput}
-                  value={renameValue}
-                  onChange={(e) => setRenameValue(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleRename(canvas.id);
-                    if (e.key === 'Escape') setRenamingId(null);
-                  }}
-                  onBlur={() => handleRename(canvas.id)}
-                  autoFocus
-                />
-              ) : (
-                <>
-                  <button
-                    className={styles.itemName}
-                    onClick={() => {
-                      onSelect(canvas.id);
-                      setIsOpen(false);
-                    }}
-                  >
-                    {canvas.name}
-                  </button>
-                  <div className={styles.itemActions}>
-                    <button
-                      className={styles.itemActionBtn}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setRenamingId(canvas.id);
-                        setRenameValue(canvas.name);
-                      }}
-                      title="Rename"
-                    >
-                      <Pencil size={13} />
-                    </button>
-                    <button
-                      className={`${styles.itemActionBtn} ${styles.deleteBtn}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (window.confirm(`Delete canvas "${canvas.name}"?`)) {
-                          onDelete(canvas.id);
-                        }
-                      }}
-                      title="Delete"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          ))}
-
-          {isCreating ? (
-            <div className={styles.createForm}>
+        {canvases.map((canvas) =>
+          renamingId === canvas.id ? (
+            <div key={canvas.id} className={styles.inputRow}>
               <input
-                ref={inputRef}
-                className={styles.createInput}
-                placeholder="Canvas name..."
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
+                className={styles.input}
+                value={renameValue}
+                aria-label="Canvas name"
+                onChange={(e) => setRenameValue(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleCreate();
-                  if (e.key === 'Escape') setIsCreating(false);
+                  if (e.key === 'Enter') handleRename(canvas.id);
+                  if (e.key === 'Escape') {
+                    e.stopPropagation();
+                    setRenamingId(null);
+                  }
                 }}
+                autoFocus
               />
+              <button
+                type="button"
+                className={`${ui.iconBtn} ${ui.iconSm}`}
+                onClick={() => handleRename(canvas.id)}
+                aria-label="Save name"
+              >
+                <Check size={14} />
+              </button>
             </div>
           ) : (
-            <button
-              className={styles.createBtn}
-              onClick={() => setIsCreating(true)}
-            >
-              <Plus size={14} />
-              New Canvas
-            </button>
-          )}
+            <div key={canvas.id} className={styles.row}>
+              <button
+                type="button"
+                className={`${ui.menuItem} ${canvas.id === activeCanvasId ? ui.menuItemSel : ''} ${styles.rowName}`}
+                onClick={() => {
+                  onSelect(canvas.id);
+                  close();
+                }}
+              >
+                <span className={styles.rowLabel}>{canvas.name}</span>
+                {canvas.id === activeCanvasId && <Check size={14} className={ui.menuCheck} />}
+              </button>
+              <span className={styles.rowTools}>
+                <button
+                  type="button"
+                  className={`${ui.iconBtn} ${ui.iconSm}`}
+                  onClick={() => {
+                    setRenamingId(canvas.id);
+                    setRenameValue(canvas.name);
+                  }}
+                  aria-label={`Rename ${canvas.name}`}
+                  title="Rename"
+                >
+                  <Pencil size={12} />
+                </button>
+                <button
+                  type="button"
+                  className={`${ui.iconBtn} ${ui.iconSm} ${ui.iconDanger}`}
+                  onClick={() => {
+                    close();
+                    onDelete(canvas.id);
+                  }}
+                  aria-label={`Delete ${canvas.name}`}
+                  title="Delete"
+                >
+                  <Trash2 size={12} />
+                </button>
+              </span>
+            </div>
+          ),
+        )}
+
+        {canvases.length > 0 && <MenuSeparator />}
+        <div className={styles.inputRow}>
+          <input
+            className={styles.input}
+            placeholder="New canvas name"
+            aria-label="New canvas name"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleCreate();
+            }}
+          />
+          <button
+            type="button"
+            className={`${ui.iconBtn} ${ui.iconSm}`}
+            onClick={handleCreate}
+            disabled={!newName.trim()}
+            aria-label="Create canvas"
+            title="Create canvas"
+          >
+            <Plus size={14} />
+          </button>
         </div>
-      )}
-    </div>
+      </Menu>
+    </>
   );
 };
