@@ -115,11 +115,18 @@
 .daySwipe { display: flex; flex-direction: column; touch-action: pan-y; }
 
 /* ---------- Agenda rail ---------- */
-.ag { position: relative; display: flex; flex-direction: column; gap: 14px; }
+.ag {
+  /* Centre of the rail line, halfway across the gap after the time column. Dots centre on it too. */
+  --rail-x: 95px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
 .ag::before {
   content: "";
   position: absolute;
-  left: 95px;
+  left: calc(var(--rail-x) - 1px);
   top: 8px;
   bottom: 8px;
   width: 2px;
@@ -150,10 +157,12 @@
 .agWhen::after {
   content: "";
   position: absolute;
-  right: -20px;
+  left: var(--rail-x);
   top: 14px;
-  width: 10px;
-  height: 10px;
+  width: 14px;
+  height: 14px;
+  box-sizing: border-box;
+  transform: translateX(-50%);
   border-radius: 50%;
   background: var(--surface);
   border: 2px solid var(--line-strong);
@@ -168,7 +177,7 @@
 .wkList { display: flex; flex-direction: column; gap: 26px; }
 .wlHead .agWhen { padding-top: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.05; color: var(--fg); }
 .wlHead .agWhen small { margin-bottom: 2px; }
-.wlHead .agWhen::after { top: 18px; width: 12px; height: 12px; right: -21px; background: var(--fg-2); border-color: var(--fg-2); }
+.wlHead .agWhen::after { top: 18px; width: 16px; height: 16px; background: var(--fg-2); border-color: var(--fg-2); }
 .wlToday .agWhen, .wlToday .agWhen small { color: var(--accent); }
 .wlToday .agWhen::after { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
 .wlTitle { display: flex; align-items: center; gap: 10px; padding-top: 14px; min-width: 0; }
@@ -222,10 +231,8 @@
 /* ---------- Phones ---------- */
 @media (max-width: 700px) {
   .agRow { grid-template-columns: 58px 1fr; gap: 22px; }
-  .ag::before { left: 68px; }
-  .agWhen::after { right: -16px; }
+  .ag { --rail-x: 69px; }
   .wlHead .agWhen { font-size: 20px; }
-  .wlHead .agWhen::after { right: -17px; }
   .wlRest { padding-left: 80px; }
   .dayTitle h2 { font-size: 20px; }
   .dd b { font-size: 15px; }
