@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, Lock, Columns, List } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 import { decryptNote } from '../../lib/crypto';
@@ -11,7 +11,13 @@ import styles from './TimelineView.module.css';
 
 type SubView = 'day' | 'week' | 'horizon';
 
+export interface TimelineViewActions {
+  /** The day the schedule is looking at (YYYY-MM-DD), used to date a new note. */
+  getContextDate: () => string;
+}
+
 interface TimelineViewProps {
+  actionsRef?: React.Ref<TimelineViewActions>;
   onOpenNote: (note: Note) => void;
   notes: Note[];
   fetchNotes: () => void;
@@ -115,6 +121,7 @@ function formatDateLabel(date: Date, subView: SubView, zoomLevel: number): strin
 }
 
 export const TimelineView: React.FC<TimelineViewProps> = ({
+  actionsRef,
   onOpenNote,
   notes,
   fetchNotes,
@@ -138,6 +145,8 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
   const lastFetchedRange = useRef<string>('');
 
   const zoomScale = getScaleFromZoom(zoomLevel);
+
+  useImperativeHandle(actionsRef, () => ({ getContextDate: () => toISODateString(selectedDate) }), [selectedDate]);
 
   const getDateRange = useCallback((): { start: string; end: string } => {
     // For both 'day' and 'week' subviews, fetch the whole week range.

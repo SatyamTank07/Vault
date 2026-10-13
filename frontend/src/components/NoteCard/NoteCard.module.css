@@ -1,709 +1,111 @@
 .card {
-  background-color: var(--surface-color);
-  border-radius: 12px;
-  padding: 1.5rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  position: relative;
-  overflow: hidden;
-  border: 1px solid rgba(0, 0, 0, 0.05);
-  min-height: 220px;
   cursor: pointer;
-  -webkit-tap-highlight-color: rgba(139, 92, 246, 0.1);
-  touch-action: manipulation;
+  min-width: 0;
+  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
 }
-
-.card:focus-visible {
-  outline: 2px solid var(--primary-purple);
-  outline-offset: 2px;
-}
-
 .card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 10px 15px rgba(0, 0, 0, 0.08);
-  background-color: var(--surface-color);
+  transform: translateY(-2px);
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow-md);
+}
+.card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.body {
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
 }
 
-.cardDropdownOpen {
-  overflow: visible;
-  z-index: 25;
-}
-
-.headerRow {
+.top {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: 0.75rem;
-  gap: 1rem;
-}
-
-.titleWrapper {
-  flex: 1;
-  min-width: 0;
-}
-
-.titleContent {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.badgeRow {
-  display: flex;
-  align-items: center;
   gap: 8px;
-  margin-bottom: 6px;
-  flex-wrap: wrap;
+  min-height: 26px;
 }
-
-.canvasName {
-  font-weight: 600;
-  color: var(--primary-purple);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-size: 0.65rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 140px;
-}
-
-.statusDropdownWrapper {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-}
-
-.statusBadge {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 7px;
-  border-radius: 9999px;
-  font-size: 0.65rem;
-  font-weight: 600;
-  line-height: 1.3;
-  border: 1px solid transparent;
-  cursor: pointer;
-  transition: all 0.15s ease-in-out;
-  background: transparent;
-  user-select: none;
-}
-
-/* Enforce minimum 44px x 44px touch target */
-.statusBadge::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  min-width: 44px;
-  min-height: 44px;
-  width: 100%;
-  height: 100%;
-}
-
-.statusBadge_todo {
-  background-color: rgba(156, 163, 175, 0.12);
-  border-color: rgba(156, 163, 175, 0.3);
-  color: #4B5563;
-}
-
-.statusBadge_todo:hover {
-  background-color: rgba(156, 163, 175, 0.22);
-  border-color: rgba(156, 163, 175, 0.45);
-}
-
-.statusBadge_in_progress {
-  background-color: rgba(245, 158, 11, 0.12);
-  border-color: rgba(245, 158, 11, 0.35);
-  color: #B45309;
-}
-
-.statusBadge_in_progress:hover {
-  background-color: rgba(245, 158, 11, 0.22);
-  border-color: rgba(245, 158, 11, 0.5);
-}
-
-.statusBadge_done {
-  background-color: rgba(16, 185, 129, 0.12);
-  border-color: rgba(16, 185, 129, 0.35);
-  color: #047857;
-}
-
-.statusBadge_done:hover {
-  background-color: rgba(16, 185, 129, 0.22);
-  border-color: rgba(16, 185, 129, 0.5);
-}
-
-.statusDot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.statusBadge_todo .statusDot {
-  background-color: #9CA3AF;
-}
-
-.statusBadge_in_progress .statusDot {
-  background-color: #F59E0B;
-}
-
-.statusBadge_done .statusDot {
-  background-color: #10B981;
-}
-
-.statusLabel {
-  letter-spacing: 0.01em;
-  white-space: nowrap;
-}
-
-.statusChevron {
-  color: currentColor;
-  opacity: 0.7;
-  transition: transform 0.2s ease;
-  flex-shrink: 0;
-}
-
-.statusChevronOpen {
-  transform: rotate(180deg);
-}
-
-.statusDropdownMenu {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  z-index: 50;
-  min-width: 125px;
-  background: var(--surface-color, #FFFFFF);
-  border-radius: 8px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  box-shadow: 0 10px 20px -3px rgba(0, 0, 0, 0.12), 0 4px 6px -4px rgba(0, 0, 0, 0.08);
-  padding: 4px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  animation: dropdownFadeIn 0.15s ease-out;
-}
-
-@keyframes dropdownFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.statusOption {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 6px 8px;
-  border-radius: 5px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font-size: 0.72rem;
-  font-weight: 500;
-  color: var(--text-main);
-  transition: background-color 0.15s;
-  text-align: left;
-}
-
-.statusOption:hover {
-  background-color: var(--surface-hover, #F3F4F6);
-}
-
-.statusOptionSelected {
-  font-weight: 600;
-  background-color: rgba(139, 92, 246, 0.08);
-  color: var(--primary-purple);
-}
-
-.optionDot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.optionLabel {
-  flex: 1;
-  white-space: nowrap;
-}
-
-.optionCheck {
-  color: var(--primary-purple);
-  flex-shrink: 0;
-}
-
-.titleRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
+.chips { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.tools { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
 
 .title {
-  font-size: 1.15rem;
+  font-size: 16px;
   font-weight: 700;
-  color: var(--text-main);
-  margin: 0;
-  line-height: 1.3;
-  white-space: nowrap;
+  letter-spacing: -0.01em;
+  line-height: 1.35;
+  color: var(--fg);
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+.done .title { color: var(--muted); text-decoration: line-through; }
+
+/* Decrypted note HTML, clamped to six lines. */
+.rich {
+  color: var(--fg-2);
+  font-size: 13.5px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 6;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  transition: color 0.2s ease, opacity 0.2s ease;
 }
-
-.titleDone {
-  text-decoration: line-through;
-  text-decoration-color: rgba(107, 114, 128, 0.6);
-  color: var(--text-muted);
-  opacity: 0.65;
-}
-
-.headerRight {
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-  gap: 8px;
-  min-width: 0;
-}
-
-.scheduleWrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: rgba(139, 92, 246, 0.04);
-  padding: 3px 8px 3px 4px;
-  border-radius: 6px;
-  border: 1px solid rgba(139, 92, 246, 0.1);
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-/* Enforce minimum 44px x 44px touch target */
-.scheduleWrapper::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  min-width: 44px;
-  min-height: 44px;
-  width: 100%;
-  height: 100%;
-}
-
-.scheduleWrapper:hover {
-  background: rgba(139, 92, 246, 0.08);
-  border-color: rgba(139, 92, 246, 0.2);
-}
-
-.scheduleWrapper:hover .calendarBtn {
-  color: var(--primary-purple);
-}
-
-.scheduledDate {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.calendarBtn {
-  background: none;
-  border: none;
-  padding: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-muted);
-  border-radius: 4px;
-  transition: all 0.2s;
-  position: relative;
-}
-
-.calendarBtn.active {
-  color: var(--primary-purple);
-  background: rgba(139, 92, 246, 0.1);
-}
-
-.hiddenDateInput {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0;
-  cursor: pointer;
-}
-
-.timeWrapper {
-  display: flex;
-  align-items: center;
-  position: relative;
-  cursor: pointer;
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  font-weight: 600;
-  margin-left: 2px;
-}
-
-.timeWrapper::before {
-  content: '·';
-  margin-right: 4px;
-}
-
-.timeInput {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0;
-  cursor: pointer;
-}
-
-
-
-.description {
-  color: var(--text-muted);
-  font-size: 0.95rem;
-  line-height: 1.6;
-  flex-grow: 1;
-  min-height: 0;
-  max-height: 10rem;
-  overflow: hidden;
-  position: relative;
-  mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
-  word-break: break-word;
-}
-
-.description > * {
-  margin: 0 0 0.5rem 0;
-}
-
-.description > *:last-child {
-  margin-bottom: 0;
-}
-
-.description h1, .description h2, .description h3 {
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: var(--text-main);
-}
-
-.description ul, .description ol {
-  padding-left: 1.5rem;
-}
-
-.description img {
+.rich:empty { display: none; }
+.rich > * + * { margin-top: 6px; }
+.rich h1, .rich h2, .rich h3 { font-size: 14px; font-weight: 700; color: var(--fg); }
+.rich ul, .rich ol { padding-left: 18px; }
+.rich li + li { margin-top: 3px; }
+.rich blockquote { border-left: 3px solid var(--line-strong); padding-left: 10px; }
+.rich pre, .rich code { font-family: var(--mono); font-size: 12.5px; background: var(--subtle); border-radius: var(--r-sm); }
+.rich pre { padding: 8px; white-space: pre-wrap; }
+.rich img {
   max-width: 100%;
-  max-height: 150px; /* Smaller in card view */
+  max-height: 150px;
   object-fit: cover;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   cursor: zoom-in;
-  margin: 0.5rem 0;
+  display: block;
 }
-
-.description ul[data-type="taskList"] {
-  list-style: none;
-  padding-left: 0;
-}
-
-.description ul[data-type="taskList"] li {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.2rem;
-}
-
-.description input[type="checkbox"] {
-  accent-color: var(--primary-purple);
-  width: 0.9rem;
-  height: 0.9rem;
+.rich ul[data-type="taskList"] { list-style: none; padding-left: 0; }
+.rich ul[data-type="taskList"] li { display: flex; align-items: flex-start; gap: 8px; }
+.rich ul[data-type="taskList"] li > label { flex-shrink: 0; display: inline-flex; padding-top: 2px; }
+.rich ul[data-type="taskList"] li > div { flex: 1; min-width: 0; }
+.rich ul[data-type="taskList"] li[data-checked="true"] > div { color: var(--muted); text-decoration: line-through; }
+.rich input[type="checkbox"] {
+  accent-color: var(--done-dot);
+  width: 14px;
+  height: 14px;
   margin: 0;
-  pointer-events: none; /* Make checkbox unclickable in card view */
+  pointer-events: none;
 }
 
-.footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 0.72rem;
-  color: var(--text-muted);
-  padding-top: 0.6rem;
-  border-top: 1px solid rgba(0, 0, 0, 0.05);
-}
-
-.footerLeft {
+/* ---------- Footer strip ---------- */
+.foot {
+  margin-top: auto;
+  padding: 8px 10px 8px 18px;
+  border-top: 1px solid var(--line);
+  background: var(--surface-2);
+  border-radius: 0 0 var(--r-lg) var(--r-lg);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--muted);
+  min-height: 42px;
 }
 
-.editedTag {
-  font-style: italic;
-  opacity: 0.8;
-}
+.progress { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: var(--fg-2); }
+.bar { width: 44px; height: 5px; border-radius: 999px; background: var(--subtle); overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--done-dot); border-radius: inherit; }
 
-.actions {
-  display: flex;
-  gap: 12px;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-  flex-shrink: 0;
-  align-items: center;
-}
-
-.card:hover .actions {
-  opacity: 1;
-}
-
-.actionBtn {
-  position: relative;
-  background: rgba(0, 0, 0, 0.04);
-  color: var(--text-muted);
-  border-radius: 6px;
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-  font-size: 0.75rem;
-  border: none;
-  cursor: pointer;
-}
-
-/* Enforce minimum 44px x 44px touch target */
-.actionBtn::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  min-width: 44px;
-  min-height: 44px;
-  width: 100%;
-  height: 100%;
-}
-
-.actionBtn:hover {
-  background: var(--primary-purple);
-  color: white;
-}
-
-.deleteBtn {
-  color: var(--text-muted);
-}
-
-.deleteBtn:hover {
-  background: var(--danger, #ef4444);
-  color: white;
-}
-
-/* ── Recurrence Button ─────────────────────────────────────── */
-
-.recurrenceBtn {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 7px;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: all 0.2s;
-  padding: 0;
-  opacity: 0;
-  flex-shrink: 0;
-}
-
-/* Enforce minimum 44px x 44px touch target */
-.recurrenceBtn::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  min-width: 44px;
-  min-height: 44px;
-  width: 100%;
-  height: 100%;
-}
-
-.card:hover .recurrenceBtn {
-  opacity: 1;
-}
-
-.recurrenceBtn:hover {
-  background: rgba(139, 92, 246, 0.08);
-  color: var(--primary-purple);
-  border-color: rgba(139, 92, 246, 0.2);
-}
-
-/* Active state — always visible when recurrence is set */
-.recurrenceBtnActive {
-  opacity: 1;
-  background: rgba(139, 92, 246, 0.1);
-  color: var(--primary-purple);
-  border-color: rgba(139, 92, 246, 0.25);
-}
-
-.recurrenceBtnActive:hover {
-  background: rgba(139, 92, 246, 0.18);
-}
-
-@media (max-width: 600px) {
-  .card {
-    min-height: 0;
-    padding: 1rem;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-    transition: transform 0.1s ease;
-    -webkit-tap-highlight-color: rgba(139, 92, 246, 0.08);
-    touch-action: manipulation;
-  }
-
-  .card:active {
-    background-color: var(--surface-hover, rgba(0, 0, 0, 0.03));
-    transform: scale(0.99);
-  }
-
-  .card:hover {
-    transform: none;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-  }
-
-  .headerRow {
-    flex-direction: row;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  .headerRight {
-    justify-content: flex-end;
-    flex-shrink: 0;
-    gap: 10px;
-  }
-
-  .statusBadge {
-    padding: 4px 8px;
-    font-size: 0.7rem;
-  }
-
-  .statusOption {
-    min-height: 44px;
-    padding: 8px 12px;
-    font-size: 0.8rem;
-  }
-
-  /* Always visible on touchscreens */
-  .recurrenceBtn {
-    opacity: 1;
-    width: 36px;
-    height: 36px;
-    border-radius: 8px;
-  }
-
-  .scheduleWrapper {
-    max-width: none;
-    overflow: visible;
-    padding: 4px 8px;
-    gap: 6px;
-    min-height: 36px;
-  }
-
-  .calendarBtn {
-    padding: 6px;
-  }
-
-  .scheduledDate {
-    font-size: 0.7rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .timeWrapper {
-    font-size: 0.7rem;
-  }
-
-  .footer {
-    gap: 0.75rem;
-    align-items: center;
-    flex-wrap: wrap;
-  }
-
-  .actions {
-    opacity: 1;
-    gap: 16px; /* Generous spacing prevents accidental adjacent taps */
-  }
-
-  .actionBtn {
-    width: 36px;
-    height: 36px;
-    border-radius: 8px;
-    background: rgba(0, 0, 0, 0.04);
-    color: var(--text-main);
-  }
-
-  .actionBtn:active {
-    background: var(--primary-purple);
-    color: white;
-  }
-
-  /* Safe deletion flow: clear destructive cues on touchscreens */
-  .deleteBtn {
-    color: var(--danger, #ef4444);
-    background: rgba(239, 68, 68, 0.08);
-    border: 1px solid rgba(239, 68, 68, 0.2);
-  }
-
-  .deleteBtn:active {
-    background: var(--danger, #ef4444);
-    color: white;
-  }
-
-  .description {
-    mask-image: none;
-    -webkit-mask-image: none;
-    max-height: 8rem;
-    overflow: hidden;
-  }
-}
-
-.parentChip {
-  max-width: 160px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.68rem;
-  font-weight: 600;
-  color: var(--primary-purple);
-  background: rgba(139, 92, 246, 0.08);
-  border: 1px solid rgba(139, 92, 246, 0.2);
-  border-radius: 9999px;
-  padding: 1px 8px;
-  cursor: pointer;
-}
-
-.parentChip:hover {
-  background: rgba(139, 92, 246, 0.16);
+.actions { margin-left: auto; display: flex; gap: 2px; opacity: 0; transition: opacity 0.15s; }
+.card:hover .actions, .card:focus-within .actions { opacity: 1; }
+@media (hover: none) {
+  .actions { opacity: 1; }
 }

@@ -12,11 +12,14 @@ interface NoteModalProps {
   onClose: () => void;
   onSave: (note: Omit<Note, 'created_at' | 'updated_at'>) => void;
   initialData?: Note | null;
-  isViewMode?: boolean;
   cryptoKey?: CryptoKey | null;
   allNotes?: Note[];
   defaultParentId?: string | null;
   defaultCanvasOnly?: boolean;
+  /** New notes only: start scheduled on this day (YYYY-MM-DD) as a to-do. */
+  defaultScheduledDate?: string | null;
+  /** Open with the schedule popover showing (used by the repeat buttons). */
+  initialPopover?: 'schedule' | null;
 }
 
 function getTodayString(): string {
@@ -107,6 +110,8 @@ export const NoteModal: React.FC<NoteModalProps> = ({
   allNotes = [],
   defaultParentId = null,
   defaultCanvasOnly = false,
+  defaultScheduledDate = null,
+  initialPopover = null,
 }) => {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -140,6 +145,9 @@ export const NoteModal: React.FC<NoteModalProps> = ({
   const isExistingNote = Boolean(initialData?.id);
   const initialParentId = isExistingNote ? initialData?.parent_note_id ?? null : defaultParentId;
   const initialCanvasOnly = isExistingNote ? Boolean(initialData?.canvas_only) : defaultCanvasOnly;
+  // A new note opened from a day in the schedule starts on that day as a to-do.
+  const initialScheduledDate = isExistingNote ? initialData?.scheduled_date || null : defaultScheduledDate;
+  const initialStatus = isExistingNote ? initialData?.status ?? null : defaultScheduledDate ? 'todo' : null;
   // Hiding only sticks while the note has a parent or lives on a canvas (the server enforces this too).
   const canHide = Boolean(parentNoteId || initialData?.canvas_name || defaultCanvasOnly);
   const effectiveCanvasOnly = canHide && canvasOnly;
@@ -156,8 +164,8 @@ export const NoteModal: React.FC<NoteModalProps> = ({
       }
       setTitle(initialData?.title || '');
       setContent(initialData?.content || '');
-      setStatus(initialData?.status ?? null);
-      setScheduledDate(initialData?.scheduled_date || null);
+      setStatus(initialData?.id ? initialData.status ?? null : defaultScheduledDate ? 'todo' : null);
+      setScheduledDate(initialData?.id ? initialData.scheduled_date || null : defaultScheduledDate);
       setScheduledTime(initialData?.scheduled_time || null);
       setEndDate(initialData?.end_date || null);
       setRecurrenceRule(initialData?.recurrence_rule || null);
@@ -166,10 +174,10 @@ export const NoteModal: React.FC<NoteModalProps> = ({
       setParentNoteId(initialData?.id ? initialData.parent_note_id ?? null : defaultParentId);
       setCanvasOnly(initialData?.id ? Boolean(initialData.canvas_only) : defaultCanvasOnly);
       setIsParentPickerOpen(false);
-      setIsPopoverOpen(false);
+      setIsPopoverOpen(initialPopover === 'schedule');
       setShowConfirmDiscard(false);
     }
-  }, [isOpen, initialData, defaultParentId, defaultCanvasOnly]);
+  }, [isOpen, initialData, defaultParentId, defaultCanvasOnly, defaultScheduledDate, initialPopover]);
 
   // Check if current form values differ from initial values
   const hasUnsavedChanges = useMemo(() => {
@@ -188,10 +196,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
     const currentNormalized = normalizeContent(content || '');
     if (currentNormalized !== initialNormalized) return true;
 
-    const initialStatus = initialData?.status ?? null;
     if ((status || null) !== initialStatus) return true;
-
-    const initialScheduledDate = initialData?.scheduled_date || null;
     if ((scheduledDate || null) !== initialScheduledDate) return true;
 
     const initialScheduledTime = initialData?.scheduled_time || null;
@@ -227,6 +232,8 @@ export const NoteModal: React.FC<NoteModalProps> = ({
     effectiveCanvasOnly,
     initialParentId,
     initialCanvasOnly,
+    initialStatus,
+    initialScheduledDate,
     initialData,
   ]);
 

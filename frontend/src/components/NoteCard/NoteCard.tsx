@@ -1,6 +1,10 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Calendar, Repeat, Check, ChevronDown, Pencil, Trash2 } from 'lucide-react';
+import React from 'react';
+import { CornerDownRight, Pencil, Repeat, Trash2 } from 'lucide-react';
 import { useDecryptedHtml } from '../../lib/imageDecryption';
+import { checklistProgress, describeRecurrence, formatNoteDate, isTask as isTaskNote } from '../../lib/noteText';
+import { DateChip } from '../ui/DateChip';
+import { StatusPill } from '../ui/StatusControl';
+import ui from '../ui/ui.module.css';
 import styles from './NoteCard.module.css';
 
 export interface Note {
@@ -23,300 +27,127 @@ export interface Note {
 
 interface NoteCardProps {
   note: Note;
-  onEdit: (note: Note) => void;
+  onOpen: (note: Note) => void;
   onDelete: (id: string) => void;
-  onView: (note: Note) => void;
   onUpdateSchedule?: (noteId: string, date: string | null, time: string | null, status: string) => void;
-  onRecurrenceClick?: (note: Note) => void;
+  /** Open the editor with its schedule popover (repeat, time, end date). */
+  onEditSchedule?: (note: Note) => void;
   cryptoKey?: CryptoKey | null;
   parentNote?: Note;
 }
 
-const STATUS_OPTIONS = [
-  { value: 'todo', label: 'To Do', color: '#9CA3AF' },
-  { value: 'in_progress', label: 'In Progress', color: '#F59E0B' },
-  { value: 'done', label: 'Done', color: '#10B981' },
-] as const;
-
-const STATUS_LABELS: Record<string, string> = {
-  todo: 'To Do',
-  in_progress: 'In Progress',
-  done: 'Done',
-};
-
-const RECURRENCE_LABELS: Record<string, string> = {
-  daily: 'Daily',
-  weekly: 'Weekly',
-  monthly: 'Monthly',
-};
-
-function buildRecurrenceTooltip(note: Note): string {
-  if (!note.recurrence_rule) return 'Set recurrence';
-  const rule = RECURRENCE_LABELS[note.recurrence_rule] || note.recurrence_rule;
-  const interval = note.recurrence_interval || 1;
-  const frequency =
-    interval === 1
-      ? rule
-      : `Every ${interval} ${
-          note.recurrence_rule === 'daily'
-            ? 'days'
-            : note.recurrence_rule === 'weekly'
-              ? 'weeks'
-              : 'months'
-        }`;
-  const end = note.recurrence_end_date
-    ? ` until ${new Date(note.recurrence_end_date + 'T00:00:00').toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-      })}`
-    : ' Forever';
-  return `${frequency}${end} - Click to edit`;
+function formatCreated(dateString: string): string {
+  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(new Date(dateString));
 }
 
 export const NoteCard: React.FC<NoteCardProps> = ({
   note,
-  onEdit,
+  onOpen,
   onDelete,
-  onView,
   onUpdateSchedule,
-  onRecurrenceClick,
+  onEditSchedule,
   cryptoKey,
   parentNote,
 }) => {
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const dateInputRef = useRef<HTMLInputElement>(null);
   const decryptedHtml = useDecryptedHtml(note.content || '', cryptoKey);
-
-  const isTask = (note.status !== null && note.status !== undefined) || Boolean(note.scheduled_date);
-  const currentStatus = note.status || (note.scheduled_date ? 'todo' : 'todo');
+  const isTask = isTaskNote(note);
   const isDone = isTask && note.status === 'done';
-
-  useEffect(() => {
-    if (!isDropdownOpen) return;
-
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsDropdownOpen(false);
-      }
-    };
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setIsDropdownOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [isDropdownOpen]);
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-    }).format(date);
-  };
-
-  const handleToggleDropdown = (event: React.MouseEvent) => {
-    event.stopPropagation();
-    setIsDropdownOpen((prev) => !prev);
-  };
-
-  const handleSelectStatus = (event: React.MouseEvent, newStatus: string) => {
-    event.stopPropagation();
-    setIsDropdownOpen(false);
-    if (newStatus !== currentStatus) {
-      onUpdateSchedule?.(note.id, note.scheduled_date, note.scheduled_time, newStatus);
-    }
-  };
-
-  const handleDateChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    event.stopPropagation();
-    const newDate = event.target.value || null;
-    onUpdateSchedule?.(note.id, newDate, note.scheduled_time, note.status || 'todo');
-  };
-
-  const handleCalendarClick = (event: React.MouseEvent) => {
-    event.stopPropagation();
-    dateInputRef.current?.showPicker();
-  };
-
-  const handleRecurrenceClick = (event: React.MouseEvent) => {
-    event.stopPropagation();
-    onRecurrenceClick?.(note);
-  };
+  const progress = checklistProgress(note.content || '');
+  const edited = Boolean(note.updated_at && note.updated_at !== note.created_at);
+  const repeatLabel = note.recurrence_rule ? `Repeats: ${describeRecurrence(note)}. Edit` : 'Set repeat';
 
   return (
-    <div
-      className={`${styles.card} ${isDropdownOpen ? styles.cardDropdownOpen : ''}`}
-      onClick={() => onView(note)}
-      role="button"
+    <article
+      className={`${styles.card} ${isDone ? styles.done : ''}`}
+      onClick={() => onOpen(note)}
       tabIndex={0}
       aria-label={`Note: ${note.title || 'Untitled'}`}
       onKeyDown={(event) => {
         if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
           event.preventDefault();
-          onView(note);
+          onOpen(note);
         }
       }}
     >
-      <div className={styles.headerRow}>
-        <div className={styles.titleWrapper}>
-          <div className={styles.titleContent}>
-            {(note.canvas_name || isTask || parentNote) && (
-              <div className={styles.badgeRow}>
-                {note.canvas_name ? (
-                  <span className={styles.canvasName}>{note.canvas_name}</span>
-                ) : null}
-                {parentNote && (
-                  <button
-                    type="button"
-                    className={styles.parentChip}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onView(parentNote);
-                    }}
-                    title={`Part of: ${parentNote.title || 'Untitled'}`}
-                  >
-                    ↳ {parentNote.title || 'Untitled'}
-                  </button>
-                )}
-                {isTask && (
-                  <div
-                    className={styles.statusDropdownWrapper}
-                    ref={dropdownRef}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Escape') {
-                        e.stopPropagation();
-                        setIsDropdownOpen(false);
-                      }
-                    }}
-                  >
-                    <button
-                      type="button"
-                      className={`${styles.statusBadge} ${styles[`statusBadge_${currentStatus}`]}`}
-                      onClick={handleToggleDropdown}
-                      title={`Status: ${STATUS_LABELS[currentStatus] || currentStatus} (click to change)`}
-                      aria-label={`Status: ${STATUS_LABELS[currentStatus] || currentStatus} (click to change)`}
-                      aria-haspopup="listbox"
-                      aria-expanded={isDropdownOpen}
-                    >
-                      <span className={styles.statusDot} />
-                      <span className={styles.statusLabel}>{STATUS_LABELS[currentStatus] || currentStatus}</span>
-                      <ChevronDown
-                        size={11}
-                        className={`${styles.statusChevron} ${isDropdownOpen ? styles.statusChevronOpen : ''}`}
-                      />
-                    </button>
-
-                    {isDropdownOpen && (
-                      <div
-                        className={styles.statusDropdownMenu}
-                        role="listbox"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {STATUS_OPTIONS.map((option) => {
-                          const isSelected = option.value === currentStatus;
-                          return (
-                            <button
-                              key={option.value}
-                              type="button"
-                              role="option"
-                              aria-selected={isSelected}
-                              className={`${styles.statusOption} ${isSelected ? styles.statusOptionSelected : ''}`}
-                              onClick={(e) => handleSelectStatus(e, option.value)}
-                            >
-                              <span className={styles.optionDot} style={{ backgroundColor: option.color }} />
-                              <span className={styles.optionLabel}>{option.label}</span>
-                              {isSelected && <Check size={12} className={styles.optionCheck} />}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+      <div className={styles.body}>
+        <div className={styles.top}>
+          <div className={styles.chips}>
+            {note.canvas_name && <span className={`${ui.chip} ${ui.chipCanvas}`}>{note.canvas_name}</span>}
+            {parentNote && (
+              <button
+                type="button"
+                className={ui.chip}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onOpen(parentNote);
+                }}
+                title={`Part of ${parentNote.title || 'Untitled'}`}
+              >
+                <CornerDownRight size={12} />
+                <span className={ui.chipLabel}>{parentNote.title || 'Untitled'}</span>
+              </button>
             )}
-
-            <div className={styles.titleRow}>
-              <h3 className={`${styles.title} ${isDone ? styles.titleDone : ''}`}>{note.title || 'Untitled'}</h3>
-            </div>
-          </div>
-        </div>
-
-        <div className={styles.headerRight}>
-          {note.scheduled_date && (
-            <button
-              type="button"
-              className={`${styles.recurrenceBtn} ${note.recurrence_rule ? styles.recurrenceBtnActive : ''}`}
-              onClick={handleRecurrenceClick}
-              title={buildRecurrenceTooltip(note)}
-              aria-label={buildRecurrenceTooltip(note)}
-            >
-              <Repeat size={13} />
-            </button>
-          )}
-
-          <div
-            className={styles.scheduleWrapper}
-            title="Set scheduled date and time"
-            onClick={handleCalendarClick}
-            role="button"
-            tabIndex={0}
-            aria-label="Set scheduled date and time"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.stopPropagation();
-                dateInputRef.current?.showPicker();
-              }
-            }}
-          >
-            <div className={`${styles.calendarBtn} ${note.scheduled_date ? styles.active : ''}`}>
-              <Calendar size={14} />
-              <input
-                ref={dateInputRef}
-                type="date"
-                className={styles.hiddenDateInput}
-                value={note.scheduled_date || ''}
-                onChange={handleDateChange}
-                onClick={(event) => event.stopPropagation()}
-                tabIndex={-1}
-                aria-label="Choose date"
+            {isTask && (
+              <StatusPill
+                status={note.status}
+                label={note.title}
+                onChange={
+                  onUpdateSchedule
+                    ? (next) => onUpdateSchedule(note.id, note.scheduled_date, note.scheduled_time, next)
+                    : undefined
+                }
               />
-            </div>
+            )}
+          </div>
+          <div className={styles.tools}>
+            {note.scheduled_date && onEditSchedule && (
+              <button
+                type="button"
+                className={`${ui.iconBtn} ${ui.iconSm} ${note.recurrence_rule ? ui.on : ''}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onEditSchedule(note);
+                }}
+                title={repeatLabel}
+                aria-label={repeatLabel}
+              >
+                <Repeat size={14} />
+              </button>
+            )}
+            {onUpdateSchedule && (
+              <DateChip
+                date={note.scheduled_date}
+                text={formatNoteDate(note)}
+                onChange={(date) => onUpdateSchedule(note.id, date, date ? note.scheduled_time : null, note.status || 'todo')}
+              />
+            )}
           </div>
         </div>
+
+        <h3 className={styles.title}>{note.title || 'Untitled'}</h3>
+        <div className={styles.rich} dangerouslySetInnerHTML={{ __html: decryptedHtml }} />
       </div>
 
-      <div className={styles.description} dangerouslySetInnerHTML={{ __html: decryptedHtml }} />
-
-      <div className={styles.footer}>
-        <div className={styles.footerLeft}>
-          <span>{formatDate(note.created_at)}</span>
-          {note.updated_at && note.updated_at !== note.created_at && (
-            <span className={styles.editedTag} title="Edited">
-              · Edited
+      <footer className={styles.foot}>
+        <span className="tnum">
+          {formatCreated(note.created_at)}
+          {edited ? ' · Edited' : ''}
+        </span>
+        {progress && (
+          <span className={`${styles.progress} tnum`} title="Checklist progress">
+            <span className={styles.bar}>
+              <i style={{ width: `${(progress.done / progress.total) * 100}%` }} />
             </span>
-          )}
-        </div>
-
-        <div className={styles.actions}>
+            {progress.done}/{progress.total}
+          </span>
+        )}
+        <span className={styles.actions}>
           <button
             type="button"
-            className={styles.actionBtn}
+            className={`${ui.iconBtn} ${ui.iconSm}`}
             onClick={(event) => {
               event.stopPropagation();
-              onEdit(note);
+              onOpen(note);
             }}
             title="Edit note"
             aria-label="Edit note"
@@ -325,7 +156,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
           </button>
           <button
             type="button"
-            className={`${styles.actionBtn} ${styles.deleteBtn}`}
+            className={`${ui.iconBtn} ${ui.iconSm} ${ui.iconDanger}`}
             onClick={(event) => {
               event.stopPropagation();
               onDelete(note.id);
@@ -335,8 +166,8 @@ export const NoteCard: React.FC<NoteCardProps> = ({
           >
             <Trash2 size={13} />
           </button>
-        </div>
-      </div>
-    </div>
+        </span>
+      </footer>
+    </article>
   );
 };

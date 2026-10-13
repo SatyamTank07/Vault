@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { Lock, Plus, Wand2 } from 'lucide-react';
 import {
   ReactFlow,
@@ -24,7 +24,13 @@ import { CanvasSelector } from './CanvasSelector';
 import { autoLayout, convertToReactFlow, type CanvasData, type CanvasListItem } from './canvasUtils';
 import styles from './CanvasView.module.css';
 
+export interface CanvasViewActions {
+  /** Open the new-note flow on the active canvas. Returns false when no canvas is open. */
+  createNote: () => boolean;
+}
+
 interface CanvasViewProps {
+  actionsRef?: React.Ref<CanvasViewActions>;
   currentUserId: string;
   onOpenNote: (note: Note) => void;
   onRecurrenceClick: (note: Note) => void;
@@ -34,6 +40,7 @@ interface CanvasViewProps {
 }
 
 export const CanvasView: React.FC<CanvasViewProps> = ({
+  actionsRef,
   currentUserId,
   onOpenNote,
   onRecurrenceClick,
@@ -257,6 +264,19 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
     setParentNodeIdForNewNote(null);
     setIsCreateModalOpen(true);
   };
+
+  useImperativeHandle(
+    actionsRef,
+    () => ({
+      createNote: () => {
+        if (!activeCanvasId) return false;
+        setParentNodeIdForNewNote(null);
+        setIsCreateModalOpen(true);
+        return true;
+      },
+    }),
+    [activeCanvasId],
+  );
 
   const handleAddBranch = (parentNodeId: string) => {
     if (!activeCanvasId) return;
