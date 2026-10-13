@@ -19,8 +19,9 @@ export interface BackendCanvasNode {
     recurrence_rule?: string | null;
     recurrence_interval?: number;
     recurrence_end_date?: string | null;
+    parent_note_id?: string | null;
+    canvas_only?: boolean;
   };
-  parent_node_id: string | null;
   position_x: number;
   position_y: number;
 }
@@ -62,16 +63,21 @@ export function convertToReactFlow(backendNodes: BackendCanvasNode[]): {
     },
   }));
 
-  const edges: Edge[] = backendNodes
-    .filter((bn) => bn.parent_node_id !== null)
-    .map((bn) => ({
-      id: `e-${bn.parent_node_id}-${bn.id}`,
-      source: bn.parent_node_id!,
-      target: bn.id,
-      type: 'default',
-      animated: false,
-      style: { stroke: '#8B5CF6', strokeWidth: 2 },
-    }));
+  const nodeIdByNoteId = new Map(backendNodes.map((bn) => [bn.note.id, bn.id]));
+  const edges: Edge[] = backendNodes.flatMap((bn) => {
+    const parentNodeId = bn.note.parent_note_id ? nodeIdByNoteId.get(bn.note.parent_note_id) : undefined;
+    if (!parentNodeId || parentNodeId === bn.id) return [];
+    return [
+      {
+        id: `e-${parentNodeId}-${bn.id}`,
+        source: parentNodeId,
+        target: bn.id,
+        type: 'default',
+        animated: false,
+        style: { stroke: '#8B5CF6', strokeWidth: 2 },
+      },
+    ];
+  });
 
   return { nodes, edges };
 }

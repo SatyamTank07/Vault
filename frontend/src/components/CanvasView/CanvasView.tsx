@@ -288,8 +288,17 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
     }
 
     try {
+      // The parent and canvas_only go with the node call, not the note call: the
+      // note call would mirror a duplicate node, and the visibility rule would
+      // reset canvas_only before the node exists.
+      const parentNodeData = parentNodeIdForNewNote
+        ? (nodes.find((n) => n.id === parentNodeIdForNewNote)?.data as { noteId?: string } | undefined)
+        : undefined;
+      const parentNoteId = parentNodeData?.noteId ?? noteData.parent_note_id ?? null;
+      const notePayload = { ...noteData, parent_note_id: null, canvas_only: false };
+
       // Encrypt note before sending
-      const dataToSend = cryptoKey ? await encryptNote(noteData, cryptoKey) : noteData;
+      const dataToSend = cryptoKey ? await encryptNote(notePayload, cryptoKey) : notePayload;
 
       const noteResponse = await apiFetch('/notes/', {
         method: 'POST',
@@ -302,7 +311,8 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
           method: 'POST',
           body: JSON.stringify({
             note_id: newNote.id,
-            parent_node_id: parentNodeIdForNewNote,
+            parent_note_id: parentNoteId,
+            canvas_only: noteData.canvas_only ?? true,
             position_x: newX,
             position_y: newY,
           }),
@@ -336,6 +346,7 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
           });
           if (response.ok) {
             fetchCanvasData(activeCanvasId);
+            fetchNotes();
           }
         } catch (error) {
           console.error('Failed to remove node:', error);
@@ -409,6 +420,12 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
       if (!activeCanvasId) return;
       if (connection.source === connection.target) return;
 
+      const noteIdOf = (nodeId: string | null) =>
+        (nodes.find((n) => n.id === nodeId)?.data as { noteId?: string } | undefined)?.noteId;
+      const sourceNoteId = noteIdOf(connection.source);
+      const targetNoteId = noteIdOf(connection.target);
+      if (!sourceNoteId || !targetNoteId) return;
+
       setEdges((prevEdges) =>
         addEdge(
           {
@@ -421,22 +438,22 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
       );
 
       try {
-        const response = await apiFetch(`/api/canvases/${activeCanvasId}/nodes/${connection.target}`, {
+        const response = await apiFetch(`/api/notes/${targetNoteId}/parent`, {
           method: 'PUT',
-          body: JSON.stringify({ parent_node_id: connection.source }),
+          body: JSON.stringify({ parent_note_id: sourceNoteId }),
         });
-
-        if (response.ok) {
-          fetchCanvasData(activeCanvasId);
-        } else {
-          fetchCanvasData(activeCanvasId);
+        if (!response.ok) {
+          console.error('Failed to connect nodes:', await response.text());
         }
       } catch (error) {
         console.error('Failed to connect nodes:', error);
+      } finally {
+        // Re-derive edges from the hierarchy (a note has one parent, so an old edge may disappear).
         fetchCanvasData(activeCanvasId);
+        fetchNotes();
       }
     },
-    [activeCanvasId, fetchCanvasData, setEdges],
+    [activeCanvasId, fetchCanvasData, fetchNotes, nodes, setEdges],
   );
 
   const handleAutoLayout = async () => {
