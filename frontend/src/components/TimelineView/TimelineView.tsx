@@ -17,6 +17,8 @@ interface TimelineViewProps {
   fetchNotes: () => void;
   cryptoKey: CryptoKey | null;
   showCompleted?: boolean;
+  onCreateChild?: (parentId: string) => void;
+  onSetParent?: (noteId: string, parentId: string | null) => void;
 }
 
 function toISODateString(date: Date): string {
@@ -112,7 +114,15 @@ function formatDateLabel(date: Date, subView: SubView, zoomLevel: number): strin
   return startYear === endYear ? `${startYear}` : `${startYear} – ${endYear}`;
 }
 
-export const TimelineView: React.FC<TimelineViewProps> = ({ onOpenNote, notes, fetchNotes, cryptoKey, showCompleted = false }) => {
+export const TimelineView: React.FC<TimelineViewProps> = ({
+  onOpenNote,
+  notes,
+  fetchNotes,
+  cryptoKey,
+  showCompleted = false,
+  onCreateChild,
+  onSetParent,
+}) => {
   // Default to day view on mobile screens (<= 600px), and week view on desktop
   const [subView, setSubView] = useState<SubView>(() => {
     if (typeof window !== 'undefined' && window.innerWidth <= 600) {
@@ -483,6 +493,8 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ onOpenNote, notes, f
             fetchNotes={fetchNotes}
             cryptoKey={cryptoKey}
             showCompleted={showCompleted}
+            onCreateChild={onCreateChild}
+            onSetParent={onSetParent}
           />
         ) : loading && Object.keys(tasksByDate).length === 0 ? (
           <div className={styles.emptyState}>Loading...</div>

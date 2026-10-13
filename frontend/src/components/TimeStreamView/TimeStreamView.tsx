@@ -6,6 +6,7 @@ import type { Note } from '../NoteCard/NoteCard';
 import { TimeStreamControls } from './TimeStreamControls';
 import { TimeStreamCanvas, type TimeStreamEvent } from './TimeStreamCanvas';
 import { groupChildMarkers } from './streamGrouping';
+import { EventPanel } from './EventPanel';
 import styles from './TimeStreamView.module.css';
 
 interface TimeStreamViewProps {
@@ -19,6 +20,8 @@ interface TimeStreamViewProps {
   zoomLevel?: number;
   onZoomChange?: (zoom: number) => void;
   hideControls?: boolean;
+  onCreateChild?: (parentId: string) => void;
+  onSetParent?: (noteId: string, parentId: string | null) => void;
 }
 
 function toISODateString(date: Date): string {
@@ -38,6 +41,8 @@ export const TimeStreamView: React.FC<TimeStreamViewProps> = ({
   zoomLevel: controlledZoomLevel,
   onZoomChange,
   hideControls = false,
+  onCreateChild,
+  onSetParent,
 }) => {
   const [internalZoomLevel, setInternalZoomLevel] = useState<number>(0.1);
   const [internalCenterDate, setInternalCenterDate] = useState<Date>(new Date());
@@ -47,6 +52,7 @@ export const TimeStreamView: React.FC<TimeStreamViewProps> = ({
   
   const [events, setEvents] = useState<TimeStreamEvent[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [openEvent, setOpenEvent] = useState<TimeStreamEvent | null>(null);
   const [containerWidth, setContainerWidth] = useState<number>(1000);
   const containerRef = useRef<HTMLDivElement>(null);
   const decryptedNotesCache = useRef<Map<string, { note: Note; updatedAt: string | null }>>(new Map());
@@ -266,8 +272,19 @@ export const TimeStreamView: React.FC<TimeStreamViewProps> = ({
         onZoom={handleZoomFromCanvas}
         containerWidth={containerWidth}
         markersByParent={markersByParent}
-        onOpenEvent={(event) => onOpenNote(event.note)}
+        onOpenEvent={(event) => (onCreateChild && onSetParent ? setOpenEvent(event) : onOpenNote(event.note))}
       />
+
+      {openEvent && onCreateChild && onSetParent && (
+        <EventPanel
+          event={openEvent}
+          allNotes={notes}
+          onClose={() => setOpenEvent(null)}
+          onOpenNote={onOpenNote}
+          onCreateChild={onCreateChild}
+          onSetParent={onSetParent}
+        />
+      )}
     </div>
   );
 };

@@ -32,6 +32,7 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
   const [recurrenceNote, setRecurrenceNote] = useState<Note | null>(null);
+  const [childParentId, setChildParentId] = useState<string | null>(null);
   const [confirmModalConfig, setConfirmModalConfig] = useState<{
     isOpen: boolean;
     title: string;
@@ -313,20 +314,30 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
   };
 
   const openCreateModal = () => {
+    setChildParentId(null);
     setEditingNote(null);
     setIsViewMode(false);
     setIsModalOpen(true);
   };
 
   const openEditModal = (note: Note) => {
+    setChildParentId(null);
     setEditingNote(note);
     setIsViewMode(false);
     setIsModalOpen(true);
   };
 
   const openViewModal = (note: Note) => {
+    setChildParentId(null);
     setEditingNote(note);
     setIsViewMode(true);
+    setIsModalOpen(true);
+  };
+
+  const openCreateChildModal = (parentId: string) => {
+    setEditingNote(null);
+    setChildParentId(parentId);
+    setIsViewMode(false);
     setIsModalOpen(true);
   };
 
@@ -500,7 +511,15 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
           cryptoKey={cryptoKey}
         />
       ) : activeView === 'schedule' ? (
-        <TimelineView onOpenNote={openViewModal} notes={notes} fetchNotes={fetchNotes} cryptoKey={cryptoKey} showCompleted={showCompleted} />
+        <TimelineView
+          onOpenNote={openViewModal}
+          notes={notes}
+          fetchNotes={fetchNotes}
+          cryptoKey={cryptoKey}
+          showCompleted={showCompleted}
+          onCreateChild={openCreateChildModal}
+          onSetParent={handleSetParent}
+        />
       ) : null}
 
       <NoteModal
@@ -511,6 +530,8 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
         isViewMode={isViewMode}
         cryptoKey={cryptoKey}
         allNotes={notes}
+        defaultParentId={childParentId}
+        defaultCanvasOnly={childParentId !== null}
       />
 
       {enlargedImageUrl && (
