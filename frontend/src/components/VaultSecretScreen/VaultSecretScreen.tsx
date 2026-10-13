@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { Lock, ShieldCheck, KeyRound } from 'lucide-react';
+import { Lock, ShieldCheck, KeyRound, TriangleAlert, ArrowLeft } from 'lucide-react';
+import { AuthLayout } from '../AuthLayout/AuthLayout';
+import shell from '../AuthLayout/AuthLayout.module.css';
 import styles from './VaultSecretScreen.module.css';
 import { apiFetch, type CurrentUser } from '../../lib/api';
 import {
@@ -314,264 +316,262 @@ export function VaultSecretScreen({ currentUser, onUnlocked, onUserUpdated }: Va
     }
   };
 
+  const errorMessage = error && <p className={`${shell.message} ${shell.error}`}>{error}</p>;
+
   // ─── Phase: Show Recovery Phrase ───
   if (phase === 'show-phrase') {
     return (
-      <div className={styles.page}>
-        <div className={styles.card}>
-          <div className={styles.lockIcon}>
-            <KeyRound size={48} />
-          </div>
-
-          <div className={styles.brand}>
-            <h1>Recovery Phrase</h1>
-            <p>
-              Write down these 12 words in order. Because your Vault Secret never leaves your device, this is the <strong>only way</strong> to recover your vault if you forget your secret.
-            </p>
-          </div>
-
-          <div className={styles.phraseGrid}>
-            {recoveryPhrase.map((word, i) => (
-              <div key={i} className={styles.phraseWord}>
-                <span className={styles.wordNumber}>{i + 1}</span>
-                <span className={styles.wordText}>{word}</span>
-              </div>
-            ))}
-          </div>
-
-          <p className={styles.warning}>
-            ⚠️ This phrase will NOT be shown again. Store it somewhere safe and offline. Anyone with
-            this phrase can decrypt your notes.
+      <AuthLayout wide>
+        <div className={shell.heading}>
+          <span className={shell.iconTile}>
+            <KeyRound size={22} />
+          </span>
+          <h1 className={shell.title}>Recovery phrase</h1>
+          <p className={shell.lead}>
+            Write down these 12 words in order. Because your vault secret never leaves your device, this is the{' '}
+            <strong>only way</strong> to recover your vault if you forget your secret.
           </p>
-
-          <label className={styles.checkboxRow}>
-            <input
-              type="checkbox"
-              checked={phraseConfirmed}
-              onChange={(e) => setPhraseConfirmed(e.target.checked)}
-            />
-            <span>I've written down my recovery phrase</span>
-          </label>
-
-          <button
-            className={styles.submit}
-            disabled={!phraseConfirmed}
-            onClick={handlePhraseConfirmed}
-          >
-            Continue to Vault
-          </button>
         </div>
-      </div>
+
+        <ol className={styles.phraseGrid}>
+          {recoveryPhrase.map((word, i) => (
+            <li key={i} className={styles.phraseWord}>
+              <span className={styles.wordNumber}>{i + 1}</span>
+              <span className={styles.wordText}>{word}</span>
+            </li>
+          ))}
+        </ol>
+
+        <p className={styles.warning}>
+          <TriangleAlert size={16} />
+          <span>
+            This phrase will not be shown again. Store it somewhere safe and offline. Anyone with this phrase can
+            decrypt your notes.
+          </span>
+        </p>
+
+        <label className={styles.checkboxRow}>
+          <input
+            type="checkbox"
+            checked={phraseConfirmed}
+            onChange={(e) => setPhraseConfirmed(e.target.checked)}
+          />
+          <span>I've written down my recovery phrase</span>
+        </label>
+
+        <button className={shell.submit} disabled={!phraseConfirmed} onClick={handlePhraseConfirmed}>
+          Continue to vault
+        </button>
+      </AuthLayout>
     );
   }
 
   // ─── Phase: Reset Secret (after recovery) ───
   if (phase === 'reset-secret') {
     return (
-      <div className={styles.page}>
-        <div className={styles.card}>
-          <div className={styles.lockIcon}>
-            <ShieldCheck size={48} />
-          </div>
-
-          <div className={styles.brand}>
-            <h1>Set New Secret</h1>
-            <p>Your recovery phrase was verified. Now set a new vault secret so you can unlock quickly next time.</p>
-          </div>
-
-          {error && <p className={`${styles.message} ${styles.error}`}>{error}</p>}
-
-          <form className={styles.form} onSubmit={handleResetSecret}>
-            <div className={styles.field}>
-              <label htmlFor="new-secret">New Vault Secret</label>
-              <input
-                id="new-secret"
-                className={styles.input}
-                type="password"
-                value={newSecret}
-                onChange={(e) => setNewSecret(e.target.value)}
-                placeholder="Enter new vault secret"
-                autoComplete="off"
-                autoFocus
-                disabled={busy}
-              />
-            </div>
-
-            <div className={styles.field}>
-              <label htmlFor="confirm-new-secret">Confirm New Secret</label>
-              <input
-                id="confirm-new-secret"
-                className={styles.input}
-                type="password"
-                value={confirmNewSecret}
-                onChange={(e) => setConfirmNewSecret(e.target.value)}
-                placeholder="Re-enter new vault secret"
-                autoComplete="off"
-                disabled={busy}
-              />
-            </div>
-
-            <button className={styles.submit} disabled={busy} type="submit">
-              {busy ? 'Saving...' : 'Save & Unlock Vault'}
-            </button>
-          </form>
-        </div>
-      </div>
-    );
-  }
-
-  // ─── Phase: Recovery Mode ───
-  if (isRecoveryMode) {
-    return (
-      <div className={styles.page}>
-        <div className={styles.card}>
-          <div className={styles.lockIcon}>
-            <KeyRound size={48} />
-          </div>
-
-          <div className={styles.brand}>
-            <h1>Recover Vault</h1>
-            <p>Enter your 12-word recovery phrase to unlock your notes.</p>
-          </div>
-
-          {error && <p className={`${styles.message} ${styles.error}`}>{error}</p>}
-
-          <form className={styles.form} onSubmit={handleRecoverySubmit}>
-            <div className={styles.field}>
-              <label htmlFor="recovery-phrase">Recovery Phrase</label>
-              <textarea
-                id="recovery-phrase"
-                className={styles.recoveryInput}
-                value={recoveryInput}
-                onChange={(e) => setRecoveryInput(e.target.value)}
-                placeholder="Enter your 12 words separated by spaces"
-                autoComplete="off"
-                autoFocus
-                disabled={busy}
-                rows={3}
-              />
-            </div>
-
-            <button className={styles.submit} disabled={busy} type="submit">
-              {busy ? 'Recovering...' : 'Recover Vault'}
-            </button>
-          </form>
-
-          <button
-            className={styles.recoverLink}
-            onClick={() => {
-              setIsRecoveryMode(false);
-              setError(null);
-            }}
-          >
-            ← Back to secret entry
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // ─── Phase: Input (default) ───
-  return (
-    <div className={styles.page}>
-      <div className={styles.card}>
-        <div className={styles.lockIcon}>
-          {isFirstTime ? <ShieldCheck size={48} /> : <Lock size={48} />}
-        </div>
-
-        <div className={styles.brand}>
-          <h1>{isFirstTime ? 'Set Your Vault Secret' : 'Vault'}</h1>
-          <p>
-            {isFirstTime
-              ? 'Vault uses zero-knowledge encryption to keep your notes completely private.'
-              : needsMigration
-                ? "Enter your vault secret. We'll set up recovery for your account."
-                : 'Enter your vault secret to decrypt your notes.'}
+      <AuthLayout>
+        <div className={shell.heading}>
+          <span className={shell.iconTile}>
+            <ShieldCheck size={22} />
+          </span>
+          <h1 className={shell.title}>Set a new secret</h1>
+          <p className={shell.lead}>
+            Your recovery phrase was verified. Now set a new vault secret so you can unlock quickly next time.
           </p>
         </div>
 
-        {isFirstTime && (
-          <div className={styles.narrativeBox}>
-            <div className={styles.narrativeItem}>
-              <KeyRound size={20} className={styles.narrativeIcon} />
-              <div className={styles.narrativeText}>
-                <strong>Your account password</strong> signs you in.
-              </div>
-            </div>
-            <div className={styles.narrativeItem}>
-              <ShieldCheck size={20} className={styles.narrativeIcon} />
-              <div className={styles.narrativeText}>
-                <strong>Your Vault Secret</strong> generates the private key that encrypts your thoughts on this device. We can never see or reset your secret.
-              </div>
-            </div>
-          </div>
-        )}
+        {errorMessage}
 
-        {error && <p className={`${styles.message} ${styles.error}`}>{error}</p>}
-
-        {migrationStatus && (
-          <p className={styles.migrationProgress}>
-            <span className={styles.spinner} />
-            {migrationStatus}
-          </p>
-        )}
-
-        <form className={styles.form} onSubmit={handleSubmit}>
-          <div className={styles.field}>
-            <label htmlFor="vault-secret">
-              {isFirstTime ? 'Create Vault Secret' : 'Vault Secret'}
-            </label>
+        <form className={shell.form} onSubmit={handleResetSecret}>
+          <div className={shell.field}>
+            <label htmlFor="new-secret">New vault secret</label>
             <input
-              id="vault-secret"
-              className={styles.input}
+              id="new-secret"
+              className={shell.input}
               type="password"
-              value={secret}
-              onChange={(e) => setSecret(e.target.value)}
-              placeholder={isFirstTime ? 'Choose a vault secret' : 'Enter vault secret'}
+              value={newSecret}
+              onChange={(e) => setNewSecret(e.target.value)}
+              placeholder="Enter new vault secret"
               autoComplete="off"
               autoFocus
               disabled={busy}
             />
           </div>
 
-          {isFirstTime && (
-            <>
-              <div className={styles.field}>
-                <label htmlFor="vault-secret-confirm">Confirm Vault Secret</label>
-                <input
-                  id="vault-secret-confirm"
-                  className={styles.input}
-                  type="password"
-                  value={confirmSecret}
-                  onChange={(e) => setConfirmSecret(e.target.value)}
-                  placeholder="Re-enter vault secret"
-                  autoComplete="off"
-                  disabled={busy}
-                />
-              </div>
+          <div className={shell.field}>
+            <label htmlFor="confirm-new-secret">Confirm new secret</label>
+            <input
+              id="confirm-new-secret"
+              className={shell.input}
+              type="password"
+              value={confirmNewSecret}
+              onChange={(e) => setConfirmNewSecret(e.target.value)}
+              placeholder="Re-enter new vault secret"
+              autoComplete="off"
+              disabled={busy}
+            />
+          </div>
 
-              <p className={styles.warning}>
-                ⚠️ After this step, you will receive a 12-word recovery phrase. Store it safely—because we never store your secret, this phrase is the only way to recover your notes if forgotten.
-              </p>
-            </>
-          )}
+          <button className={shell.submit} disabled={busy} type="submit">
+            {busy ? 'Saving…' : 'Save & unlock vault'}
+          </button>
+        </form>
+      </AuthLayout>
+    );
+  }
 
-          <button className={styles.submit} disabled={busy} type="submit">
-            {busy
-              ? (migrationStatus ? 'Encrypting...' : 'Unlocking...')
-              : (isFirstTime ? 'Create Secret & Continue' : needsMigration ? 'Unlock & Setup Recovery' : 'Unlock Vault')}
+  // ─── Phase: Recovery Mode ───
+  if (isRecoveryMode) {
+    return (
+      <AuthLayout>
+        <div className={shell.heading}>
+          <span className={shell.iconTile}>
+            <KeyRound size={22} />
+          </span>
+          <h1 className={shell.title}>Recover your vault</h1>
+          <p className={shell.lead}>Enter your 12-word recovery phrase to unlock your notes.</p>
+        </div>
+
+        {errorMessage}
+
+        <form className={shell.form} onSubmit={handleRecoverySubmit}>
+          <div className={shell.field}>
+            <label htmlFor="recovery-phrase">Recovery phrase</label>
+            <textarea
+              id="recovery-phrase"
+              className={`${shell.input} ${styles.recoveryInput}`}
+              value={recoveryInput}
+              onChange={(e) => setRecoveryInput(e.target.value)}
+              placeholder="Enter your 12 words separated by spaces"
+              autoComplete="off"
+              autoFocus
+              disabled={busy}
+              rows={3}
+            />
+          </div>
+
+          <button className={shell.submit} disabled={busy} type="submit">
+            {busy ? 'Recovering…' : 'Recover vault'}
           </button>
         </form>
 
-        {!isFirstTime && !needsMigration && (
-          <button
-            className={styles.recoverLink}
-            onClick={() => setIsRecoveryMode(true)}
-          >
-            Forgot your secret? Recover with phrase
-          </button>
-        )}
+        <button
+          type="button"
+          className={shell.linkBtn}
+          onClick={() => {
+            setIsRecoveryMode(false);
+            setError(null);
+          }}
+        >
+          <ArrowLeft size={13} className={styles.linkIcon} />
+          Back to secret entry
+        </button>
+      </AuthLayout>
+    );
+  }
+
+  // ─── Phase: Input (default) ───
+  return (
+    <AuthLayout>
+      <div className={shell.heading}>
+        <span className={shell.iconTile}>{isFirstTime ? <ShieldCheck size={22} /> : <Lock size={22} />}</span>
+        <h1 className={shell.title}>{isFirstTime ? 'Set your vault secret' : 'Unlock your vault'}</h1>
+        <p className={shell.lead}>
+          {isFirstTime
+            ? 'Vault uses zero-knowledge encryption to keep your notes completely private.'
+            : needsMigration
+              ? "Enter your vault secret. We'll set up recovery for your account."
+              : 'Enter your vault secret to decrypt your notes.'}
+        </p>
       </div>
-    </div>
+
+      {isFirstTime && (
+        <div className={styles.narrativeBox}>
+          <div className={styles.narrativeItem}>
+            <KeyRound size={18} className={styles.narrativeIcon} />
+            <div className={styles.narrativeText}>
+              <strong>Your account password</strong> signs you in.
+            </div>
+          </div>
+          <div className={styles.narrativeItem}>
+            <ShieldCheck size={18} className={styles.narrativeIcon} />
+            <div className={styles.narrativeText}>
+              <strong>Your vault secret</strong> generates the private key that encrypts your thoughts on this
+              device. We can never see or reset your secret.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {errorMessage}
+
+      {migrationStatus && (
+        <p className={styles.migrationProgress} role="status">
+          <span className={styles.spinner} />
+          {migrationStatus}
+        </p>
+      )}
+
+      <form className={shell.form} onSubmit={handleSubmit}>
+        <div className={shell.field}>
+          <label htmlFor="vault-secret">{isFirstTime ? 'Create vault secret' : 'Vault secret'}</label>
+          <input
+            id="vault-secret"
+            className={shell.input}
+            type="password"
+            value={secret}
+            onChange={(e) => setSecret(e.target.value)}
+            placeholder={isFirstTime ? 'Choose a vault secret' : 'Enter vault secret'}
+            autoComplete="off"
+            autoFocus
+            disabled={busy}
+          />
+        </div>
+
+        {isFirstTime && (
+          <>
+            <div className={shell.field}>
+              <label htmlFor="vault-secret-confirm">Confirm vault secret</label>
+              <input
+                id="vault-secret-confirm"
+                className={shell.input}
+                type="password"
+                value={confirmSecret}
+                onChange={(e) => setConfirmSecret(e.target.value)}
+                placeholder="Re-enter vault secret"
+                autoComplete="off"
+                disabled={busy}
+              />
+            </div>
+
+            <p className={styles.warning}>
+              <TriangleAlert size={16} />
+              <span>
+                After this step you'll get a 12-word recovery phrase. Store it safely: because we never store your
+                secret, this phrase is the only way to recover your notes if you forget it.
+              </span>
+            </p>
+          </>
+        )}
+
+        <button className={shell.submit} disabled={busy} type="submit">
+          {busy
+            ? migrationStatus
+              ? 'Encrypting…'
+              : 'Unlocking…'
+            : isFirstTime
+              ? 'Create secret & continue'
+              : needsMigration
+                ? 'Unlock & set up recovery'
+                : 'Unlock vault'}
+        </button>
+      </form>
+
+      {!isFirstTime && !needsMigration && (
+        <button type="button" className={shell.linkBtn} onClick={() => setIsRecoveryMode(true)}>
+          Forgot your secret? Recover with phrase
+        </button>
+      )}
+    </AuthLayout>
   );
 }

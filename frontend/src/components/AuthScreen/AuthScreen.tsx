@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import styles from './AuthScreen.module.css';
 import { apiFetch, getErrorMessage, type AuthResponse } from '../../lib/api';
+import { AuthLayout } from '../AuthLayout/AuthLayout';
+import { SegmentedControl } from '../ui/SegmentedControl';
+import styles from '../AuthLayout/AuthLayout.module.css';
 
 interface AuthScreenProps {
   onAuthenticated: (payload: AuthResponse) => void;
@@ -141,136 +143,128 @@ export function AuthScreen({ onAuthenticated, initialMessage }: AuthScreenProps)
   };
 
   return (
-    <div className={styles.page}>
-      <div className={styles.card}>
-        <div className={styles.brand}>
-          <h1>Vault</h1>
-          <p>Secure notes, private canvases, and your own timeline after phone-based login.</p>
-        </div>
-
-        <div className={styles.tabs}>
-          <button
-            className={`${styles.tab} ${mode === 'login' ? styles.tabActive : ''}`}
-            onClick={() => switchMode('login')}
-            type="button"
-          >
-            Login
-          </button>
-          <button
-            className={`${styles.tab} ${mode === 'signup' ? styles.tabActive : ''}`}
-            onClick={() => switchMode('signup')}
-            type="button"
-          >
-            Sign Up
-          </button>
-        </div>
-
-        {error && <p className={`${styles.message} ${styles.error}`}>{error}</p>}
-        {success && <p className={`${styles.message} ${styles.success}`}>{success}</p>}
-
-        {mode === 'login' ? (
-          <form className={styles.form} onSubmit={handleLogin}>
-            <div className={styles.field}>
-              <label htmlFor="login-mobile">Mobile Number</label>
-              <input
-                id="login-mobile"
-                className={styles.input}
-                type="tel"
-                value={mobileNumber}
-                onChange={(event) => setMobileNumber(event.target.value)}
-                placeholder="Enter mobile number"
-                autoComplete="tel"
-              />
-            </div>
-
-            <div className={styles.field}>
-              <label htmlFor="login-password">Password</label>
-              <input
-                id="login-password"
-                className={styles.input}
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                placeholder="Enter password"
-                autoComplete="current-password"
-              />
-            </div>
-
-            <button className={styles.submit} disabled={busy} type="submit">
-              {busy ? 'Logging in...' : 'Login'}
-            </button>
-          </form>
-        ) : signupStep === 'mobile' ? (
-          <form className={styles.form} onSubmit={handleSendOtp}>
-            <div className={styles.field}>
-              <label htmlFor="signup-mobile">Mobile Number</label>
-              <input
-                id="signup-mobile"
-                className={styles.input}
-                type="tel"
-                value={mobileNumber}
-                onChange={(event) => setMobileNumber(event.target.value)}
-                placeholder="Enter mobile number"
-                autoComplete="tel"
-              />
-            </div>
-
-            <p className={styles.hint}>We will send a 6-digit verification code to your mobile number via SMS.</p>
-
-            <button className={styles.submit} disabled={busy} type="submit">
-              {busy ? 'Sending Code...' : 'Send Verification Code'}
-            </button>
-          </form>
-        ) : (
-          <form className={styles.form} onSubmit={handleSignup}>
-            <div className={styles.field}>
-              <label htmlFor="signup-otp">Verification Code</label>
-              <input
-                id="signup-otp"
-                className={styles.input}
-                type="text"
-                value={otp}
-                onChange={(event) => setOtp(event.target.value)}
-                placeholder="Enter 6-digit code"
-                autoComplete="one-time-code"
-              />
-            </div>
-
-            <div className={styles.field}>
-              <label htmlFor="signup-password">Account Password</label>
-              <input
-                id="signup-password"
-                className={styles.input}
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                placeholder="Choose account password"
-                autoComplete="new-password"
-              />
-            </div>
-
-            <div className={styles.field}>
-              <label htmlFor="signup-password-confirm">Confirm Password</label>
-              <input
-                id="signup-password-confirm"
-                className={styles.input}
-                type="password"
-                value={confirmPassword}
-                onChange={(event) => setConfirmPassword(event.target.value)}
-                placeholder="Re-enter password"
-                autoComplete="new-password"
-              />
-            </div>
-
-            <button className={styles.submit} disabled={busy} type="submit">
-              {busy ? 'Creating Account...' : 'Verify Code & Create Account'}
-            </button>
-            <button className={styles.secondary} onClick={() => setSignupStep('mobile')} type="button">
-              Change mobile number
-            </button>
-          </form>
-        )}
+    <AuthLayout>
+      <div className={styles.heading}>
+        <h1 className={styles.title}>{mode === 'login' ? 'Welcome back' : 'Create your account'}</h1>
+        <p className={styles.lead}>Secure notes, private canvases, and your own timeline.</p>
       </div>
-    </div>
+
+      <SegmentedControl<AuthMode>
+        ariaLabel="Log in or sign up"
+        className={styles.tabs}
+        value={mode}
+        onChange={switchMode}
+        options={[
+          { value: 'login', label: 'Log in' },
+          { value: 'signup', label: 'Sign up' },
+        ]}
+      />
+
+      {error && <p className={`${styles.message} ${styles.error}`}>{error}</p>}
+      {success && <p className={`${styles.message} ${styles.success}`}>{success}</p>}
+
+      {mode === 'login' ? (
+        <form className={styles.form} onSubmit={handleLogin}>
+          <div className={styles.field}>
+            <label htmlFor="login-mobile">Mobile number</label>
+            <input
+              id="login-mobile"
+              className={styles.input}
+              type="tel"
+              value={mobileNumber}
+              onChange={(event) => setMobileNumber(event.target.value)}
+              placeholder="Enter mobile number"
+              autoComplete="tel"
+            />
+          </div>
+
+          <div className={styles.field}>
+            <label htmlFor="login-password">Password</label>
+            <input
+              id="login-password"
+              className={styles.input}
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="Enter password"
+              autoComplete="current-password"
+            />
+          </div>
+
+          <button className={styles.submit} disabled={busy} type="submit">
+            {busy ? 'Logging in…' : 'Log in'}
+          </button>
+        </form>
+      ) : signupStep === 'mobile' ? (
+        <form className={styles.form} onSubmit={handleSendOtp}>
+          <div className={styles.field}>
+            <label htmlFor="signup-mobile">Mobile number</label>
+            <input
+              id="signup-mobile"
+              className={styles.input}
+              type="tel"
+              value={mobileNumber}
+              onChange={(event) => setMobileNumber(event.target.value)}
+              placeholder="Enter mobile number"
+              autoComplete="tel"
+            />
+          </div>
+
+          <p className={styles.hint}>We will send a 6-digit verification code to your mobile number via SMS.</p>
+
+          <button className={styles.submit} disabled={busy} type="submit">
+            {busy ? 'Sending code…' : 'Send verification code'}
+          </button>
+        </form>
+      ) : (
+        <form className={styles.form} onSubmit={handleSignup}>
+          <div className={styles.field}>
+            <label htmlFor="signup-otp">Verification code</label>
+            <input
+              id="signup-otp"
+              className={styles.input}
+              type="text"
+              value={otp}
+              onChange={(event) => setOtp(event.target.value)}
+              placeholder="Enter 6-digit code"
+              autoComplete="one-time-code"
+            />
+          </div>
+
+          <div className={styles.field}>
+            <label htmlFor="signup-password">Account password</label>
+            <input
+              id="signup-password"
+              className={styles.input}
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="Choose account password"
+              autoComplete="new-password"
+            />
+          </div>
+
+          <div className={styles.field}>
+            <label htmlFor="signup-password-confirm">Confirm password</label>
+            <input
+              id="signup-password-confirm"
+              className={styles.input}
+              type="password"
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              placeholder="Re-enter password"
+              autoComplete="new-password"
+            />
+          </div>
+
+          <button className={styles.submit} disabled={busy} type="submit">
+            {busy ? 'Creating account…' : 'Verify code & create account'}
+          </button>
+          <button className={styles.linkBtn} onClick={() => setSignupStep('mobile')} type="button">
+            Change mobile number
+          </button>
+        </form>
+      )}
+    </AuthLayout>
   );
 }
