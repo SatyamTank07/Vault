@@ -238,6 +238,56 @@ def position_update_still_works(db, user_id):
     assert (moved.position_x, moved.position_y) == (5.0, 6.0)
 
 
+# --- Task 3: calendar visibility and payload fields --------------------------
+
+
+@check
+def calendar_hides_canvas_only_but_stream_keeps_it(db, user_id):
+    today = date.today()
+    parent = make_note(db, user_id, "event", scheduled_date=today, end_date=today + timedelta(days=30))
+    hidden = make_note(db, user_id, "hidden", scheduled_date=today, parent_note_id=parent.id, canvas_only=True)
+    visible = make_note(db, user_id, "visible", scheduled_date=today)
+    parent_id, hidden_id, visible_id = parent.id, hidden.id, visible.id
+
+    timeline = crud.get_timeline(db, user_id, today, today)
+    timeline_ids = {entry["id"] for entries in timeline.values() for entry in entries}
+    assert visible_id in timeline_ids and parent_id in timeline_ids, timeline_ids
+    assert hidden_id not in timeline_ids
+    for entries in timeline.values():
+        for entry in entries:
+            assert "parent_note_id" in entry["note"] and "canvas_only" in entry["note"]
+
+    stream = {ev["id"]: ev for ev in crud.get_timestream(db, user_id, today, today)}
+    assert hidden_id in stream
+    assert stream[hidden_id]["parent_note_id"] == parent_id
+    assert stream[hidden_id]["note"]["canvas_only"] is True
+    assert stream[parent_id]["parent_note_id"] is None
+
+
+@check
+def calendar_does_not_materialize_hidden_recurrences(db, user_id):
+    today = date.today()
+    parent = make_note(db, user_id, "parent")
+    routine = make_note(
+        db,
+        user_id,
+        "routine",
+        scheduled_date=today,
+        recurrence_rule="daily",
+        parent_note_id=parent.id,
+        canvas_only=True,
+    )
+    routine_id = routine.id
+    crud.get_timeline(db, user_id, today, today + timedelta(days=6))
+    count = db.query(models.TaskOccurrence).filter(models.TaskOccurrence.note_id == routine_id).count()
+    assert count == 0, count
+
+    stream = crud.get_timestream(db, user_id, today, today + timedelta(days=6))
+    routine_events = [ev for ev in stream if ev["note"]["id"] == routine_id]
+    assert len(routine_events) == 7
+    assert all(ev["parent_note_id"] == parent.id for ev in routine_events)
+
+
 def main() -> None:
     connection = engine.connect()
     outer = connection.begin()

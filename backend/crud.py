@@ -505,6 +505,10 @@ def ensure_occurrences(db: Session, note, dates: list[date]) -> list:
     return existing + new_occs
 
 
+def _hierarchy_fields(note) -> dict:
+    return {"parent_note_id": note.parent_note_id, "canvas_only": bool(note.canvas_only)}
+
+
 def get_timeline(db: Session, user_id: str, start_date: date, end_date: date):
     from sqlalchemy import or_, and_
 
@@ -513,6 +517,7 @@ def get_timeline(db: Session, user_id: str, start_date: date, end_date: date):
         .options(joinedload(models.Note.canvas_nodes).joinedload(models.CanvasNode.canvas))
         .filter(
             models.Note.user_id == user_id,
+            models.Note.canvas_only.is_(False),
             models.Note.scheduled_date != None,
             models.Note.recurrence_rule == None,
             or_(
@@ -540,6 +545,7 @@ def get_timeline(db: Session, user_id: str, start_date: date, end_date: date):
         .options(joinedload(models.Note.canvas_nodes).joinedload(models.CanvasNode.canvas))
         .filter(
             models.Note.user_id == user_id,
+            models.Note.canvas_only.is_(False),
             models.Note.recurrence_rule != None,
             models.Note.scheduled_date <= end_date,
         )
@@ -566,6 +572,7 @@ def get_timeline(db: Session, user_id: str, start_date: date, end_date: date):
             "end_date": note.end_date.isoformat() if note.end_date else None,
             "status": note.status,
             "canvas_name": note.canvas_name,
+            **_hierarchy_fields(note),
         }
 
         is_span = bool(note.end_date and note.end_date > note.scheduled_date)
@@ -645,6 +652,7 @@ def get_timeline(db: Session, user_id: str, start_date: date, end_date: date):
                         "recurrence_rule": note.recurrence_rule,
                         "recurrence_interval": note.recurrence_interval,
                         "recurrence_end_date": note.recurrence_end_date.isoformat() if note.recurrence_end_date else None,
+                        **_hierarchy_fields(note),
                     },
                     "scheduled_date": occ.occurrence_date.isoformat(),
                     "scheduled_time": note.scheduled_time,
@@ -722,6 +730,7 @@ def get_timestream(db: Session, user_id: str, start_date: date, end_date: date):
                 "recurrence_interval": note.recurrence_interval,
                 "recurrence_end_date": None,
                 "end_date": note.end_date.isoformat() if note.end_date else None,
+                **_hierarchy_fields(note),
             },
             "start_date": event_start.isoformat(),
             "end_date": event_end.isoformat(),
@@ -730,6 +739,7 @@ def get_timestream(db: Session, user_id: str, start_date: date, end_date: date):
             "is_recurring": False,
             "is_span": is_span,
             "occurrence_id": None,
+            "parent_note_id": note.parent_note_id,
         })
 
     # 2. Recurring routines: expand in-memory without db.add / db.commit
@@ -791,6 +801,7 @@ def get_timestream(db: Session, user_id: str, start_date: date, end_date: date):
                     "recurrence_interval": note.recurrence_interval,
                     "recurrence_end_date": note.recurrence_end_date.isoformat() if note.recurrence_end_date else None,
                     "end_date": None,
+                    **_hierarchy_fields(note),
                 },
                 "start_date": occ_date.isoformat(),
                 "end_date": occ_date.isoformat(),
@@ -799,6 +810,7 @@ def get_timestream(db: Session, user_id: str, start_date: date, end_date: date):
                 "is_recurring": True,
                 "is_span": False,
                 "occurrence_id": occ_id,
+                "parent_note_id": note.parent_note_id,
             })
 
     # Sort by start_date, then by duration (longer events first for better visual stacking)
