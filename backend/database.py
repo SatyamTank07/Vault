@@ -38,6 +38,26 @@ def run_schema_migrations():
         "UPDATE notes SET canvas_only = EXISTS (SELECT 1 FROM canvas_nodes c WHERE c.note_id = notes.id) WHERE canvas_only IS NULL",
         "ALTER TABLE notes ALTER COLUMN canvas_only SET DEFAULT FALSE",
         "ALTER TABLE notes ALTER COLUMN canvas_only SET NOT NULL",
+        # One-time: move canvas parent links onto notes, then drop the old column.
+        # Guarded by the column's existence, so it is a no-op on every later startup.
+        """
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'canvas_nodes' AND column_name = 'parent_node_id'
+            ) THEN
+                UPDATE notes n
+                SET parent_note_id = pn.note_id
+                FROM canvas_nodes c
+                JOIN canvas_nodes pn ON c.parent_node_id = pn.id
+                WHERE c.note_id = n.id
+                  AND n.parent_note_id IS NULL
+                  AND pn.note_id <> n.id;
+                ALTER TABLE canvas_nodes DROP COLUMN parent_node_id;
+            END IF;
+        END $$;
+        """,
     ]
 
     with engine.begin() as connection:

@@ -1,7 +1,7 @@
 import uuid
 
 from sqlalchemy import Boolean, Column, Date, DateTime, Float, ForeignKey, Integer, String, UniqueConstraint
-from sqlalchemy.orm import backref, relationship
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from database import Base
@@ -99,14 +99,12 @@ class CanvasNode(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
     canvas_id = Column(String, ForeignKey("canvases.id", ondelete="CASCADE"), nullable=False)
     note_id = Column(String, ForeignKey("notes.id", ondelete="CASCADE"), nullable=False)
-    parent_node_id = Column(String, ForeignKey("canvas_nodes.id", ondelete="SET NULL"), nullable=True)
     position_x = Column(Float, default=0.0)
     position_y = Column(Float, default=0.0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     canvas = relationship("Canvas", back_populates="nodes")
     note = relationship("Note", back_populates="canvas_nodes")
-    children = relationship("CanvasNode", backref=backref("parent", remote_side=[id]))
 
 
 class Feedback(Base):

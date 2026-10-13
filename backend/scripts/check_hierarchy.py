@@ -163,6 +163,81 @@ def deleting_parent_frees_children(db, user_id):
     assert child.canvas_only is False
 
 
+# --- Task 2: canvas reads the note hierarchy ---------------------------------
+
+
+@check
+def canvas_nodes_no_longer_store_parents(db, user_id):
+    columns = {c["name"] for c in inspect(db.connection()).get_columns("canvas_nodes")}
+    assert "parent_node_id" not in columns, columns
+
+
+@check
+def canvas_node_create_sets_parent_and_canvas_only(db, user_id):
+    canvas = crud.create_canvas(db, user_id, schemas.CanvasCreate(name="c"))
+    root = crud.create_canvas_node(db, user_id, canvas.id, schemas.CanvasNodeCreate(title="root"))
+    root_note_id = root.note.id
+    assert root.note.canvas_only is True
+    assert root.note.parent_note_id is None
+
+    existing = make_note(db, user_id, "existing")
+    node = crud.create_canvas_node(
+        db,
+        user_id,
+        canvas.id,
+        schemas.CanvasNodeCreate(note_id=existing.id, parent_note_id=root_note_id, canvas_only=True),
+    )
+    assert node.note.parent_note_id == root_note_id
+    assert node.note.canvas_only is True
+
+    untouched = make_note(db, user_id, "untouched")
+    node = crud.create_canvas_node(db, user_id, canvas.id, schemas.CanvasNodeCreate(note_id=untouched.id))
+    assert node.note.canvas_only is False
+
+    # A rejected parent must not leave a half-created note behind.
+    other_user = make_user(db)
+    foreign = make_note(db, other_user, "foreign")
+    before = db.query(models.Note).filter(models.Note.user_id == user_id).count()
+    bad = crud.create_canvas_node(
+        db, user_id, canvas.id, schemas.CanvasNodeCreate(title="x", parent_note_id=foreign.id)
+    )
+    assert bad is None
+    assert db.query(models.Note).filter(models.Note.user_id == user_id).count() == before
+
+
+@check
+def branch_sets_parent(db, user_id):
+    canvas = crud.create_canvas(db, user_id, schemas.CanvasCreate(name="c"))
+    root = crud.create_canvas_node(db, user_id, canvas.id, schemas.CanvasNodeCreate(title="root"))
+    branch = crud.create_branch(db, user_id, canvas.id, root.id, schemas.BranchCreate(title="leaf"))
+    assert branch.note.parent_note_id == root.note.id
+    assert branch.note.canvas_only is True
+
+
+@check
+def removing_canvas_node_frees_top_level_note(db, user_id):
+    canvas = crud.create_canvas(db, user_id, schemas.CanvasCreate(name="c"))
+    root = crud.create_canvas_node(db, user_id, canvas.id, schemas.CanvasNodeCreate(title="root"))
+    child = crud.create_canvas_node(
+        db, user_id, canvas.id, schemas.CanvasNodeCreate(title="child", parent_note_id=root.note.id)
+    )
+    root_node_id, root_note_id = root.id, root.note.id
+    child_node_id, child_note_id = child.id, child.note.id
+    assert crud.delete_canvas_node(db, user_id, root_node_id) is True
+    assert crud.delete_canvas_node(db, user_id, child_node_id) is True
+    assert reload(db, user_id, root_note_id).canvas_only is False
+    # The child still has a parent, so it may stay canvas-only (it lives in its parent's event panel).
+    assert reload(db, user_id, child_note_id).canvas_only is True
+
+
+@check
+def position_update_still_works(db, user_id):
+    canvas = crud.create_canvas(db, user_id, schemas.CanvasCreate(name="c"))
+    root = crud.create_canvas_node(db, user_id, canvas.id, schemas.CanvasNodeCreate(title="root"))
+    moved = crud.update_canvas_node(db, user_id, root.id, schemas.CanvasNodeUpdate(position_x=5.0, position_y=6.0))
+    assert (moved.position_x, moved.position_y) == (5.0, 6.0)
+
+
 def main() -> None:
     connection = engine.connect()
     outer = connection.begin()

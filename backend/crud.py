@@ -301,35 +301,32 @@ def create_canvas_node(db: Session, user_id: str, canvas_id: str, data: schemas.
     if not canvas:
         return None
 
-    note_id = data.note_id
-    if not note_id:
-        new_note = models.Note(title=data.title or "Untitled", user_id=user_id)
-        db.add(new_note)
-        db.flush()
-        note_id = new_note.id
+    if data.note_id:
+        db_note = get_note(db, user_id, data.note_id)
+        if not db_note:
+            return None
+        if data.canvas_only is not None:
+            db_note.canvas_only = data.canvas_only
     else:
-        note = get_note(db, user_id, note_id)
-        if not note:
-            return None
-
-    if data.parent_node_id:
-        parent = (
-            db.query(models.CanvasNode)
-            .join(models.Canvas, models.CanvasNode.canvas_id == models.Canvas.id)
-            .filter(
-                models.CanvasNode.id == data.parent_node_id,
-                models.Canvas.id == canvas_id,
-                models.Canvas.user_id == user_id,
-            )
-            .first()
+        db_note = models.Note(
+            title=data.title or "Untitled",
+            user_id=user_id,
+            canvas_only=True if data.canvas_only is None else data.canvas_only,
         )
-        if not parent:
+        db.add(db_note)
+        db.flush()
+
+    if data.parent_note_id:
+        try:
+            _validate_parent(db, user_id, db_note.id, data.parent_note_id)
+        except InvalidParentError:
+            db.rollback()
             return None
+        db_note.parent_note_id = data.parent_note_id
 
     db_node = models.CanvasNode(
         canvas_id=canvas_id,
-        note_id=note_id,
-        parent_node_id=data.parent_node_id,
+        note_id=db_note.id,
         position_x=data.position_x,
         position_y=data.position_y,
     )
@@ -348,29 +345,10 @@ def update_canvas_node(db: Session, user_id: str, node_id: str, data: schemas.Ca
         .first()
     )
     if db_node:
-        if data.parent_node_id is not None:
-            parent = (
-                db.query(models.CanvasNode)
-                .join(models.Canvas, models.CanvasNode.canvas_id == models.Canvas.id)
-                .filter(
-                    models.CanvasNode.id == data.parent_node_id,
-                    models.Canvas.user_id == user_id,
-                    models.CanvasNode.canvas_id == db_node.canvas_id,
-                )
-                .first()
-            )
-            if parent is None:
-                return None
-
         if data.position_x is not None:
             db_node.position_x = data.position_x
         if data.position_y is not None:
             db_node.position_y = data.position_y
-        if data.clear_parent:
-            db_node.parent_node_id = None
-        elif data.parent_node_id is not None:
-            db_node.parent_node_id = data.parent_node_id
-
         db.commit()
         db.refresh(db_node)
     return db_node
@@ -413,8 +391,13 @@ def delete_canvas_node(db: Session, user_id: str, node_id: str):
         .first()
     )
     if db_node:
+        note_id = db_node.note_id
         db.delete(db_node)
         db.commit()
+        db_note = get_note(db, user_id, note_id)
+        if db_note is not None:
+            _enforce_visibility(db_note)
+            db.commit()
         return True
     return False
 
@@ -433,14 +416,18 @@ def create_branch(db: Session, user_id: str, canvas_id: str, parent_node_id: str
     if not parent:
         return None
 
-    new_note = models.Note(title=data.title, user_id=user_id)
+    new_note = models.Note(
+        title=data.title,
+        user_id=user_id,
+        canvas_only=True,
+        parent_note_id=parent.note_id,
+    )
     db.add(new_note)
     db.flush()
 
     db_node = models.CanvasNode(
         canvas_id=canvas_id,
         note_id=new_note.id,
-        parent_node_id=parent_node_id,
         position_x=parent.position_x,
         position_y=parent.position_y + 150,
     )

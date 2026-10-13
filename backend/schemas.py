@@ -131,7 +131,8 @@ class CanvasListResponse(BaseModel):
 
 class CanvasNodeCreate(BaseModel):
     note_id: Optional[str] = None
-    parent_node_id: Optional[str] = None
+    parent_note_id: Optional[str] = None
+    canvas_only: Optional[bool] = None
     position_x: float = 0.0
     position_y: float = 0.0
     title: Optional[str] = None
@@ -141,15 +142,12 @@ class CanvasNodeCreate(BaseModel):
 class CanvasNodeUpdate(BaseModel):
     position_x: Optional[float] = None
     position_y: Optional[float] = None
-    parent_node_id: Optional[str] = None
-    clear_parent: Optional[bool] = False
 
 
 class CanvasNodeResponse(BaseModel):
     id: str
     canvas_id: str
     note: NoteResponse
-    parent_node_id: Optional[str] = None
     position_x: float
     position_y: float
 
