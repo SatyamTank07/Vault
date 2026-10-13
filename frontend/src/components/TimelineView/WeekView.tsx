@@ -1,209 +1,178 @@
 import React, { useMemo } from 'react';
-import { Layers } from 'lucide-react';
-import { TimelineTaskCard, type TimelineTask } from './TimelineTaskCard';
+import { Check, Layers } from 'lucide-react';
+import { toIsoDate } from '../../lib/noteText';
+import ui from '../ui/ui.module.css';
+import { AgendaRows, OngoingRow, type AgendaHandlers } from './Agenda';
+import { SpanRibbon, TaskRow, type TimelineTask } from './TimelineTaskCard';
 import styles from './TimelineView.module.css';
 
-interface WeekViewProps {
+interface WeekViewProps extends AgendaHandlers {
   weekStart: Date; // Monday of the week
   tasksByDate: Record<string, TimelineTask[]>;
   layout?: 'horizontal' | 'vertical';
-  onOpenNote: (note: any) => void;
-  onStatusChange: (taskId: string, newStatus: string, occurrenceId?: string | null) => void;
-  onSkip?: (occurrenceId: string) => void;
 }
 
-const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
-function isSameDay(a: Date, b: Date): boolean {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
+export const WeekView: React.FC<WeekViewProps> = ({ weekStart, tasksByDate, layout = 'horizontal', ...handlers }) => {
+  const todayKey = toIsoDate(new Date());
+  const days = useMemo(
+    () =>
+      Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(weekStart);
+        d.setDate(d.getDate() + i);
+        return d;
+      }),
+    [weekStart],
   );
-}
+  const keys = days.map(toIsoDate);
 
-function toISODateString(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
-
-function formatSpanRange(startStr?: string, endStr?: string): string {
-  if (!startStr) return '';
-  const s = new Date(startStr + 'T00:00:00');
-  const sFormatted = s.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  if (!endStr || endStr === startStr) return sFormatted;
-  const e = new Date(endStr + 'T00:00:00');
-  const eFormatted = e.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  return `${sFormatted} – ${eFormatted}`;
-}
-
-export const WeekView: React.FC<WeekViewProps> = ({
-  weekStart,
-  tasksByDate,
-  layout = 'horizontal',
-  onOpenNote,
-  onStatusChange,
-  onSkip,
-}) => {
-  const today = new Date();
-  const days: Date[] = useMemo(() => {
-    const list: Date[] = [];
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(weekStart);
-      d.setDate(d.getDate() + i);
-      list.push(d);
-    }
-    return list;
-  }, [weekStart]);
-
-  const isVertical = layout === 'vertical';
-
-  // Aggregate unique multi-day project spans active during this week
-  const weekSpans = useMemo(() => {
-    const map = new Map<string, TimelineTask>();
-    Object.values(tasksByDate).forEach((taskList) => {
-      taskList.forEach((t) => {
-        if (t.is_span) {
-          map.set(t.note.id, t);
-        }
-      });
-    });
-    return Array.from(map.values());
+  // Multi-day notes active this week, once each.
+  const spans = useMemo(() => {
+    const byNote = new Map<string, TimelineTask>();
+    Object.values(tasksByDate).forEach((list) => list.forEach((t) => t.is_span && byNote.set(t.note.id, t)));
+    return [...byNote.values()];
   }, [tasksByDate]);
 
-  const getSpanCols = (task: TimelineTask) => {
-    const spanStart = task.start_date || task.scheduled_date;
-    const spanEnd = task.end_date || spanStart;
+  // A day's tasks in time order; all-day tasks after timed ones, as in the agenda.
+  const dayTasks = (key: string) =>
+    (tasksByDate[key] || [])
+      .filter((t) => !t.is_span)
+      .sort((a, b) => (a.scheduled_time || '99').localeCompare(b.scheduled_time || '99'));
 
-    let startIdx = 0;
-    for (let i = 0; i < 7; i++) {
-      if (toISODateString(days[i]) >= spanStart) {
-        startIdx = i;
-        break;
-      }
-    }
+  if (layout === 'vertical') {
+    const withTasks = days.filter((d) => dayTasks(toIsoDate(d)).length > 0);
+    const taskCount = keys.reduce((sum, k) => sum + dayTasks(k).length, 0);
+    const freeDays = days.length - withTasks.length;
+    return (
+      <div className={styles.dayWrap}>
+        <div className={styles.dayTitle}>
+          <h2>Week of {weekStart.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</h2>
+          <span className={`${styles.count} tnum`}>
+            <span>
+              <b>{taskCount}</b> task{taskCount === 1 ? '' : 's'}
+            </span>
+            {spans.length > 0 && (
+              <span>
+                <b>{spans.length}</b> ongoing
+              </span>
+            )}
+          </span>
+        </div>
+        <div className={styles.wkList}>
+          {spans.length > 0 && (
+            <div className={styles.ag}>
+              <OngoingRow spans={spans} {...handlers} />
+            </div>
+          )}
+          {withTasks.map((d) => {
+            const key = toIsoDate(d);
+            const count = dayTasks(key).length;
+            const isToday = key === todayKey;
+            return (
+              <section key={key} className={styles.ag}>
+                <div className={`${styles.agRow} ${styles.wlHead} ${isToday ? styles.wlToday : ''}`}>
+                  <div className={`${styles.agWhen} tnum`}>
+                    <small>{d.toLocaleDateString('en-US', { weekday: 'short' })}</small>
+                    {d.getDate()}
+                  </div>
+                  <div className={styles.wlTitle}>
+                    <h3>{d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</h3>
+                    {isToday && <span className={ui.todayTag}>Today</span>}
+                    <span className={`${styles.wlCount} tnum`}>
+                      {count} task{count === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                </div>
+                <AgendaRows tasks={dayTasks(key)} isToday={isToday} {...handlers} />
+              </section>
+            );
+          })}
+          {withTasks.length === 0 ? (
+            <div className={ui.empty}>
+              <strong>No tasks this week</strong>
+              Use New note to plan something.
+            </div>
+          ) : (
+            freeDays > 0 && (
+              <div className={styles.wlRest}>
+                <Check size={13} />
+                {freeDays} free day{freeDays === 1 ? '' : 's'} hidden
+              </div>
+            )
+          )}
+        </div>
+      </div>
+    );
+  }
 
-    let endIdx = 6;
+  // Columns: span ribbons sit on the same 7-column grid as the days below them.
+  const spanColumns = (task: TimelineTask) => {
+    const start = task.start_date || task.scheduled_date;
+    const end = task.end_date || start;
+    const first = Math.max(0, keys.findIndex((k) => k >= start));
+    let last = 6;
     for (let i = 6; i >= 0; i--) {
-      if (toISODateString(days[i]) <= spanEnd) {
-        endIdx = i;
+      if (keys[i] <= end) {
+        last = i;
         break;
       }
     }
-
-    if (spanStart < toISODateString(days[0])) startIdx = 0;
-    if (spanEnd > toISODateString(days[6])) endIdx = 6;
-
-    return {
-      startCol: startIdx + 1,
-      endCol: endIdx + 2,
-    };
+    return `${first + 1} / ${last + 2}`;
   };
 
-  let hasAnyTasks = weekSpans.length > 0;
-
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-      {/* Horizon Ribbon Track for Multi-Day Spans */}
-      {weekSpans.length > 0 && (
-        <div className={styles.weekHorizonRibbonContainer}>
-          <div className={styles.horizonSectionHeader}>
-            <Layers size={13} />
-            <span>Active Horizons ({weekSpans.length})</span>
-          </div>
-          <div className={isVertical ? styles.horizonBannerList : styles.weekHorizonRibbonGrid}>
-            {weekSpans.map((task) => {
-              const { startCol, endCol } = getSpanCols(task);
-              return (
-                <div
-                  key={`week-ribbon-${task.id}`}
-                  className={styles.weekHorizonRibbon}
-                  style={!isVertical ? { gridColumn: `${startCol} / ${endCol}` } : undefined}
-                  onClick={() => onOpenNote(task.note)}
-                  title={`${task.note.title} (${formatSpanRange(task.start_date, task.end_date)})`}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
-                    <button
-                      className={`${styles.taskStatusDot} ${styles[task.status] || styles.todo}`}
-                      style={{ width: '8px', height: '8px', flexShrink: 0 }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const nextStatus =
-                          task.status === 'todo'
-                            ? 'in_progress'
-                            : task.status === 'in_progress'
-                              ? 'done'
-                              : 'todo';
-                        onStatusChange(task.id, nextStatus, task.occurrence_id);
-                      }}
-                      title={`Status: ${task.status}`}
-                    />
-                    <span className={styles.weekHorizonRibbonTitle}>{task.note.title || 'Untitled'}</span>
-                  </div>
-                  <span className={styles.weekHorizonRibbonDates}>
-                    {formatSpanRange(task.start_date, task.end_date)}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+    <div className={styles.weekWrap}>
+      {spans.length > 0 && (
+        <div className={ui.sectionLabel}>
+          <Layers size={13} />
+          Active horizons · {spans.length}
         </div>
       )}
-
-      {/* Week Columns / Daily Agenda */}
-      <div className={`${styles.weekView} ${isVertical ? styles.weekViewVertical : ''}`}>
-        {days.map((day, idx) => {
-          const dateKey = toISODateString(day);
-          const dayTasks = tasksByDate[dateKey] || [];
-          // Multi-day spans are displayed in the unified ribbon above, keeping daily columns uncluttered
-          const regularTasks = dayTasks.filter((t) => !t.is_span);
-          const isToday = isSameDay(day, today);
-
-          if (regularTasks.length > 0) {
-            hasAnyTasks = true;
-          }
-
-          // In vertical layout, hide days that have no regular tasks
-          if (isVertical && regularTasks.length === 0) {
-            return null;
-          }
-
-          return (
-            <div
-              key={dateKey}
-              className={`${isVertical ? styles.weekDayVertical : styles.weekDay} ${isToday ? styles.weekDayToday : ''}`}
-            >
-              <div className={styles.weekDayHeader}>
-                {DAY_NAMES[idx]}
-                <span className={styles.weekDayNumber}>{day.getDate()}</span>
-              </div>
-              <div className={styles.weekDayTasks}>
-                {regularTasks.length === 0 ? (
-                  <div className={styles.weekDayEmpty}>—</div>
-                ) : (
-                  regularTasks.map((task) => (
-                    <TimelineTaskCard
-                      key={task.id}
-                      task={task}
-                      compact={!isVertical}
-                      onOpenNote={onOpenNote}
-                      onStatusChange={onStatusChange}
-                      onSkip={onSkip}
-                    />
-                  ))
-                )}
-              </div>
-            </div>
-          );
-        })}
-
-        {isVertical && !hasAnyTasks && (
-          <div className={styles.emptyState}>
-            <p>No tasks scheduled for this week.</p>
+      <div className={styles.weekScroll}>
+        {spans.length > 0 && (
+          <div className={`${styles.weekGrid} ${styles.weekRibbons}`}>
+            {spans.map((task) => (
+              <SpanRibbon
+                key={`ribbon-${task.note.id}`}
+                task={task}
+                style={{ gridColumn: spanColumns(task) }}
+                onOpenNote={handlers.onOpenNote}
+                onStatusChange={handlers.onStatusChange}
+              />
+            ))}
           </div>
         )}
+        <div className={styles.weekGrid}>
+          {days.map((d) => {
+            const key = toIsoDate(d);
+            const list = dayTasks(key);
+            const isToday = key === todayKey;
+            return (
+              <section key={key} className={`${styles.dayCol} ${isToday ? styles.dayColToday : ''}`}>
+                <div className={styles.dayHead}>
+                  {d.toLocaleDateString('en-US', { weekday: 'short' })}
+                  <b className="tnum">{d.getDate()}</b>
+                  {isToday && <span className={ui.todayTag}>Today</span>}
+                </div>
+                <div className={styles.dayTasks}>
+                  {list.length ? (
+                    list.map((task) => (
+                      <TaskRow
+                        key={`${task.id}-${task.occurrence_id ?? ''}`}
+                        task={task}
+                        parentTitle={handlers.parentTitleOf(task.note.id)}
+                        onOpenNote={handlers.onOpenNote}
+                        onStatusChange={handlers.onStatusChange}
+                        onSkip={handlers.onSkip}
+                      />
+                    ))
+                  ) : (
+                    <div className={styles.dayEmpty}>—</div>
+                  )}
+                </div>
+              </section>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

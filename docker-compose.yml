@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   db:
     image: postgres:15
@@ -24,6 +22,8 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: vault_backend
+    volumes:
+      - ./backend:/app
     ports:
       - "8000:8000"
     environment:

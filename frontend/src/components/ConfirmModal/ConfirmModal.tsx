@@ -1,5 +1,5 @@
-import React from 'react';
-import styles from './ConfirmModal.module.css';
+import React, { useEffect, useId } from 'react';
+import ui from '../ui/ui.module.css';
 
 interface ConfirmModalProps {
   isOpen: boolean;
@@ -22,27 +22,44 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   onCancel,
   isDestructive = true,
 }) => {
+  const titleId = useId();
+  const messageId = useId();
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onCancel();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onCancel]);
+
   if (!isOpen) return null;
 
   return (
-    <div className={styles.overlay} onClick={onCancel}>
-      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-        <div className={styles.header}>
-          <h2>{title}</h2>
-          <button className={styles.closeBtn} onClick={onCancel} aria-label="Close">
-            ✕
-          </button>
-        </div>
-        <div className={styles.content}>
-          <p>{message}</p>
-        </div>
-        <div className={styles.footer}>
-          <button type="button" className={styles.cancelBtn} onClick={onCancel}>
+    <div className={ui.scrim} onClick={onCancel}>
+      <div
+        className={ui.dialog}
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={messageId}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 id={titleId} className={ui.dialogTitle}>
+          {title}
+        </h2>
+        <p id={messageId} className={ui.dialogText}>
+          {message}
+        </p>
+        <div className={ui.dialogActions}>
+          {/* Focus starts on the safe choice. */}
+          <button type="button" className={`${ui.btn} ${ui.ghost}`} onClick={onCancel} autoFocus>
             {cancelText}
           </button>
           <button
             type="button"
-            className={`${styles.confirmBtn} ${isDestructive ? styles.destructive : ''}`}
+            className={`${ui.btn} ${isDestructive ? ui.danger : ui.primary}`}
             onClick={onConfirm}
           >
             {confirmText}

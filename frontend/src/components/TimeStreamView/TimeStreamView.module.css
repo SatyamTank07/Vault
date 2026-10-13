@@ -1,582 +1,271 @@
-.container {
+/* Schedule: Horizon. A two-tier ruler over packed lanes of span bars and repeat tracks. */
+.wrap {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  padding: 16px var(--gutter) 24px;
   display: flex;
   flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  height: 100%;
-  width: 100%;
-  background-color: var(--bg-color);
-  color: var(--text-main);
+  gap: 12px;
+}
+
+.hz {
   position: relative;
-  overflow: hidden;
-}
-
-.containerNoControls {
-  background-color: var(--surface-color);
-  border: none;
   flex: 1;
-  min-height: 0;
-  height: 100%;
-}
-
-/* Controls Bar */
-.controls {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 24px;
-  background-color: var(--surface-color);
-  border-bottom: 1px solid var(--surface-hover);
-  height: 60px;
-  flex-shrink: 0;
-  z-index: 10;
-}
-
-.leftControls {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.navBtn {
-  background: none;
-  border: 1px solid var(--surface-hover);
-  border-radius: 6px;
-  padding: 6px;
-  cursor: pointer;
-  color: var(--text-muted);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-}
-
-.navBtn:hover {
-  background-color: var(--surface-hover);
-  color: var(--text-main);
-}
-
-.todayBtn {
-  background: none;
-  border: 1px solid var(--surface-hover);
-  border-radius: 6px;
-  padding: 6px 12px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  color: var(--text-main);
-  transition: all 0.2s ease;
-}
-
-.todayBtn:hover {
-  background-color: var(--surface-hover);
-}
-
-.dateRange {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-main);
-}
-
-.rightControls {
+  min-height: 360px;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  gap: 4px;
-  width: 200px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-sm);
+  overflow: clip;
 }
 
-.zoomLabels {
-  display: flex;
-  justify-content: space-between;
-  width: 100%;
-  gap: 2px;
-}
-
-.zoomLabelBtn {
-  background: transparent;
-  border: none;
-  font-size: 10px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  cursor: pointer;
-  padding: 2px 5px;
-  border-radius: 4px;
-  font-weight: 600;
-  transition: all 0.15s ease;
-}
-
-.zoomLabelBtn:hover {
-  color: var(--text-main);
-  background: var(--surface-hover);
-}
-
-.zoomLabelBtnActive {
-  color: var(--primary-purple);
-  background: rgba(139, 92, 246, 0.12);
-}
-
-.zoomSlider {
-  -webkit-appearance: none;
-  width: 100%;
-  height: 4px;
-  background: var(--secondary-purple);
-  border-radius: 2px;
-  outline: none;
-}
-
-.zoomSlider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: white;
-  border: 2px solid var(--primary-purple);
-  cursor: pointer;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-  transition: transform 0.1s ease;
-}
-
-.zoomSlider::-webkit-slider-thumb:hover {
-  transform: scale(1.1);
-}
-
-/* Canvas Area */
-.canvasContainer {
+.canvas {
+  position: relative;
   flex: 1;
   min-height: 0;
-  height: 100%;
-  position: relative;
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   cursor: grab;
   user-select: none;
-  touch-action: none;
+  touch-action: pan-y;
+}
+.canvasDragging { cursor: grabbing; }
+
+/* ---------- Ruler ---------- */
+.ruler {
+  position: relative;
+  flex-shrink: 0;
+  height: 62px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+  overflow: clip;
+}
+.tier { position: absolute; left: 0; right: 0; }
+.tierTop { top: 0; height: 24px; border-bottom: 1px solid var(--line); }
+.tierBot { top: 24px; height: 38px; }
+
+.seg {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  overflow: clip;
+  border-right: 1px solid var(--line);
+}
+.tierTop .seg span {
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--fg-2);
+}
+.tierBot .seg {
+  flex-direction: column;
+  justify-content: center;
+  border-right-color: var(--subtle);
+}
+.tierBot .seg b { font-size: 13px; line-height: 1.1; color: var(--fg); white-space: nowrap; }
+.tierBot .seg small {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--muted);
+}
+.tierBot .segWide { align-items: flex-start; padding-left: 6px; }
+/* Today's circle may be wider than a narrow day cell. */
+.tierBot .segToday { overflow: visible; z-index: 1; }
+.tierBot .segToday b {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 12px;
 }
 
-.canvasContainer:active,
-.canvasDragging {
-  cursor: grabbing;
+/* ---------- Lanes ---------- */
+.lanesScroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
-/* Grid Lines */
+/* clip, not hidden: bars running past the edge must never make the lanes scroll sideways. */
+.lanes { position: relative; min-height: 100%; overflow: clip; }
+
 .gridLine {
   position: absolute;
   top: 0;
   bottom: 0;
   width: 1px;
-  background-color: rgba(139, 92, 246, 0.06);
+  background: var(--subtle);
   pointer-events: none;
-  z-index: 1;
 }
-
-.majorGridLine {
-  background-color: rgba(139, 92, 246, 0.15);
-}
-
-/* Multi-Tier Time Ruler */
-.timeRuler {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  flex-direction: column;
-  background: var(--surface-color, #ffffff);
-  border-top: 2px solid rgba(139, 92, 246, 0.25);
-  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.06);
-  z-index: 10;
-  user-select: none;
-}
-
-.rulerTier {
-  position: relative;
-  overflow: hidden;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-}
-
-/* Tier 1: Year (Purple) */
-.yearTier {
-  height: 22px;
-  background: rgba(139, 92, 246, 0.08);
-}
-
-.yearSegment {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  display: flex;
-  align-items: center;
-  border-right: 1px solid rgba(139, 92, 246, 0.25);
-  box-sizing: border-box;
-  overflow: hidden;
-}
-
-.yearBadge {
-  font-size: 11px;
-  font-weight: 700;
-  color: #7c3aed;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  white-space: nowrap;
-}
-
-/* Tier 2: Month (Sky Blue) */
-.monthTier {
-  height: 22px;
-  background: rgba(14, 165, 233, 0.08);
-}
-
-.monthSegment {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  display: flex;
-  align-items: center;
-  border-right: 1px solid rgba(14, 165, 233, 0.25);
-  box-sizing: border-box;
-  overflow: hidden;
-}
-
-.monthBadge {
-  font-size: 11px;
-  font-weight: 600;
-  color: #0284c7;
-  white-space: nowrap;
-}
-
-/* Tier 3: Week (Emerald Green) */
-.weekTier {
-  height: 22px;
-  background: rgba(16, 185, 129, 0.08);
-}
-
-.weekSegment {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  display: flex;
-  align-items: center;
-  border-right: 1px solid rgba(16, 185, 129, 0.25);
-  box-sizing: border-box;
-  overflow: hidden;
-}
-
-.weekBadge {
-  font-size: 10.5px;
-  font-weight: 600;
-  color: #059669;
-  white-space: nowrap;
-}
-
-/* Tier 4: Day (Slate / Neutral with Purple for Today) */
-.dayTier {
-  height: 32px;
-  background: var(--surface-color, #ffffff);
-}
-
-.daySegment {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  border-right: 1px solid rgba(0, 0, 0, 0.06);
-  box-sizing: border-box;
-  gap: 1px;
-  padding: 2px 0;
-}
-
-.dayNum {
-  font-size: 11.5px;
-  font-weight: 700;
-  color: var(--text-main, #1e293b);
-  line-height: 1;
-}
-
-.dayName {
-  font-size: 9px;
-  font-weight: 600;
-  color: var(--text-muted, #64748b);
-  line-height: 1;
-  text-transform: uppercase;
-}
-
-.dayToday {
-  background: rgba(139, 92, 246, 0.15);
-}
-
-.dayToday .dayNum,
-.dayToday .dayName {
-  color: #8b5cf6;
-  font-weight: 800;
-}
-
-/* Today Line */
 .todayLine {
   position: absolute;
   top: 0;
   bottom: 0;
   width: 2px;
-  background-color: var(--primary-purple);
-  box-shadow: 0 0 8px rgba(139, 92, 246, 0.5);
-  z-index: 2;
+  margin-left: -1px;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  z-index: 1;
   pointer-events: none;
 }
 
-.todayBadge {
+/* ---------- Bars ---------- */
+.bar {
   position: absolute;
-  top: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  background-color: var(--primary-purple);
-  color: white;
-  font-size: 10px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  box-shadow: 0 2px 4px rgba(139, 92, 246, 0.3);
-}
-
-/* Event Bars */
-.eventBar {
-  position: absolute;
-  height: 32px;
-  border-radius: 8px;
-  backdrop-filter: blur(8px);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  height: 34px;
   display: flex;
   align-items: center;
-  padding: 0;
-  color: white;
-  font-size: 13px;
-  font-weight: 500;
+  gap: 8px;
+  padding: 0 10px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--fg);
   cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-  z-index: 3;
-  min-width: 40px;
-  overflow: hidden;
-  animation: fadeSlideIn 0.3s ease-out forwards;
+  z-index: 2;
+  min-width: 0;
+  transition: box-shadow 0.15s, border-color 0.15s;
 }
+.bar:hover { border-color: var(--accent); box-shadow: var(--shadow-md); }
+.bar.stProgress { border-color: var(--prog-line); background: var(--prog-bg); }
+.bar.stProgress:hover { border-color: var(--prog-dot); }
+.bar.stDone { border-color: var(--done-line); background: var(--done-bg); }
+.bar.stDone:hover { border-color: var(--done-dot); }
 
-@keyframes fadeSlideIn {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.eventBar:hover {
-  transform: scale(1.02);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-  z-index: 5;
-}
-
-.eventBarText {
-  white-space: nowrap;
+.barInner { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; overflow: hidden; }
+.barTitle {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  padding: 0 10px;
-  box-sizing: border-box;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+}
+.bar.stDone .barTitle { color: var(--muted); text-decoration: line-through; }
+/* Short bars carry their title beside them. */
+.barShort .barInner { overflow: visible; }
+.barShort .barTitle {
+  position: absolute;
+  left: calc(100% + 8px);
+  max-width: 220px;
+  color: var(--fg-2);
+}
+.barShort:hover .barTitle { color: var(--fg); }
+.barDates { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+.barProgress {
+  margin-left: auto;
+  padding-left: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--fg-2);
 }
 
-/* Rhythmic Recurrence Cadence Track and Markers */
-.recurrenceTrack {
+/* Child notes sit as dots on the bar's bottom edge. */
+.marker {
+  position: absolute;
+  bottom: -6px;
+  width: 12px;
+  height: 12px;
+  margin-left: -6px;
+  border-radius: 50%;
+  border: 2px solid var(--surface);
+  background: var(--todo-dot);
+  z-index: 3;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+.marker:hover { transform: scale(1.3); }
+.marker.stProgress { background: var(--prog-dot); }
+.marker.stDone { background: var(--done-dot); }
+
+/* ---------- Repeat tracks ---------- */
+.track {
   position: absolute;
   left: 0;
   right: 0;
-  height: 1px;
-  border-top: 1px dashed rgba(139, 92, 246, 0.22);
-  pointer-events: none;
+  height: 30px;
+  border-top: 1px dashed var(--line);
+}
+.trackLabel {
+  position: absolute;
+  left: 10px;
+  top: 6px;
   z-index: 2;
-}
-
-.recurrenceTrackLabel {
-  position: absolute;
-  left: 12px;
-  top: -14px;
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--primary-purple);
-  opacity: 0.7;
-  pointer-events: none;
-}
-
-.rhythmicMarker {
-  position: absolute;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  cursor: pointer;
-  z-index: 4;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.15s ease;
-  user-select: none;
-}
-
-.rhythmicMarker:hover {
-  transform: scale(1.4);
-  z-index: 10;
-}
-
-.rhythmicMarkerDone {
-  background: #10b981;
-  box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
-  border: 1.5px solid #a7f3d0;
-  color: white;
-  font-size: 9px;
-  font-weight: bold;
-}
-
-.rhythmicMarkerProgress {
-  background: #f59e0b;
-  box-shadow: 0 0 8px rgba(245, 158, 11, 0.5);
-  border: 1.5px solid #fde68a;
-}
-
-.rhythmicMarkerTodo {
-  background: rgba(139, 92, 246, 0.25);
-  border: 2px solid #8b5cf6;
-  box-shadow: 0 0 6px rgba(139, 92, 246, 0.3);
-}
-
-.rhythmicMarkerDot {
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: #8b5cf6;
-}
-
-/* Tooltip */
-.tooltip {
-  position: absolute;
-  background: var(--surface-color);
-  border: 1px solid var(--surface-hover);
-  border-radius: 8px;
-  padding: 8px 12px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-  font-size: 12px;
-  color: var(--text-main);
-  pointer-events: none;
-  z-index: 100;
-  min-width: 150px;
-  max-width: 300px;
-  transform: translate(-50%, -100%);
-  margin-top: -8px;
-}
-
-.tooltipTitle {
+  gap: 4px;
+  max-width: 40%;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 11.5px;
   font-weight: 600;
-  font-size: 13px;
-  margin-bottom: 4px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-
-.tooltipDate {
-  color: var(--text-muted);
-  margin-bottom: 4px;
-}
-
-.tooltipMeta {
-  display: flex;
-  justify-content: space-between;
-  color: var(--text-muted);
-  font-size: 11px;
-}
-
-/* States */
-.lockedState, .emptyState, .loadingState {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  color: var(--text-muted);
-  text-align: center;
-  z-index: 10;
-}
-
-.lockedIcon {
-  width: 48px;
-  height: 48px;
-  color: var(--primary-purple);
-  margin-bottom: 16px;
-  opacity: 0.8;
-}
-
-.loadingSpinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid var(--secondary-purple);
-  border-top-color: var(--primary-purple);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 16px;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-@media (max-width: 600px) {
-  .controls {
-    flex-direction: column;
-    height: auto;
-    align-items: stretch;
-    gap: 12px;
-  }
-  
-  .rightControls {
-    width: 100%;
-    align-items: center;
-  }
-}
-
-.childMarker {
+.trackLabel:hover { color: var(--accent); }
+.trackDot {
   position: absolute;
   top: 10px;
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
   border-radius: 50%;
+  border: 1.5px solid var(--todo-dot);
+  background: var(--surface);
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+.trackDot:hover { transform: scale(1.3); }
+.trackDot.stProgress { border-color: var(--prog-dot); background: var(--prog-bg); }
+.trackDot.stDone { border-color: var(--done-dot); background: var(--done-dot); }
+
+/* ---------- Tooltip, overlay, hint ---------- */
+.tooltip {
+  position: absolute;
+  z-index: 10;
+  transform: translate(-50%, -100%);
+  max-width: 260px;
+  padding: 8px 10px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  pointer-events: none;
+}
+.tooltipTitle { font-size: 13px; font-weight: 600; color: var(--fg); overflow-wrap: anywhere; }
+.tooltipDate { margin-top: 2px; font-size: 12px; color: var(--fg-2); }
+.tooltipMeta { margin-top: 2px; font-size: 11.5px; color: var(--muted); }
+
+.overlayMsg {
+  position: absolute;
+  inset: 62px 0 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 8px;
-  font-weight: bold;
-  color: white;
-  cursor: pointer;
-  z-index: 2;
-  transition: transform 0.15s ease;
+  z-index: 4;
+  pointer-events: none;
 }
+.overlayMsg > * { margin: 0; border-radius: var(--r-lg); background: var(--surface); }
 
-.childMarker:hover {
-  transform: scale(1.35);
-}
+.hint { margin: 0; font-size: 12px; color: var(--muted); }
 
-.childMarkerTodo {
-  background: rgba(255, 255, 255, 0.25);
-  border: 2px solid rgba(255, 255, 255, 0.95);
-}
-
-.childMarkerProgress {
-  background: linear-gradient(90deg, #ffffff 50%, rgba(255, 255, 255, 0.25) 50%);
-  border: 2px solid rgba(255, 255, 255, 0.95);
-}
-
-.childMarkerDone {
-  background: #10b981;
-  border: 1.5px solid #a7f3d0;
+@media (max-width: 700px) {
+  .hz { min-height: 300px; }
 }

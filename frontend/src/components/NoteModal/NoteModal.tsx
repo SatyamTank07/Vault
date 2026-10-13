@@ -1,22 +1,30 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Calendar, Repeat, X, Clock, ArrowRight, CheckSquare, Eye, EyeOff, CornerDownRight } from 'lucide-react';
+import { Calendar, Repeat, X, Clock, ArrowRight, CheckSquare, Eye, EyeOff, CornerDownRight, Lock } from 'lucide-react';
 import styles from './NoteModal.module.css';
 import type { Note } from '../NoteCard/NoteCard';
 import { TipTapEditor } from '../TipTapEditor/TipTapEditor';
 import { ConfirmModal } from '../ConfirmModal/ConfirmModal';
 import { NotePicker } from '../NotePicker/NotePicker';
 import { getParentCandidates } from '../../lib/noteTree';
+import { normalizeStatus, STATUS_LABELS } from '../../lib/noteText';
+import { statusClass } from '../ui/statusClass';
+import ui from '../ui/ui.module.css';
 
 interface NoteModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (note: Omit<Note, 'created_at' | 'updated_at'>) => void;
   initialData?: Note | null;
-  isViewMode?: boolean;
   cryptoKey?: CryptoKey | null;
   allNotes?: Note[];
   defaultParentId?: string | null;
   defaultCanvasOnly?: boolean;
+  /** New notes only: start scheduled on this day (YYYY-MM-DD) as a to-do. */
+  defaultScheduledDate?: string | null;
+  /** Open with the schedule popover showing (used by the repeat buttons). */
+  initialPopover?: 'schedule' | null;
+  /** New notes created on a canvas: shown as the canvas chip in the header. */
+  canvasName?: string | null;
 }
 
 function getTodayString(): string {
@@ -107,6 +115,9 @@ export const NoteModal: React.FC<NoteModalProps> = ({
   allNotes = [],
   defaultParentId = null,
   defaultCanvasOnly = false,
+  defaultScheduledDate = null,
+  initialPopover = null,
+  canvasName = null,
 }) => {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -140,6 +151,9 @@ export const NoteModal: React.FC<NoteModalProps> = ({
   const isExistingNote = Boolean(initialData?.id);
   const initialParentId = isExistingNote ? initialData?.parent_note_id ?? null : defaultParentId;
   const initialCanvasOnly = isExistingNote ? Boolean(initialData?.canvas_only) : defaultCanvasOnly;
+  // A new note opened from a day in the schedule starts on that day as a to-do.
+  const initialScheduledDate = isExistingNote ? initialData?.scheduled_date || null : defaultScheduledDate;
+  const initialStatus = isExistingNote ? initialData?.status ?? null : defaultScheduledDate ? 'todo' : null;
   // Hiding only sticks while the note has a parent or lives on a canvas (the server enforces this too).
   const canHide = Boolean(parentNoteId || initialData?.canvas_name || defaultCanvasOnly);
   const effectiveCanvasOnly = canHide && canvasOnly;
@@ -156,8 +170,8 @@ export const NoteModal: React.FC<NoteModalProps> = ({
       }
       setTitle(initialData?.title || '');
       setContent(initialData?.content || '');
-      setStatus(initialData?.status ?? null);
-      setScheduledDate(initialData?.scheduled_date || null);
+      setStatus(initialData?.id ? initialData.status ?? null : defaultScheduledDate ? 'todo' : null);
+      setScheduledDate(initialData?.id ? initialData.scheduled_date || null : defaultScheduledDate);
       setScheduledTime(initialData?.scheduled_time || null);
       setEndDate(initialData?.end_date || null);
       setRecurrenceRule(initialData?.recurrence_rule || null);
@@ -166,10 +180,10 @@ export const NoteModal: React.FC<NoteModalProps> = ({
       setParentNoteId(initialData?.id ? initialData.parent_note_id ?? null : defaultParentId);
       setCanvasOnly(initialData?.id ? Boolean(initialData.canvas_only) : defaultCanvasOnly);
       setIsParentPickerOpen(false);
-      setIsPopoverOpen(false);
+      setIsPopoverOpen(initialPopover === 'schedule');
       setShowConfirmDiscard(false);
     }
-  }, [isOpen, initialData, defaultParentId, defaultCanvasOnly]);
+  }, [isOpen, initialData, defaultParentId, defaultCanvasOnly, defaultScheduledDate, initialPopover]);
 
   // Check if current form values differ from initial values
   const hasUnsavedChanges = useMemo(() => {
@@ -188,10 +202,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
     const currentNormalized = normalizeContent(content || '');
     if (currentNormalized !== initialNormalized) return true;
 
-    const initialStatus = initialData?.status ?? null;
     if ((status || null) !== initialStatus) return true;
-
-    const initialScheduledDate = initialData?.scheduled_date || null;
     if ((scheduledDate || null) !== initialScheduledDate) return true;
 
     const initialScheduledTime = initialData?.scheduled_time || null;
@@ -227,6 +238,8 @@ export const NoteModal: React.FC<NoteModalProps> = ({
     effectiveCanvasOnly,
     initialParentId,
     initialCanvasOnly,
+    initialStatus,
+    initialScheduledDate,
     initialData,
   ]);
 
@@ -364,6 +377,10 @@ export const NoteModal: React.FC<NoteModalProps> = ({
     }
   };
 
+  const handleCycleStatus = () => {
+    setStatus((prev) => (prev === 'todo' ? 'in_progress' : prev === 'in_progress' ? 'done' : 'todo'));
+  };
+
   const handleAddDateClick = () => {
     if (!scheduledDate) {
       setScheduledDate(todayStr);
@@ -397,16 +414,6 @@ export const NoteModal: React.FC<NoteModalProps> = ({
     onClose();
   };
 
-  const handleMobileDoneClick = (e: React.MouseEvent) => {
-    const form = document.getElementById('note-modal-form') as HTMLFormElement | null;
-    if (form && typeof form.requestSubmit === 'function') {
-      e.preventDefault();
-      form.requestSubmit();
-    } else {
-      handleSubmit(e);
-    }
-  };
-
   if (!isOpen) return null;
 
   const formattedSchedule = scheduledDate
@@ -423,51 +430,28 @@ export const NoteModal: React.FC<NoteModalProps> = ({
     <>
       <div className={styles.overlay} onClick={handleOverlayClick}>
         <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-          {/* Header & Mobile Sheet Navigation Bar */}
           <div className={styles.header}>
-            <button
-              type="button"
-              className={styles.mobileCancelBtn}
-              onClick={handleCancelClick}
-            >
-              Cancel
-            </button>
-
-            <div className={styles.headerCenter}>
-              {initialData?.canvas_name ? (
-                <span className={styles.categoryBadge} title={`In canvas: ${initialData.canvas_name}`}>
-                  {initialData.canvas_name}
-                </span>
-              ) : (
-                <span className={styles.viewIndicator}>
-                  {initialData?.id ? 'Edit Note' : 'New Note'}
+            <span className={styles.kind}>
+              {(initialData?.canvas_name || canvasName) && (
+                <span className={`${ui.chip} ${ui.chipCanvas}`} title={`In canvas: ${initialData?.canvas_name || canvasName}`}>
+                  {initialData?.canvas_name || canvasName}
                 </span>
               )}
-            </div>
-
-            <div className={styles.headerActions}>
-              <button
-                type="button"
-                className={styles.closeBtn}
-                onClick={handleCloseClick}
-                aria-label="Close"
-                title="Close"
-              >
-                <X size={18} />
-              </button>
-              <button
-                type="button"
-                className={styles.mobileSaveBtn}
-                onClick={handleMobileDoneClick}
-                disabled={!title.trim() && !content.trim()}
-              >
-                Done
-              </button>
-            </div>
+              {initialData?.id ? 'Edit note' : 'New note'}
+            </span>
+            <button
+              type="button"
+              className={ui.iconBtn}
+              onClick={handleCloseClick}
+              aria-label="Close"
+              title="Close"
+            >
+              <X size={18} />
+            </button>
           </div>
 
           <form id="note-modal-form" className={styles.form} onSubmit={handleSubmit}>
-            {/* 2. Typography First: borderless title input directly above content */}
+            <div className={styles.body}>
             <div className={styles.titleSection}>
               <input
                 id="note-title"
@@ -480,7 +464,6 @@ export const NoteModal: React.FC<NoteModalProps> = ({
               />
             </div>
 
-            {/* 3. Consolidated Scheduling Pill & Unified Popover */}
             <div className={styles.metadataStrip} ref={popoverAnchorRef}>
               <button
                 type="button"
@@ -489,8 +472,21 @@ export const NoteModal: React.FC<NoteModalProps> = ({
                 title={status ? 'Marked as task (click to convert to pure note)' : 'Convert to actionable task'}
               >
                 <CheckSquare size={13} className={styles.pillIcon} />
-                <span>{status ? 'Task' : 'Make Task'}</span>
+                <span>{status ? 'Task' : 'Make task'}</span>
               </button>
+
+              {status && (
+                <button
+                  type="button"
+                  className={`${ui.pill} ${ui.pillLg} ${statusClass(status)}`}
+                  onClick={handleCycleStatus}
+                  title="Change status"
+                  aria-label={`Status: ${STATUS_LABELS[normalizeStatus(status)]}. Change status`}
+                >
+                  <span className={ui.pillDot} />
+                  {STATUS_LABELS[normalizeStatus(status)]}
+                </button>
+              )}
 
               <button
                 type="button"
@@ -499,10 +495,10 @@ export const NoteModal: React.FC<NoteModalProps> = ({
                 disabled={!canHide}
                 title={
                   !canHide
-                    ? 'Add a parent or place this note on a canvas to hide it from Grid & Calendar'
+                    ? 'Add a parent or place this note on a canvas to hide it'
                     : effectiveCanvasOnly
-                      ? 'Hidden from Grid & Calendar (click to show)'
-                      : 'Shown in Grid & Calendar (click to hide)'
+                      ? 'Hidden from Grid and Schedule (click to show)'
+                      : 'Shown in Grid and Schedule (click to hide)'
                 }
               >
                 {effectiveCanvasOnly ? (
@@ -510,7 +506,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
                 ) : (
                   <Eye size={13} className={styles.pillIcon} />
                 )}
-                <span>{effectiveCanvasOnly ? 'Hidden from Grid' : 'Grid & Calendar'}</span>
+                <span>{effectiveCanvasOnly ? 'Canvas only' : 'Grid & Schedule'}</span>
               </button>
 
               <div className={styles.parentPillWrapper} ref={parentPickerRef}>
@@ -570,7 +566,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
                   title="Add schedule"
                 >
                   <Calendar size={13} className={styles.pillIcon} />
-                  <span>+ Add date</span>
+                  <span>Add date</span>
                 </button>
               )}
 
@@ -695,7 +691,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
                   {scheduledDate && (
                     <div className={styles.popoverSection}>
                       <div className={styles.sectionHeader}>
-                        <label className={styles.popoverLabel}>End Date (Multi-day)</label>
+                        <label className={styles.popoverLabel}>End date (multi-day)</label>
                         {endDate !== null && (
                           <button
                             type="button"
@@ -726,7 +722,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
                           className={styles.popoverAddOptionBtn}
                           onClick={() => setEndDate(scheduledDate)}
                         >
-                          + Multi-day
+                          + End date
                         </button>
                       )}
                     </div>
@@ -861,21 +857,26 @@ export const NoteModal: React.FC<NoteModalProps> = ({
             </div>
 
             <div className={styles.contentGroup}>
-              <TipTapEditor 
-                content={content} 
-                onChange={setContent} 
-                noteId={currentNoteId} 
-                readOnly={false} 
+              <TipTapEditor
+                content={content}
+                onChange={setContent}
+                noteId={currentNoteId}
+                readOnly={false}
                 cryptoKey={cryptoKey}
               />
             </div>
+            </div>
 
             <div className={styles.footer}>
-              <button type="button" className={styles.cancelBtn} onClick={handleCancelClick}>
+              <span className={styles.footMeta}>
+                <Lock size={13} />
+                Encrypted before it leaves this device
+              </span>
+              <button type="button" className={`${ui.btn} ${ui.ghost}`} onClick={handleCancelClick}>
                 {hasUnsavedChanges ? 'Cancel' : 'Close'}
               </button>
-              <button type="submit" className={styles.saveBtn}>
-                Save Note
+              <button type="submit" className={`${ui.btn} ${ui.primary}`} disabled={!title.trim() && !content.trim()}>
+                Save note
               </button>
             </div>
           </form>
@@ -884,10 +885,10 @@ export const NoteModal: React.FC<NoteModalProps> = ({
 
       <ConfirmModal
         isOpen={showConfirmDiscard}
-        title="Discard Unsaved Changes?"
-        message="You have unsaved changes in this note. Are you sure you want to discard them and exit?"
-        confirmText="Discard Changes"
-        cancelText="Keep Editing"
+        title="Discard changes?"
+        message="Your edits to this note haven't been saved."
+        confirmText="Discard"
+        cancelText="Keep editing"
         isDestructive={true}
         onConfirm={handleConfirmDiscard}
         onCancel={() => setShowConfirmDiscard(false)}

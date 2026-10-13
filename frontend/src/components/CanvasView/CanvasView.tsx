@@ -1,10 +1,12 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Lock, Plus, Wand2 } from 'lucide-react';
+import React, { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { Lock, Wand2 } from 'lucide-react';
 import {
   ReactFlow,
   Controls,
   Background,
   BackgroundVariant,
+  Panel,
+  useViewport,
   useNodesState,
   useEdgesState,
   addEdge,
@@ -15,16 +17,30 @@ import {
 import '@xyflow/react/dist/style.css';
 
 import { apiFetch } from '../../lib/api';
+import { useResolvedTheme } from '../../lib/theme';
 import { decryptNote, encryptNote } from '../../lib/crypto';
 import type { Note } from '../NoteCard/NoteCard';
 import { ConfirmModal } from '../ConfirmModal/ConfirmModal';
 import { NoteModal } from '../NoteModal/NoteModal';
 import MindMapNode from './MindMapNode';
 import { CanvasSelector } from './CanvasSelector';
+import { Toolbar } from '../ui/Toolbar';
+import ui from '../ui/ui.module.css';
 import { autoLayout, convertToReactFlow, type CanvasData, type CanvasListItem } from './canvasUtils';
 import styles from './CanvasView.module.css';
 
+function ZoomChip() {
+  const { zoom } = useViewport();
+  return <span className={styles.zoomChip}>{Math.round(zoom * 100)}%</span>;
+}
+
+export interface CanvasViewActions {
+  /** Open the new-note flow on the active canvas. Returns false when no canvas is open. */
+  createNote: () => boolean;
+}
+
 interface CanvasViewProps {
+  actionsRef?: React.Ref<CanvasViewActions>;
   currentUserId: string;
   onOpenNote: (note: Note) => void;
   onRecurrenceClick: (note: Note) => void;
@@ -34,6 +50,7 @@ interface CanvasViewProps {
 }
 
 export const CanvasView: React.FC<CanvasViewProps> = ({
+  actionsRef,
   currentUserId,
   onOpenNote,
   onRecurrenceClick,
@@ -65,6 +82,16 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
   });
 
   const nodeTypes = useMemo(() => ({ mindMapNode: MindMapNode }), []);
+  const theme = useResolvedTheme();
+
+  // Edges touching a selected node are drawn in the accent color.
+  const styledEdges = useMemo(() => {
+    const selectedIds = new Set(nodes.filter((n) => n.selected).map((n) => n.id));
+    if (selectedIds.size === 0) return edges;
+    return edges.map((e) =>
+      selectedIds.has(e.source) || selectedIds.has(e.target) ? { ...e, className: styles.hotEdge } : e,
+    );
+  }, [nodes, edges]);
 
   useEffect(() => {
     setActiveCanvasId(localStorage.getItem(storageKey) || null);
@@ -231,8 +258,8 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
   const handleDeleteCanvas = (id: string) => {
     setConfirmModalConfig({
       isOpen: true,
-      title: 'Delete Canvas',
-      message: 'Delete this canvas? Notes that live only on it will be deleted permanently. Notes shown in Grid & Calendar are kept.',
+      title: 'Delete canvas',
+      message: 'Notes that live only on this canvas will be deleted for good. Notes shown in Grid and Schedule are kept.',
       confirmText: 'Delete',
       onConfirm: async () => {
         setConfirmModalConfig((prev) => ({ ...prev, isOpen: false }));
@@ -252,11 +279,18 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
     });
   };
 
-  const handleAddRootNote = () => {
-    if (!activeCanvasId) return;
-    setParentNodeIdForNewNote(null);
-    setIsCreateModalOpen(true);
-  };
+  useImperativeHandle(
+    actionsRef,
+    () => ({
+      createNote: () => {
+        if (!activeCanvasId) return false;
+        setParentNodeIdForNewNote(null);
+        setIsCreateModalOpen(true);
+        return true;
+      },
+    }),
+    [activeCanvasId],
+  );
 
   const handleAddBranch = (parentNodeId: string) => {
     if (!activeCanvasId) return;
@@ -335,8 +369,8 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
     if (!activeCanvasId) return;
     setConfirmModalConfig({
       isOpen: true,
-      title: 'Remove Node',
-      message: 'Remove this node from canvas? (Note will not be deleted)',
+      title: 'Remove from canvas',
+      message: 'The node leaves this canvas. The note itself is kept.',
       confirmText: 'Remove',
       onConfirm: async () => {
         setConfirmModalConfig((prev) => ({ ...prev, isOpen: false }));
@@ -491,51 +525,69 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
 
   return (
     <div className={styles.container}>
-      <div className={styles.toolbar}>
-        <CanvasSelector
-          canvases={canvases}
-          activeCanvasId={activeCanvasId}
-          onSelect={setActiveCanvasId}
-          onCreate={handleCreateCanvas}
-          onRename={handleRenameCanvas}
-          onDelete={handleDeleteCanvas}
-        />
-        {activeCanvasId && (
-          <div className={styles.canvasActions}>
-            <button className={styles.addRootBtn} onClick={handleAutoLayout} title="Auto Layout Canvas">
-              <Wand2 size={16} />
-              Auto Layout
+      <Toolbar
+        left={
+          <CanvasSelector
+            canvases={canvases}
+            activeCanvasId={activeCanvasId}
+            onSelect={setActiveCanvasId}
+            onCreate={handleCreateCanvas}
+            onRename={handleRenameCanvas}
+            onDelete={handleDeleteCanvas}
+          />
+        }
+        right={
+          activeCanvasId ? (
+            <button
+              type="button"
+              className={`${ui.btn} ${ui.ghost} ${ui.sm}`}
+              onClick={handleAutoLayout}
+              disabled={nodes.length === 0}
+            >
+              <Wand2 size={14} />
+              Auto layout
             </button>
-            <button className={styles.addRootBtn} onClick={handleAddRootNote}>
-              <Plus size={16} />
-              Add Note
-            </button>
-          </div>
-        )}
-      </div>
+          ) : null
+        }
+      />
 
       <div className={styles.canvasArea}>
         {!activeCanvasId ? (
-          <div className={styles.emptyState}>
-            <p>Select a canvas or create a new one to start mapping your ideas.</p>
+          <div className={ui.empty}>
+            <strong>{canvases.length ? 'Pick a canvas' : 'No canvases yet'}</strong>
+            {canvases.length
+              ? 'Choose one from the canvas menu to start mapping.'
+              : 'Create one from the canvas menu to start mapping your ideas.'}
           </div>
         ) : (
           <ReactFlow
             nodes={nodes}
-            edges={edges}
+            edges={styledEdges}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
             nodeTypes={nodeTypes}
             onNodeDragStop={onNodeDragStop}
+            colorMode={theme}
             fitView
-            fitViewOptions={{ padding: 0.3 }}
+            fitViewOptions={{ padding: 0.3, maxZoom: 1.1 }}
             minZoom={0.2}
             maxZoom={2}
             proOptions={{ hideAttribution: true }}
           >
-            <Controls showInteractive={false} className={styles.controls} />
-            <Background variant={BackgroundVariant.Dots} gap={24} size={1.5} color="rgba(139, 92, 246, 0.15)" />
+            <Controls showInteractive={false} className={styles.controls} position="bottom-left" />
+            <Background variant={BackgroundVariant.Dots} gap={24} size={1.3} color="var(--grid-dot)" />
+            <Panel position="bottom-right">
+              <ZoomChip />
+            </Panel>
+            {nodes.length === 0 && (
+              <Panel position="top-center" className={styles.emptyPanel}>
+                <div className={ui.empty}>
+                  <strong>This canvas is empty</strong>
+                  Use New note to add the first node.
+                </div>
+              </Panel>
+            )}
           </ReactFlow>
         )}
       </div>
@@ -550,6 +602,7 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
         cryptoKey={cryptoKey}
         allNotes={notes}
         defaultCanvasOnly={true}
+        canvasName={canvases.find((c) => c.id === activeCanvasId)?.name ?? null}
       />
 
       <ConfirmModal

@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useId } from 'react';
 import { X, CheckCircle2, Send } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
+import ui from '../ui/ui.module.css';
 import styles from './FeedbackModal.module.css';
 
 interface FeedbackModalProps {
@@ -14,6 +15,7 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
   const [isSuccess, setIsSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const titleId = useId();
 
   useEffect(() => {
     if (isOpen) {
@@ -75,37 +77,46 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
   };
 
   return (
-    <div className={styles.overlay} onClick={() => !isSubmitting && onClose()}>
-      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-        <div className={styles.header}>
-          <h2>Feedback</h2>
+    <div className={ui.scrim} onClick={() => !isSubmitting && onClose()}>
+      <div
+        className={`${ui.dialog} ${styles.dialog}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className={ui.dialogHead}>
+          <h2 id={titleId} className={ui.dialogTitle}>
+            Feedback
+          </h2>
           <button
             type="button"
-            className={styles.closeBtn}
+            className={ui.iconBtn}
             onClick={onClose}
             disabled={isSubmitting}
             aria-label="Close"
+            title="Close"
           >
-            <X size={20} />
+            <X size={16} />
           </button>
         </div>
 
         {isSuccess ? (
-          <div className={styles.successView}>
-            <div className={styles.successIcon}>
-              <CheckCircle2 size={36} />
-            </div>
+          <div className={styles.successView} role="status">
+            <span className={styles.successIcon}>
+              <CheckCircle2 size={28} />
+            </span>
             <h3 className={styles.successTitle}>Thank you!</h3>
-            <p className={styles.successMessage}>
-              Your feedback has been received. Thank you for helping us improve Vault!
-            </p>
+            <p className={ui.dialogText}>Your feedback has been received. Thank you for helping us improve Vault!</p>
           </div>
         ) : (
           <form className={styles.form} onSubmit={handleSubmit}>
+            <p className={ui.dialogText}>Tell us what's working and what isn't.</p>
             <textarea
               ref={textareaRef}
               className={styles.textarea}
               placeholder="What can we improve?"
+              aria-label="Feedback"
               value={content}
               onChange={(e) => setContent(e.target.value)}
               disabled={isSubmitting}
@@ -115,22 +126,17 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
 
             {errorMessage && <p className={styles.errorMessage}>{errorMessage}</p>}
 
-            <div className={styles.footer}>
-              <button
-                type="button"
-                className={styles.cancelBtn}
-                onClick={onClose}
-                disabled={isSubmitting}
-              >
+            <div className={ui.dialogActions}>
+              <button type="button" className={`${ui.btn} ${ui.ghost}`} onClick={onClose} disabled={isSubmitting}>
                 Cancel
               </button>
               <button
                 type="submit"
-                className={styles.sendBtn}
+                className={`${ui.btn} ${ui.primary}`}
                 disabled={!content.trim() || isSubmitting}
               >
-                <Send size={15} />
-                <span>{isSubmitting ? 'Sending...' : 'Send Feedback'}</span>
+                <Send size={14} />
+                {isSubmitting ? 'Sending…' : 'Send feedback'}
               </button>
             </div>
           </form>
