@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
 import type { Note } from '../NoteCard/NoteCard';
+import { formatShortDate } from '../../lib/noteText';
 import styles from './NotePicker.module.css';
 
 interface NotePickerProps {
@@ -54,7 +55,9 @@ export const NotePicker: React.FC<NotePickerProps> = ({ notes, onPick, onClose, 
             <li key={note.id}>
               <button type="button" className={styles.result} onClick={() => onPick(note)}>
                 <span className={styles.resultTitle}>{note.title || 'Untitled'}</span>
-                {note.scheduled_date && <span className={styles.resultMeta}>{note.scheduled_date}</span>}
+                {note.scheduled_date && (
+                  <span className={`${styles.resultMeta} tnum`}>{formatShortDate(note.scheduled_date)}</span>
+                )}
               </button>
             </li>
           ))

@@ -1,37 +1,37 @@
+/* Note picker popover: a search field over a short result list. */
 .picker {
   width: min(320px, calc(100vw - 32px));
-  background: var(--surface-color);
-  border: 1px solid var(--surface-hover);
-  border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-md);
   overflow: hidden;
+  color: var(--fg);
 }
 
 .searchRow {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--surface-hover);
+  height: 42px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--line);
 }
-
-.searchIcon {
-  color: var(--text-muted);
-  flex-shrink: 0;
-}
-
+.searchIcon { flex-shrink: 0; color: var(--muted); }
 .searchInput {
   flex: 1;
   min-width: 0;
   border: none;
   outline: none;
   background: transparent;
-  font-size: 0.85rem;
-  color: var(--text-main);
+  font-size: 13.5px;
+  color: var(--fg);
 }
+.searchInput::placeholder { color: var(--muted); }
 
 .results {
   list-style: none;
+  margin: 0;
   max-height: 240px;
   overflow-y: auto;
   padding: 4px;
@@ -41,36 +41,15 @@
   display: flex;
   width: 100%;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
   padding: 7px 8px;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
+  border-radius: var(--r-sm);
   text-align: left;
-  cursor: pointer;
-  color: var(--text-main);
-  font-size: 0.85rem;
+  font-size: 13px;
+  color: var(--fg);
 }
+.result:hover, .result:focus-visible { background: var(--subtle); outline: none; }
+.resultTitle { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.resultMeta { margin-left: auto; flex-shrink: 0; font-size: 11.5px; color: var(--muted); }
 
-.result:hover {
-  background: rgba(139, 92, 246, 0.08);
-}
-
-.resultTitle {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.resultMeta {
-  flex-shrink: 0;
-  font-size: 0.72rem;
-  color: var(--text-muted);
-}
-
-.empty {
-  padding: 10px 8px;
-  font-size: 0.8rem;
-  color: var(--text-muted);
-}
+.empty { padding: 10px 8px; font-size: 13px; color: var(--muted); }

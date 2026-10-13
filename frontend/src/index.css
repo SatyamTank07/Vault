@@ -33,16 +33,6 @@
   --gutter: 24px;
   --r-sm: 6px; --r-md: 10px; --r-lg: 14px; --r-xl: 18px;
 
-  /* Temporary aliases for modules not yet moved to the tokens above. Removed in the cleanup pass. */
-  --primary-purple: var(--accent);
-  --primary-purple-hover: var(--accent-hover);
-  --secondary-purple: var(--accent-soft);
-  --bg-color: var(--bg);
-  --surface-color: var(--surface);
-  --surface-hover: var(--subtle);
-  --text-main: var(--fg);
-  --text-muted: var(--muted);
-
   font-family: var(--font);
   line-height: 1.5;
   font-weight: 400;

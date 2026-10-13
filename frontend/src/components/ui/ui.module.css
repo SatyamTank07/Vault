@@ -239,3 +239,42 @@ button.chip:hover { color: var(--accent); background: var(--accent-soft); }
 }
 .empty { margin: auto; padding: 48px 16px; text-align: center; color: var(--muted); }
 .empty strong { display: block; color: var(--fg); font-size: 15px; margin-bottom: 4px; }
+
+/* ---------- Dialog ---------- */
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  background: var(--scrim);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  animation: scrimIn 0.15s ease-out;
+}
+@keyframes scrimIn { from { opacity: 0; } }
+.dialog {
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 22px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-lg);
+  color: var(--fg);
+  animation: dialogUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes dialogUp { from { opacity: 0; transform: translateY(10px) scale(0.98); } }
+.dialogHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.dialogHead .iconBtn { margin: -6px -8px -6px 0; }
+.dialogTitle { margin: 0; font-size: 17px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.35; color: var(--fg); }
+.dialogText { margin: 0; font-size: 14px; line-height: 1.55; color: var(--fg-2); }
+.dialogActions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+@media (max-width: 480px) {
+  .dialogActions .btn { flex: 1; height: 40px; }
+}
