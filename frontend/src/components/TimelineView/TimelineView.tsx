@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { Calendar, ChevronLeft, ChevronRight, Lock, Columns, List } from 'lucide-react';
+import React, { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { Calendar, ChevronLeft, ChevronRight, Lock, Columns2, List } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 import { decryptNote } from '../../lib/crypto';
 import type { Note } from '../NoteCard/NoteCard';
@@ -7,6 +7,9 @@ import { DayView } from './DayView';
 import type { TimelineTask } from './TimelineTaskCard';
 import { WeekView } from './WeekView';
 import { TimeStreamView } from '../TimeStreamView/TimeStreamView';
+import { SegmentedControl } from '../ui/SegmentedControl';
+import { Toolbar } from '../ui/Toolbar';
+import ui from '../ui/ui.module.css';
 import styles from './TimelineView.module.css';
 
 type SubView = 'day' | 'week' | 'horizon';
@@ -63,6 +66,13 @@ function getScaleFromZoom(z: number): 'day' | 'week' | 'month' | 'year' {
   return 'year';
 }
 
+const SCALE_PRESETS: { value: 'day' | 'week' | 'month' | 'year'; label: string; zoom: number; title: string }[] = [
+  { value: 'day', label: 'Day', zoom: 0.1, title: 'Day scale (about 3 weeks)' },
+  { value: 'week', label: 'Week', zoom: 0.35, title: 'Week scale (about 3 months)' },
+  { value: 'month', label: 'Month', zoom: 0.6, title: 'Month scale (about 9 months)' },
+  { value: 'year', label: 'Year', zoom: 0.9, title: 'Year scale (about 2 years)' },
+];
+
 function formatDateLabel(date: Date, subView: SubView, zoomLevel: number): string {
   if (subView === 'day') {
     return date.toLocaleDateString('en-US', {
@@ -82,7 +92,7 @@ function formatDateLabel(date: Date, subView: SubView, zoomLevel: number): strin
       day: 'numeric',
       year: 'numeric',
     });
-    return `${startStr} - ${endStr}`;
+    return `${startStr} – ${endStr}`;
   }
 
   const rangeDays = getRangeDays(zoomLevel);
@@ -198,38 +208,28 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
     }
   }, [getDateRange, cryptoKey]);
 
+  // Any change to the notes (new note, edit, status) refetches the visible week; moving
+  // between days of the same week reuses what is already loaded.
+  const notesKey = useMemo(
+    () => notes.map((n) => `${n.id}:${n.updated_at}:${n.status}:${n.scheduled_date}`).join('|'),
+    [notes],
+  );
+  const lastNotesKey = useRef(notesKey);
   useEffect(() => {
-    if (subView !== 'horizon') {
-      fetchTimeline();
-    }
-  }, [fetchTimeline, subView]);
+    if (subView === 'horizon') return;
+    const notesChanged = lastNotesKey.current !== notesKey;
+    lastNotesKey.current = notesKey;
+    fetchTimeline(notesChanged);
+  }, [fetchTimeline, subView, notesKey]);
 
-  useEffect(() => {
-    setTasksByDate((prev) => {
-      let changed = false;
-      const updated = { ...prev };
-
-      for (const dateKey of Object.keys(updated)) {
-        updated[dateKey] = updated[dateKey].map((task) => {
-          const globalNote = notes.find((note) => note.id === task.note.id);
-          if (globalNote && (globalNote.title !== task.note.title || globalNote.content !== task.note.content)) {
-            changed = true;
-            return {
-              ...task,
-              note: {
-                ...task.note,
-                title: globalNote.title,
-                content: globalNote.content,
-              },
-            };
-          }
-          return task;
-        });
-      }
-
-      return changed ? updated : prev;
-    });
-  }, [notes]);
+  const parentTitleOf = useCallback(
+    (noteId: string) => {
+      const parentId = notes.find((n) => n.id === noteId)?.parent_note_id;
+      if (!parentId) return undefined;
+      return notes.find((n) => n.id === parentId)?.title || 'Untitled';
+    },
+    [notes],
+  );
 
   const goToToday = () => setSelectedDate(new Date());
 
@@ -348,34 +348,36 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
   if (!cryptoKey) {
     return (
       <div className={styles.container}>
-        <div className={styles.emptyState}>
+        <div className={ui.empty}>
           <Lock size={32} />
-          <span>Vault locked</span>
+          <strong>Vault locked</strong>
         </div>
       </div>
     );
   }
 
+  const handlers = { onOpenNote, onStatusChange: handleStatusChange, onSkip: handleSkip, parentTitleOf };
+
   return (
     <div className={styles.container}>
-      <div className={styles.topBar}>
-        <div className={styles.dateNav}>
-          <button className={styles.navBtn} onClick={goPrev} title="Previous">
-            <ChevronLeft size={18} />
-          </button>
-          <button className={styles.todayBtn} onClick={goToToday}>
-            Today
-          </button>
-          <button className={styles.navBtn} onClick={goNext} title="Next">
-            <ChevronRight size={18} />
-          </button>
-          <div className={styles.dateLabelContainer}>
-            <span className={styles.dateLabel}>{formatDateLabel(selectedDate, subView, zoomLevel)}</span>
-            <div className={styles.datePickerBtn} title="Select Date">
-              <Calendar size={16} />
+      <Toolbar
+        left={
+          <>
+            <button type="button" className={ui.iconBtn} onClick={goPrev} aria-label="Previous">
+              <ChevronLeft size={18} />
+            </button>
+            <button type="button" className={`${ui.btn} ${ui.ghost} ${ui.sm}`} onClick={goToToday}>
+              Today
+            </button>
+            <button type="button" className={ui.iconBtn} onClick={goNext} aria-label="Next">
+              <ChevronRight size={18} />
+            </button>
+            <label className={`${ui.tbTitle} ${styles.dateLabel}`}>
+              <span className="tnum">{formatDateLabel(selectedDate, subView, zoomLevel)}</span>
+              <Calendar size={15} />
               <input
                 type="date"
-                className={styles.datePickerHidden}
+                aria-label="Jump to date"
                 value={toISODateString(selectedDate)}
                 onChange={(event) => {
                   if (event.target.value) {
@@ -385,128 +387,70 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                 }}
                 onClick={(event) => {
                   try {
-                    if ('showPicker' in HTMLInputElement.prototype) {
-                      (event.target as HTMLInputElement).showPicker();
-                    }
+                    (event.target as HTMLInputElement).showPicker();
                   } catch {
-                    return;
+                    // Older browsers open the picker from the input itself.
                   }
                 }}
               />
-            </div>
-          </div>
-        </div>
-
-        <div className={styles.rightControls}>
-          {subView === 'week' && (
-            <div className={styles.viewToggle} title="Week Layout">
-              <button
-                className={`${styles.viewBtn} ${styles.iconBtn} ${weekLayout === 'horizontal' ? styles.viewBtnActive : ''}`}
-                onClick={() => setWeekLayout('horizontal')}
-                title="Horizontal Layout"
-              >
-                <Columns size={16} />
-              </button>
-              <button
-                className={`${styles.viewBtn} ${styles.iconBtn} ${weekLayout === 'vertical' ? styles.viewBtnActive : ''}`}
-                onClick={() => setWeekLayout('vertical')}
-                title="Vertical Layout"
-              >
-                <List size={16} />
-              </button>
-            </div>
-          )}
-
-          {subView === 'horizon' && (
-            <div className={styles.horizonZoomWrapper}>
-              <div className={styles.zoomLabels}>
-                <button
-                  type="button"
-                  className={`${styles.zoomLabelBtn} ${zoomScale === 'day' ? styles.zoomLabelBtnActive : ''}`}
-                  onClick={() => setZoomLevel(0.1)}
-                  title="Day Scale (14 Days)"
-                >
-                  Day
-                </button>
-                <button
-                  type="button"
-                  className={`${styles.zoomLabelBtn} ${zoomScale === 'week' ? styles.zoomLabelBtnActive : ''}`}
-                  onClick={() => setZoomLevel(0.35)}
-                  title="Week Scale (2 Months)"
-                >
-                  Week
-                </button>
-                <button
-                  type="button"
-                  className={`${styles.zoomLabelBtn} ${zoomScale === 'month' ? styles.zoomLabelBtnActive : ''}`}
-                  onClick={() => setZoomLevel(0.6)}
-                  title="Month Scale (6 Months)"
-                >
-                  Month
-                </button>
-                <button
-                  type="button"
-                  className={`${styles.zoomLabelBtn} ${zoomScale === 'year' ? styles.zoomLabelBtnActive : ''}`}
-                  onClick={() => setZoomLevel(0.9)}
-                  title="Year Scale (3 Years)"
-                >
-                  Year
-                </button>
-              </div>
-              <input 
-                type="range" 
-                min="0" 
-                max="1" 
-                step="0.01" 
-                value={zoomLevel} 
-                onChange={(e) => setZoomLevel(parseFloat(e.target.value))}
-                className={styles.zoomSlider}
-                title="Zoom Level"
+            </label>
+          </>
+        }
+        right={
+          <>
+            {subView === 'week' && (
+              <SegmentedControl<'horizontal' | 'vertical'>
+                size="sm"
+                iconOnly
+                ariaLabel="Week layout"
+                value={weekLayout}
+                onChange={setWeekLayout}
+                options={[
+                  { value: 'horizontal', icon: <Columns2 size={15} />, title: 'Columns' },
+                  { value: 'vertical', icon: <List size={15} />, title: 'List' },
+                ]}
               />
-            </div>
-          )}
+            )}
+            {subView === 'horizon' && (
+              <SegmentedControl
+                size="sm"
+                ariaLabel="Scale"
+                value={zoomScale}
+                onChange={(scale) => setZoomLevel(SCALE_PRESETS.find((p) => p.value === scale)?.zoom ?? 0.1)}
+                options={SCALE_PRESETS.map(({ value, label, title }) => ({ value, label, title }))}
+              />
+            )}
+            <SegmentedControl<SubView>
+              size="sm"
+              ariaLabel="Schedule view"
+              value={subView}
+              onChange={setSubView}
+              options={[
+                { value: 'day', label: 'Day' },
+                { value: 'week', label: 'Week' },
+                { value: 'horizon', label: 'Horizon' },
+              ]}
+            />
+          </>
+        }
+      />
 
-          <div className={styles.viewToggle}>
-            <button
-              className={`${styles.viewBtn} ${subView === 'day' ? styles.viewBtnActive : ''}`}
-              onClick={() => setSubView('day')}
-            >
-              Day
-            </button>
-            <button
-              className={`${styles.viewBtn} ${subView === 'week' ? styles.viewBtnActive : ''}`}
-              onClick={() => setSubView('week')}
-            >
-              Week
-            </button>
-            <button
-              className={`${styles.viewBtn} ${subView === 'horizon' ? styles.viewBtnActive : ''}`}
-              onClick={() => setSubView('horizon')}
-            >
-              Horizon
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className={styles.content}>
+      <div className={subView === 'horizon' ? styles.contentFill : styles.content}>
         {subView === 'horizon' ? (
           <TimeStreamView
             centerDate={selectedDate}
             onCenterDateChange={setSelectedDate}
             zoomLevel={zoomLevel}
             onZoomChange={setZoomLevel}
-            hideControls={true}
             onOpenNote={onOpenNote}
             notes={notes}
-            fetchNotes={fetchNotes}
             cryptoKey={cryptoKey}
             showCompleted={showCompleted}
             onCreateChild={onCreateChild}
             onSetParent={onSetParent}
           />
         ) : loading && Object.keys(tasksByDate).length === 0 ? (
-          <div className={styles.emptyState}>Loading...</div>
+          <div className={ui.empty}>Loading…</div>
         ) : subView === 'day' ? (
           <DayView
             date={selectedDate}
@@ -517,18 +461,14 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
             onNextDay={goNext}
             onPrevWeek={goPrevWeek}
             onNextWeek={goNextWeek}
-            onOpenNote={onOpenNote}
-            onStatusChange={handleStatusChange}
-            onSkip={handleSkip}
+            {...handlers}
           />
         ) : (
           <WeekView
             weekStart={getWeekStart(selectedDate)}
             tasksByDate={filteredTasksByDate}
             layout={weekLayout}
-            onOpenNote={onOpenNote}
-            onStatusChange={handleStatusChange}
-            onSkip={handleSkip}
+            {...handlers}
           />
         )}
       </div>

@@ -1,24 +1,10 @@
 import React from 'react';
 import { Repeat, SkipForward } from 'lucide-react';
+import type { Note } from '../NoteCard/NoteCard';
+import { formatDateRange, formatTime, RECURRENCE_LABELS } from '../../lib/noteText';
+import { StatusDot } from '../ui/StatusControl';
+import ui from '../ui/ui.module.css';
 import styles from './TimelineView.module.css';
-
-const STATUS_CYCLE: Record<string, string> = {
-  todo: 'in_progress',
-  in_progress: 'done',
-  done: 'todo',
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  todo: 'To Do',
-  in_progress: 'In Progress',
-  done: 'Done',
-};
-
-const RECURRENCE_LABELS: Record<string, string> = {
-  daily: 'Daily',
-  weekly: 'Weekly',
-  monthly: 'Monthly',
-};
 
 export interface TimelineTask {
   id: string;
@@ -42,79 +28,64 @@ export interface TimelineTask {
   end_date?: string;
 }
 
-interface TimelineTaskCardProps {
+export type StatusChangeHandler = (taskId: string, newStatus: string, occurrenceId?: string | null) => void;
+
+interface TaskRowProps {
   task: TimelineTask;
-  compact?: boolean;
-  onOpenNote: (note: any) => void;
-  onStatusChange: (taskId: string, newStatus: string, occurrenceId?: string | null) => void;
+  /** Title of the note this task is grouped under, shown as "↳ parent". */
+  parentTitle?: string;
+  /** Hide the time in the meta line (the agenda already shows it in the rail). */
+  hideTime?: boolean;
+  onOpenNote: (note: Note) => void;
+  onStatusChange: StatusChangeHandler;
   onSkip?: (occurrenceId: string) => void;
 }
 
-export const TimelineTaskCard: React.FC<TimelineTaskCardProps> = ({
-  task,
-  compact = false,
-  onOpenNote,
-  onStatusChange,
-  onSkip,
-}) => {
-  const handleStatusClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const nextStatus = STATUS_CYCLE[task.status] || 'todo';
-    onStatusChange(task.id, nextStatus, task.occurrence_id);
-  };
-
-  const handleSkip = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (task.occurrence_id) {
-      onSkip?.(task.occurrence_id);
-    }
-  };
+/** One task in a day column or agenda: status dot, title, canvas · time · repeat · parent. */
+export const TaskRow: React.FC<TaskRowProps> = ({ task, parentTitle, hideTime, onOpenNote, onStatusChange, onSkip }) => {
+  const title = task.note.title || 'Untitled';
+  const meta: React.ReactNode[] = [];
+  if (task.canvas_name) meta.push(<span key="cv" className={styles.metaCanvas}>{task.canvas_name}</span>);
+  if (task.scheduled_time && !hideTime) meta.push(<span key="t" className="tnum">{formatTime(task.scheduled_time)}</span>);
+  if (task.is_recurring) {
+    meta.push(
+      <span key="r" className={styles.metaRepeat}>
+        <Repeat size={11} />
+        {RECURRENCE_LABELS[task.recurrence_rule || ''] || 'Repeats'}
+      </span>,
+    );
+  }
+  if (parentTitle) meta.push(<span key="p" className={styles.metaParent}>↳ {parentTitle}</span>);
 
   return (
     <div
-      className={`${styles.taskCard} ${compact ? styles.taskCardCompact : ''} ${
-        task.status === 'done' ? styles.taskDone : ''
-      }`}
-      onClick={() => onOpenNote(task.note)}
-      title={`${task.note.title} — Click to view`}
+      className={`${styles.task} ${task.status === 'done' ? styles.taskDone : ''}`}
+      onClick={() => onOpenNote(task.note as unknown as Note)}
     >
-      <button
-        className={`${styles.taskStatusDot} ${styles[task.status] || styles.todo}`}
-        onClick={handleStatusClick}
-        title={`Status: ${STATUS_LABELS[task.status] || 'To Do'} (click to cycle)`}
+      <StatusDot
+        status={task.status}
+        label={title}
+        onChange={(next) => onStatusChange(task.id, next, task.occurrence_id)}
       />
-      <div className={styles.taskInfo}>
-        <div className={styles.taskTitle}>{task.note.title}</div>
-        <div className={styles.taskMeta}>
-          {task.canvas_name ? (
-            <>
-              <span className={styles.taskCanvasName}>{task.canvas_name}</span>
-              <span>·</span>
-            </>
-          ) : null}
-          {task.scheduled_time && (
-            <>
-              <span className={styles.taskTime}>{task.scheduled_time}</span>
-              <span>·</span>
-            </>
-          )}
-          <span className={styles.taskStatusLabel}>{STATUS_LABELS[task.status] || 'To Do'}</span>
-          {task.is_recurring && (
-            <>
-              <span>·</span>
-              <span className={styles.recurringBadge}>
-                <Repeat size={11} />
-                {RECURRENCE_LABELS[task.recurrence_rule || ''] || 'Recurring'}
-              </span>
-            </>
-          )}
-        </div>
+      <div className={styles.taskMain}>
+        {/* The whole row opens the note on click; the title is the keyboard target. */}
+        <button type="button" className={styles.taskTitle}>
+          {title}
+        </button>
+        {meta.length > 0 && (
+          <div className={styles.taskMeta}>{meta}</div>
+        )}
       </div>
-      {task.is_recurring && task.occurrence_id && (
+      {task.is_recurring && task.occurrence_id && onSkip && (
         <button
-          className={styles.skipBtn}
-          onClick={handleSkip}
+          type="button"
+          className={`${ui.iconBtn} ${ui.iconSm} ${styles.skip}`}
+          onClick={(event) => {
+            event.stopPropagation();
+            onSkip(task.occurrence_id as string);
+          }}
           title="Skip this occurrence"
+          aria-label={`Skip this occurrence of ${title}`}
         >
           <SkipForward size={13} />
         </button>
@@ -123,3 +94,38 @@ export const TimelineTaskCard: React.FC<TimelineTaskCardProps> = ({
   );
 };
 
+interface SpanRibbonProps {
+  task: TimelineTask;
+  style?: React.CSSProperties;
+  onOpenNote: (note: Note) => void;
+  onStatusChange: StatusChangeHandler;
+}
+
+/** A multi-day note drawn as a tinted ribbon (Ongoing row, Active horizons strip). */
+export const SpanRibbon: React.FC<SpanRibbonProps> = ({ task, style, onOpenNote, onStatusChange }) => {
+  const title = task.note.title || 'Untitled';
+  const range = formatDateRange(task.start_date || task.scheduled_date, task.end_date);
+  const statusClass =
+    task.status === 'done' ? styles.ribbonDone : task.status === 'in_progress' ? styles.ribbonProgress : '';
+  return (
+    <div
+      className={`${styles.ribbon} ${statusClass}`}
+      style={style}
+      onClick={() => onOpenNote(task.note as unknown as Note)}
+      title={`${title} · ${range}`}
+    >
+      <span className={styles.ribbonLeft}>
+        <StatusDot
+          small
+          status={task.status}
+          label={title}
+          onChange={(next) => onStatusChange(task.id, next, task.occurrence_id)}
+        />
+        <button type="button" className={styles.ribbonTitle}>
+          {title}
+        </button>
+      </span>
+      <span className={`${styles.ribbonDates} tnum`}>{range}</span>
+    </div>
+  );
+};
