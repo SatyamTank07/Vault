@@ -6,7 +6,9 @@ import {
   getChildren,
   getDescendantIds,
   getParentCandidates,
+  parentSaveOrder,
   sortByScheduleThenTitle,
+  withLiveHierarchy,
 } from '../src/lib/noteTree.ts';
 
 const notes = [
@@ -38,5 +40,24 @@ const sorted = sortByScheduleThenTitle([
   { id: '4', title: 'Sooner', scheduled_date: '2026-10-12' },
 ]);
 assert.deepEqual(sorted.map((n) => n.id), ['4', '2', '3', '1']);
+
+// Parent changes are saved before the note when setting (so a hide sticks) and after when clearing.
+assert.equal(parentSaveOrder(null, 'p'), 'before');
+assert.equal(parentSaveOrder('p', 'q'), 'before');
+assert.equal(parentSaveOrder('p', null), 'after');
+assert.equal(parentSaveOrder('p', 'p'), 'none');
+assert.equal(parentSaveOrder(null, null), 'none');
+assert.equal(parentSaveOrder('p', undefined), 'none');
+
+// A stale copy (e.g. cached by the Calendar) takes its hierarchy fields from the live list.
+const live = new Map([['n', { id: 'n', parent_note_id: 'p', canvas_only: true }]]);
+const stale = { id: 'n', parent_note_id: null, canvas_only: false, scheduled_date: '2026-10-14' };
+assert.deepEqual(withLiveHierarchy(stale, live), {
+  id: 'n',
+  parent_note_id: 'p',
+  canvas_only: true,
+  scheduled_date: '2026-10-14',
+});
+assert.equal(withLiveHierarchy(stale, new Map()), stale);
 
 console.log('note tree checks passed');

@@ -226,8 +226,11 @@ def removing_canvas_node_frees_top_level_note(db, user_id):
     assert crud.delete_canvas_node(db, user_id, root_node_id) is True
     assert crud.delete_canvas_node(db, user_id, child_node_id) is True
     assert reload(db, user_id, root_note_id).canvas_only is False
-    # The child still has a parent, so it may stay canvas-only (it lives in its parent's event panel).
-    assert reload(db, user_id, child_note_id).canvas_only is True
+    # Off every canvas, the child must surface in the Grid even though it keeps its parent:
+    # an undated or single-day parent has no Event panel to reach it from.
+    child_note = reload(db, user_id, child_note_id)
+    assert child_note.canvas_only is False
+    assert child_note.parent_note_id == root_note_id
 
 
 @check
@@ -286,6 +289,37 @@ def calendar_does_not_materialize_hidden_recurrences(db, user_id):
     routine_events = [ev for ev in stream if ev["note"]["id"] == routine_id]
     assert len(routine_events) == 7
     assert all(ev["parent_note_id"] == parent.id for ev in routine_events)
+
+
+# --- Final review fixes --------------------------------------------------------
+
+
+@check
+def deleting_note_on_canvas_works(db, user_id):
+    note = make_note(db, user_id, "on canvas")
+    node = put_on_new_canvas(db, user_id, note.id)
+    node_id, note_id = node.id, note.id
+    assert crud.delete_note(db, user_id, note_id) is True
+    db.expire_all()
+    assert db.query(models.CanvasNode).filter(models.CanvasNode.id == node_id).count() == 0
+    assert crud.get_note(db, user_id, note_id) is None
+
+
+@check
+def deleting_canvas_keeps_visible_notes(db, user_id):
+    canvas = crud.create_canvas(db, user_id, schemas.CanvasCreate(name="c"))
+    root = crud.create_canvas_node(db, user_id, canvas.id, schemas.CanvasNodeCreate(title="root"))
+    root_note_id = root.note.id
+    attached = make_note(db, user_id, "attached from the stream")
+    attached_id = attached.id
+    crud.set_note_parent(db, user_id, attached_id, root_note_id)  # mirrored onto the canvas, still visible
+    assert len(reload(db, user_id, attached_id).canvas_nodes) == 1
+    assert crud.delete_canvas(db, user_id, canvas.id) is True
+    assert reload(db, user_id, root_note_id) is None
+    survivor = reload(db, user_id, attached_id)
+    assert survivor is not None
+    assert survivor.canvas_only is False
+    assert survivor.canvas_nodes == []
 
 
 def main() -> None:

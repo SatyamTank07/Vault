@@ -232,7 +232,7 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
     setConfirmModalConfig({
       isOpen: true,
       title: 'Delete Canvas',
-      message: 'Are you sure you want to delete this canvas? All notes inside it will also be deleted permanently.',
+      message: 'Delete this canvas? Notes that live only on it will be deleted permanently. Notes shown in Grid & Calendar are kept.',
       confirmText: 'Delete',
       onConfirm: async () => {
         setConfirmModalConfig((prev) => ({ ...prev, isOpen: false }));

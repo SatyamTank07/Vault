@@ -64,3 +64,26 @@ export function sortByScheduleThenTitle<T extends Pick<Note, 'title' | 'schedule
     return (a.title || '').localeCompare(b.title || '');
   });
 }
+
+/**
+ * When to save a parent change relative to the note update. Setting a parent goes first so a
+ * "hide from Grid" saved in the same edit sticks (the server only allows hiding a note that has
+ * a parent or a canvas node); clearing goes last. `undefined` means the caller doesn't manage parents.
+ */
+export function parentSaveOrder(
+  previousParentId: string | null,
+  nextParentId: string | null | undefined,
+): 'before' | 'after' | 'none' {
+  if (nextParentId === undefined || nextParentId === previousParentId) return 'none';
+  return nextParentId ? 'before' : 'after';
+}
+
+/** Take a note's hierarchy fields from the live list, so stale copies (e.g. cached by a view) can't undo them. */
+export function withLiveHierarchy<T extends TreeNote & Pick<Note, 'canvas_only'>>(
+  note: T,
+  liveById: Map<string, TreeNote & Pick<Note, 'canvas_only'>>,
+): T {
+  const live = liveById.get(note.id);
+  if (!live) return note;
+  return { ...note, parent_note_id: live.parent_note_id ?? null, canvas_only: live.canvas_only };
+}

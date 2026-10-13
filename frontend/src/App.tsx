@@ -11,6 +11,21 @@ import { RecurrenceModal } from './components/RecurrenceModal/RecurrenceModal';
 import { TimelineView } from './components/TimelineView/TimelineView';
 import { apiFetch, type CurrentUser } from './lib/api';
 import { encryptNote, decryptNote } from './lib/crypto';
+import { parentSaveOrder, withLiveHierarchy } from './lib/noteTree';
+
+async function putNoteParent(noteId: string, parentId: string | null): Promise<void> {
+  try {
+    const response = await apiFetch(`/api/notes/${noteId}/parent`, {
+      method: 'PUT',
+      body: JSON.stringify(parentId ? { parent_note_id: parentId } : { clear_parent: true }),
+    });
+    if (!response.ok) {
+      console.error('Failed to set parent:', await response.text());
+    }
+  } catch (error) {
+    console.error('Failed to set parent:', error);
+  }
+}
 
 type ViewMode = 'grid' | 'canvas' | 'schedule';
 
@@ -147,26 +162,20 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
 
   const handleSetParent = useCallback(
     async (noteId: string, parentId: string | null) => {
-      try {
-        const response = await apiFetch(`/api/notes/${noteId}/parent`, {
-          method: 'PUT',
-          body: JSON.stringify(parentId ? { parent_note_id: parentId } : { clear_parent: true }),
-        });
-        if (!response.ok) {
-          console.error('Failed to set parent:', await response.text());
-        }
-      } catch (error) {
-        console.error('Failed to set parent:', error);
-      } finally {
-        // Parent changes can mirror canvas nodes and flip visibility on other rows.
-        fetchNotes();
-      }
+      await putNoteParent(noteId, parentId);
+      // Parent changes can mirror canvas nodes and flip visibility on other rows.
+      fetchNotes();
     },
     [fetchNotes],
   );
 
   const handleUpdateNote = async (noteData: Omit<Note, 'created_at' | 'updated_at'>) => {
+    const previousParent = notes.find((n) => n.id === noteData.id)?.parent_note_id ?? null;
+    const parentOrder = parentSaveOrder(previousParent, noteData.parent_note_id);
     try {
+      if (parentOrder === 'before') {
+        await putNoteParent(noteData.id, noteData.parent_note_id ?? null);
+      }
       const payload = {
         ...noteData,
         status: noteData.status !== undefined ? noteData.status : null,
@@ -190,17 +199,17 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
         setNotes((prev) =>
           prev.map((n) => (n.id === decrypted.id ? decrypted : n)),
         );
-        // `undefined` means the caller doesn't manage parents; never treat that as "clear".
-        if (noteData.parent_note_id !== undefined) {
-          const previousParent = notes.find((n) => n.id === noteData.id)?.parent_note_id ?? null;
-          const nextParent = noteData.parent_note_id ?? null;
-          if (previousParent !== nextParent) {
-            await handleSetParent(noteData.id, nextParent);
-          }
-        }
+      }
+      if (parentOrder === 'after') {
+        await putNoteParent(noteData.id, null);
       }
     } catch (error) {
       console.error('Failed to update note:', error);
+    } finally {
+      if (parentOrder !== 'none') {
+        // Parent changes can mirror canvas nodes and flip visibility on other rows.
+        fetchNotes();
+      }
     }
   };
 
@@ -281,6 +290,8 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
           const response = await apiFetch(`/notes/${id}`, { method: 'DELETE' });
           if (response.ok) {
             setNotes((prev) => prev.filter((note) => note.id !== id));
+            // The server detached and may have un-hidden this note's children.
+            fetchNotes();
           }
         } catch (error) {
           console.error('Failed to delete note:', error);
@@ -313,6 +324,8 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
     });
   };
 
+  const notesById = useMemo(() => new Map(notes.map((note) => [note.id, note])), [notes]);
+
   const openCreateModal = () => {
     setChildParentId(null);
     setEditingNote(null);
@@ -322,14 +335,15 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
 
   const openEditModal = (note: Note) => {
     setChildParentId(null);
-    setEditingNote(note);
+    setEditingNote(withLiveHierarchy(note, notesById));
     setIsViewMode(false);
     setIsModalOpen(true);
   };
 
   const openViewModal = (note: Note) => {
     setChildParentId(null);
-    setEditingNote(note);
+    // Views like the Calendar cache their own note copies; never let a stale parent/visibility reach the modal.
+    setEditingNote(withLiveHierarchy(note, notesById));
     setIsViewMode(true);
     setIsModalOpen(true);
   };
@@ -341,7 +355,6 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
     setIsModalOpen(true);
   };
 
-  const notesById = useMemo(() => new Map(notes.map((note) => [note.id, note])), [notes]);
   const gridNotes = notes.filter((note) => !note.canvas_only && (showCompleted || note.status !== 'done'));
 
   // Null-key guard (defense in depth — Root.tsx should prevent this)

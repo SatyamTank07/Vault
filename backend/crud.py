@@ -223,6 +223,10 @@ def delete_note(db: Session, user_id: str, note_id: str):
                 except Exception as exc:
                     print(f"Error deleting folder {note_folder}: {exc}")
 
+        # Remove the note's canvas placements first; the relationship has no delete
+        # cascade, so the ORM would otherwise try to null their NOT NULL note_id.
+        for node in list(db_note.canvas_nodes):
+            db.delete(node)
         db.delete(db_note)
         db.commit()
 
@@ -285,7 +289,9 @@ def delete_canvas(db: Session, user_id: str, canvas_id: str):
         .first()
     )
     if db_canvas:
-        note_ids_to_delete = [node.note_id for node in db_canvas.nodes]
+        # Only hidden (canvas-only) notes go with the canvas. Visible notes, e.g. ones
+        # mirrored here after being attached in the Stream, survive off-canvas.
+        note_ids_to_delete = [node.note_id for node in db_canvas.nodes if node.note.canvas_only]
         db.delete(db_canvas)
         db.commit()
 
@@ -395,8 +401,10 @@ def delete_canvas_node(db: Session, user_id: str, node_id: str):
         db.delete(db_node)
         db.commit()
         db_note = get_note(db, user_id, note_id)
-        if db_note is not None:
-            _enforce_visibility(db_note)
+        if db_note is not None and not db_note.canvas_nodes:
+            # Taken off every canvas: surface it in the Grid. Its parent may be undated
+            # or single-day, which leaves no Event panel to reach it from.
+            db_note.canvas_only = False
             db.commit()
         return True
     return False

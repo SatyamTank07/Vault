@@ -180,3 +180,9 @@ Props: `event`, `allNotes`, `onClose`, `onOpenNote`, `onCreateChild(parentId)`, 
 - Changing a child's status from inside the panel.
 - Expandable sub-lanes in the Stream.
 - A note on more than one canvas (current data has none; mirroring targets the parent's first canvas node).
+
+## Amendments after final review (2026-10-13)
+- **Removing a note's last canvas node makes it visible**, even if it keeps a parent. An undated or single-day parent has no Event panel, so a hidden child would otherwise be unreachable.
+- **Deleting a canvas deletes only its canvas-only notes.** Visible notes on it are kept, e.g. notes mirrored onto the canvas after being attached in the Stream. The confirm dialog says so.
+- **Deleting a note also deletes its canvas nodes** (previously a 500).
+- **The frontend saves a newly set parent before the note update**, and a cleared parent after it. This makes "set parent + hide" in one edit stick. Modals take `parent_note_id`/`canvas_only` from the live notes list, never from a view's cached copy.
