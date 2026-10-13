@@ -31,6 +31,13 @@ def run_schema_migrations():
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS has_set_vault BOOLEAN DEFAULT FALSE",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS encrypted_master_seed TEXT",
         "UPDATE notes SET status = NULL WHERE scheduled_date IS NULL AND end_date IS NULL AND recurrence_rule IS NULL AND status = 'todo'",
+        "ALTER TABLE notes ADD COLUMN IF NOT EXISTS parent_note_id VARCHAR REFERENCES notes(id) ON DELETE SET NULL",
+        "CREATE INDEX IF NOT EXISTS ix_notes_parent_note_id ON notes (parent_note_id)",
+        # Added without a default so existing rows are NULL and get backfilled exactly once below.
+        "ALTER TABLE notes ADD COLUMN IF NOT EXISTS canvas_only BOOLEAN",
+        "UPDATE notes SET canvas_only = EXISTS (SELECT 1 FROM canvas_nodes c WHERE c.note_id = notes.id) WHERE canvas_only IS NULL",
+        "ALTER TABLE notes ALTER COLUMN canvas_only SET DEFAULT FALSE",
+        "ALTER TABLE notes ALTER COLUMN canvas_only SET NOT NULL",
     ]
 
     with engine.begin() as connection:

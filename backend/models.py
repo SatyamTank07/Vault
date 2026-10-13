@@ -50,6 +50,8 @@ class Note(Base):
     recurrence_rule = Column(String, nullable=True)
     recurrence_interval = Column(Integer, default=1)
     recurrence_end_date = Column(Date, nullable=True)
+    parent_note_id = Column(String, ForeignKey("notes.id", ondelete="SET NULL"), nullable=True, index=True)
+    canvas_only = Column(Boolean, nullable=False, default=False, server_default="false")
 
     user = relationship("User", back_populates="notes")
     canvas_nodes = relationship("CanvasNode", back_populates="note")

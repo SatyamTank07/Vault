@@ -66,6 +66,74 @@ def get_notes(db: Session, user_id: str, skip: int = 0, limit: int = 100):
     )
 
 
+class InvalidParentError(ValueError):
+    pass
+
+
+def _is_self_or_descendant(db: Session, user_id: str, candidate_id: str, ancestor_id: str) -> bool:
+    """Walk up from candidate_id; True if the walk reaches ancestor_id. Stops on cycles."""
+    seen = set()
+    current_id = candidate_id
+    while current_id and current_id not in seen:
+        if current_id == ancestor_id:
+            return True
+        seen.add(current_id)
+        current_id = (
+            db.query(models.Note.parent_note_id)
+            .filter(models.Note.id == current_id, models.Note.user_id == user_id)
+            .scalar()
+        )
+    return False
+
+
+def _validate_parent(db: Session, user_id: str, note_id: str | None, parent_note_id: str):
+    parent = get_note(db, user_id, parent_note_id)
+    if parent is None:
+        raise InvalidParentError("Parent note not found")
+    if note_id and _is_self_or_descendant(db, user_id, parent_note_id, note_id):
+        raise InvalidParentError("A note cannot be placed under itself or its own descendant")
+    return parent
+
+
+def _mirror_onto_parent_canvas(db: Session, parent, child) -> None:
+    """Keep the canvas a view of the hierarchy: put the child on the parent's canvas."""
+    if not parent.canvas_nodes:
+        return
+    parent_node = parent.canvas_nodes[0]
+    if any(node.canvas_id == parent_node.canvas_id for node in child.canvas_nodes):
+        return
+    db.add(
+        models.CanvasNode(
+            canvas_id=parent_node.canvas_id,
+            note_id=child.id,
+            position_x=parent_node.position_x,
+            position_y=parent_node.position_y + 150,
+        )
+    )
+
+
+def _enforce_visibility(note) -> None:
+    """A note may be canvas-only only while it has a parent or a canvas node."""
+    if note.canvas_only and note.parent_note_id is None and not note.canvas_nodes:
+        note.canvas_only = False
+
+
+def set_note_parent(db: Session, user_id: str, note_id: str, parent_note_id: str | None):
+    db_note = get_note(db, user_id, note_id)
+    if db_note is None:
+        return None
+    if parent_note_id is None:
+        db_note.parent_note_id = None
+        _enforce_visibility(db_note)
+    else:
+        parent = _validate_parent(db, user_id, note_id, parent_note_id)
+        db_note.parent_note_id = parent.id
+        _mirror_onto_parent_canvas(db, parent, db_note)
+    db.commit()
+    db.refresh(db_note)
+    return db_note
+
+
 def create_note(db: Session, user_id: str, note: schemas.NoteCreate):
     scheduled_date = note.scheduled_date
     scheduled_time = note.scheduled_time if scheduled_date else None
@@ -89,8 +157,17 @@ def create_note(db: Session, user_id: str, note: schemas.NoteCreate):
         recurrence_rule=note.recurrence_rule,
         recurrence_interval=note.recurrence_interval if note.recurrence_interval is not None else 1,
         recurrence_end_date=note.recurrence_end_date,
+        canvas_only=note.canvas_only,
     )
+    parent = None
+    if note.parent_note_id:
+        parent = _validate_parent(db, user_id, note.id, note.parent_note_id)
+        db_note.parent_note_id = parent.id
     db.add(db_note)
+    db.flush()
+    if parent is not None:
+        _mirror_onto_parent_canvas(db, parent, db_note)
+    _enforce_visibility(db_note)
     db.commit()
     db.refresh(db_note)
     return db_note
@@ -105,8 +182,11 @@ def update_note(db: Session, user_id: str, note_id: str, note: schemas.NoteUpdat
             delete_unused_images(list(old_refs - new_refs), db_note.user_id)
 
         update_data = note.dict(exclude_unset=True)
+        if update_data.get("canvas_only") is None:
+            update_data.pop("canvas_only", None)
         for key, value in update_data.items():
             setattr(db_note, key, value)
+        _enforce_visibility(db_note)
 
         if not db_note.scheduled_date:
             db_note.scheduled_time = None
@@ -125,6 +205,12 @@ def update_note(db: Session, user_id: str, note_id: str, note: schemas.NoteUpdat
 def delete_note(db: Session, user_id: str, note_id: str):
     db_note = get_note(db, user_id, note_id)
     if db_note:
+        child_ids = [
+            child_id
+            for (child_id,) in db.query(models.Note.id).filter(
+                models.Note.user_id == user_id, models.Note.parent_note_id == note_id
+            )
+        ]
         import shutil
 
         for note_folder in [
@@ -138,6 +224,14 @@ def delete_note(db: Session, user_id: str, note_id: str):
                     print(f"Error deleting folder {note_folder}: {exc}")
 
         db.delete(db_note)
+        db.commit()
+
+        # ON DELETE SET NULL detached the children; a detached child that is
+        # not on any canvas must become visible again.
+        for child_id in child_ids:
+            child = get_note(db, user_id, child_id)
+            if child is not None:
+                _enforce_visibility(child)
         db.commit()
         return True
     return False

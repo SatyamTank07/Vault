@@ -60,6 +60,8 @@ class NoteCreate(NoteBase):
     recurrence_rule: Optional[str] = None
     recurrence_interval: Optional[int] = 1
     recurrence_end_date: Optional[date] = None
+    parent_note_id: Optional[str] = None
+    canvas_only: bool = False
 
 
 class NoteUpdate(BaseModel):
@@ -72,6 +74,7 @@ class NoteUpdate(BaseModel):
     recurrence_rule: Optional[str] = None
     recurrence_interval: Optional[int] = None
     recurrence_end_date: Optional[date] = None
+    canvas_only: Optional[bool] = None
 
 
 class NoteScheduleUpdate(BaseModel):
@@ -82,6 +85,11 @@ class NoteScheduleUpdate(BaseModel):
     clear_time: Optional[bool] = False
     clear_end_date: Optional[bool] = False
     status: Optional[str] = None
+
+
+class NoteParentUpdate(BaseModel):
+    parent_note_id: Optional[str] = None
+    clear_parent: bool = False
 
 
 class NoteResponse(NoteBase):
@@ -96,6 +104,8 @@ class NoteResponse(NoteBase):
     recurrence_interval: Optional[int] = 1
     recurrence_end_date: Optional[date] = None
     end_date: Optional[date] = None
+    parent_note_id: Optional[str] = None
+    canvas_only: bool = False
 
     class Config:
         from_attributes = True

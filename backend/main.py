@@ -273,7 +273,10 @@ def create_note(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    return crud.create_note(db=db, user_id=current_user.id, note=note)
+    try:
+        return crud.create_note(db=db, user_id=current_user.id, note=note)
+    except crud.InvalidParentError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @app.get("/notes/", response_model=List[schemas.NoteResponse])
@@ -331,6 +334,25 @@ def update_note_schedule(
     current_user: models.User = Depends(get_current_user),
 ):
     db_note = crud.update_note_schedule(db, user_id=current_user.id, note_id=note_id, data=data)
+    if db_note is None:
+        raise HTTPException(status_code=404, detail="Note not found")
+    return db_note
+
+
+@app.put("/api/notes/{note_id}/parent", response_model=schemas.NoteResponse)
+def update_note_parent(
+    note_id: str,
+    data: schemas.NoteParentUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    if not data.clear_parent and not data.parent_note_id:
+        raise HTTPException(status_code=400, detail="Provide parent_note_id or clear_parent")
+    parent_note_id = None if data.clear_parent else data.parent_note_id
+    try:
+        db_note = crud.set_note_parent(db, user_id=current_user.id, note_id=note_id, parent_note_id=parent_note_id)
+    except crud.InvalidParentError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     if db_note is None:
         raise HTTPException(status_code=404, detail="Note not found")
     return db_note
