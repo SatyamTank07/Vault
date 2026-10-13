@@ -26,7 +26,7 @@ The app has the right views (canvas mind map, calendar, stream/horizon), but two
 - `parent_note_id VARCHAR NULL REFERENCES notes(id) ON DELETE SET NULL`, indexed. The single hierarchy for the app.
 - `canvas_only BOOLEAN NOT NULL DEFAULT FALSE`. When true, the note is excluded from Grid and Calendar.
 
-`models.Note` gains both columns plus `parent = relationship("Note", remote_side=[id], backref="children")`.
+`models.Note` gains both columns. No ORM relationship is added; code reads `parent_note_id` directly.
 
 ### `canvas_nodes`
 - `parent_node_id` is **removed** from the model and dropped from the DB after backfill. A canvas node only records canvas membership and position.
@@ -63,7 +63,7 @@ Expected effect on current data: 8 parent links migrated, 10 notes set to canvas
 - `NoteCreate`: `parent_note_id: Optional[str] = None`, `canvas_only: bool = False`.
 - `NoteUpdate`: `canvas_only: Optional[bool] = None`. (Parent changes go through the dedicated endpoint, not `NoteUpdate`.)
 - `NoteResponse`: `parent_note_id: Optional[str] = None`, `canvas_only: bool = False`.
-- `CanvasNodeCreate`: drop `parent_node_id`; add `parent_note_id: Optional[str] = None`.
+- `CanvasNodeCreate`: drop `parent_node_id`; add `parent_note_id: Optional[str] = None` and `canvas_only: Optional[bool] = None`.
 - `CanvasNodeUpdate`: drop `parent_node_id` / `clear_parent` (position only).
 - `CanvasNodeResponse`: drop `parent_node_id`; the nested note now carries `parent_note_id` and `canvas_only`.
 - New `NoteParentUpdate`: `parent_note_id: Optional[str] = None`, `clear_parent: bool = False`.
@@ -74,13 +74,13 @@ Expected effect on current data: 8 parent links migrated, 10 notes set to canvas
 - On clear: set `parent_note_id = NULL`, then `_enforce_visibility`.
 
 ### Routes
-- **New** `PUT /api/notes/{note_id}/parent` → `crud.set_note_parent`. Returns `NoteResponse`. 404 if the note is missing, 400 on invalid parent.
+- **New** `PUT /api/notes/{note_id}/parent` → `crud.set_note_parent`. Returns `NoteResponse`. 404 if the note is missing; 400 on an invalid parent (missing, another user's, self, or cycle).
 - `POST /notes/` (`create_note`): if `parent_note_id` is set, validate it and apply canvas mirroring (same helper as above).
 - `PUT /notes/{id}` (`update_note`): accepts `canvas_only`. Setting it to true is accepted only if the invariant holds; otherwise it is coerced to false.
 - `POST /api/canvases/{id}/nodes/` and `.../branch`:
-  - Notes created here (no `note_id`) get `canvas_only = true`.
+  - Notes created here (no `note_id`) get `canvas_only = true` unless the request says otherwise.
+  - For an existing `note_id`, `canvas_only` is applied when the request includes it.
   - When `parent_note_id` is given, it is validated (same owner, no cycle) and set directly on the note. No mirroring is needed, since the node is being created now.
-  - For an existing `note_id`, `canvas_only` is left unchanged.
 - `PUT /api/canvases/{id}/nodes/{node_id}`: position only.
 - `DELETE /api/canvases/{id}/nodes/{node_id}`: after deleting the node, `_enforce_visibility` on its note.
 - `DELETE /notes/{id}`: before deleting, collect the child ids; after the commit, run `_enforce_visibility` on each child.
@@ -104,9 +104,9 @@ No client change; the server excludes canvas-only notes.
 
 ### Note modal (`NoteModal.tsx`)
 - New state `canvasOnly` (initial value from `initialData?.canvas_only`, or the `defaultCanvasOnly` prop for new notes) and `parentNoteId` (from `initialData?.parent_note_id`, or the `defaultParentId` prop).
-- Popover gains:
-  - A **"Show in Grid & Calendar"** toggle (inverse of `canvasOnly`).
-  - A **Parent** row: a searchable picker over `allNotes` (a new prop), matched on decrypted title. It excludes the note and its descendants (computed client-side from `parent_note_id`). It has a clear (×) button.
+- The metadata strip (next to the Task pill) gains two pills. The scheduling popover only opens for dates, so these live outside it.
+  - A **"Grid & Calendar"** toggle pill (inverse of `canvasOnly`).
+  - A **Parent** pill that opens a searchable picker over `allNotes` (a new prop), matched on decrypted title. It excludes the note and its descendants (computed client-side from `parent_note_id`). It has a clear (×) button.
 - Both fields count toward the dirty check.
 - Save: `canvas_only` goes in the note payload. For **new** notes, `parent_note_id` goes in the create payload. For **existing** notes whose parent changed, `App` calls `PUT /api/notes/{id}/parent` after the update.
 
@@ -116,10 +116,10 @@ No client change; the server excludes canvas-only notes.
 - `onConnect`: `PUT /api/notes/{targetNoteId}/parent` with the source node's note id, then refresh.
 - Edge removal is not persisted today (there is no `onEdgesDelete` handler), and this design does not add one. Detaching is done through the modal's Parent row or the Event panel.
 - Node creation via the modal (`handleSaveNewCanvasNode`) takes two calls:
-  1. `POST /notes/` with `canvas_only: true` and **no** parent,
-  2. `POST .../nodes/` with `note_id` and `parent_note_id` (the parent node's note).
+  1. `POST /notes/` with **no** parent and the default `canvas_only: false`,
+  2. `POST .../nodes/` with `note_id`, `parent_note_id` (the parent node's note), and `canvas_only: true`.
 
-  Sending the parent in call 2 rather than call 1 prevents canvas mirroring from creating a duplicate node. The branch button sends `parent_note_id` the same way.
+  Sending the parent and the flag in call 2 rather than call 1 avoids two problems: canvas mirroring would create a duplicate node, and the visibility invariant would reset the flag before the node exists. The branch button sends `parent_note_id` the same way.
 - The canvas keeps receiving `notes` with the Show Done filter only — never the Grid filter.
 
 ### Stream (`TimeStreamView/`)
@@ -155,7 +155,7 @@ Props: `event`, `allNotes`, `onClose`, `onOpenNote`, `onCreateChild(parentId)`, 
 - `EventPanel` state (the selected event) lives in `TimeStreamView`.
 
 ## 5. Error handling
-- Parent endpoint: 404 when the note or parent is missing or belongs to another user; 400 on self or cycle. The frontend logs the error and refetches notes. The picker already filters invalid targets, so a 400 indicates a race.
+- Parent endpoint: 404 when the note is missing; 400 when the parent is missing, belongs to another user, is the note itself, or would create a cycle. The frontend logs the error and refetches notes. The picker already filters invalid targets, so a 400 indicates a race.
 - Migration failure aborts startup (it runs inside `engine.begin()`); the pre-migration `pg_dump` is the rollback.
 
 ## 6. Verification (no test suite exists)
