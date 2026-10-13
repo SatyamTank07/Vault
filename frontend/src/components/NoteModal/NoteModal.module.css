@@ -1,996 +1,307 @@
+/* Note editor: a large sheet. Full-height bottom sheet on phones. */
 .overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(4px);
+  inset: 0;
+  z-index: 1000;
+  background: var(--scrim);
+  backdrop-filter: blur(3px);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
-  animation: fadeIn 0.2s ease;
+  padding: 24px 16px;
 }
 
 .modal {
-  background-color: var(--surface-color);
-  border-radius: 16px;
-  width: 90%;
-  max-width: 900px;
-  height: 90vh;
-  height: 90dvh;
-  max-height: 90dvh;
-  padding: 1.5rem 2rem 1.75rem;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  width: 100%;
+  max-width: 1040px;
+  height: min(calc(100dvh - 48px), 920px);
+  max-height: calc(100dvh - 48px);
+  background: var(--surface);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-lg);
   display: flex;
   flex-direction: column;
-  gap: 1rem;
   overflow: hidden;
+  animation: sheetUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
+@keyframes sheetUp { from { opacity: 0; transform: translateY(10px) scale(0.98); } }
 
-/* ── 1. Clean Header ── */
 .header {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  align-items: center;
-  min-height: 32px;
+  gap: 12px;
+  padding: 12px 16px 12px 22px;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
 }
+.kind { font-size: 13px; font-weight: 600; color: var(--muted); display: flex; align-items: center; gap: 8px; min-width: 0; }
 
-.mobileCancelBtn {
-  display: none;
-}
+.form { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 
-.headerCenter {
-  display: flex;
-  align-items: center;
-}
-
-.categoryArea {
-  display: flex;
-  align-items: center;
-}
-
-.viewIndicator {
-  display: none;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.categoryBadge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.72rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--primary-purple);
-  background: rgba(139, 92, 246, 0.08);
-  border: 1px solid rgba(139, 92, 246, 0.15);
-  padding: 0.2rem 0.6rem;
-  border-radius: 6px;
-  max-width: 200px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.headerActions {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-  margin-left: auto;
-}
-
-.mobileSaveBtn {
-  display: none;
-}
-
-.closeBtn {
-  color: var(--text-muted);
-  font-size: 1.25rem;
-  padding: 0.4rem;
-  border-radius: 8px;
-  width: 34px;
-  height: 34px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color 0.15s ease, color 0.15s ease;
-  cursor: pointer;
-  border: none;
-  background: transparent;
-}
-
-.closeBtn:hover {
-  background-color: rgba(0, 0, 0, 0.05);
-  color: var(--text-main);
-}
-
-/* ── Form & Content ── */
-.form {
-  display: flex;
-  flex-direction: column;
+.body {
   flex: 1;
-  overflow: hidden;
-  gap: 0.75rem;
   min-height: 0;
-}
-
-/* ── 2. Typography First ── */
-.titleSection {
+  overflow: auto;
+  padding: 24px 40px 12px;
   display: flex;
   flex-direction: column;
-  padding: 0.25rem 0 0;
+  gap: 16px;
 }
 
+.titleSection { display: flex; }
 .titleInput {
-  background: transparent;
-  border: none;
-  outline: none;
-  box-shadow: none;
-  padding: 0;
-  margin: 0;
-  font-size: 1.85rem;
-  font-weight: 700;
-  color: var(--text-main);
-  line-height: 1.25;
   width: 100%;
-  font-family: inherit;
-  transition: color 0.15s ease;
-}
-
-.titleInput::placeholder {
-  color: var(--text-muted);
-  opacity: 0.4;
-  font-weight: 600;
-}
-
-.titleInput:focus {
+  border: 0;
   outline: none;
-  box-shadow: none;
+  background: transparent;
+  color: var(--fg);
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
 }
+.titleInput::placeholder { color: var(--muted); }
 
-/* ── 3. Consolidated Scheduling Pill ── */
-.metadataStrip {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  margin-bottom: 0.25rem;
-}
+/* ---------- Meta pills ---------- */
+.metadataStrip { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; position: relative; }
 
+.taskTogglePill,
+.scheduledPill,
 .addDatePill {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  font-size: 0.78rem;
-  font-weight: 500;
-  color: var(--text-muted);
-  background: transparent;
-  border: 1px dashed rgba(139, 92, 246, 0.3);
-  border-radius: 9999px;
-  padding: 0.25rem 0.65rem;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-}
-
-.addDatePill:hover,
-.addDatePill.pillActive {
-  background: rgba(139, 92, 246, 0.08);
-  color: var(--primary-purple);
-  border-style: solid;
-  border-color: var(--primary-purple);
-}
-
-.scheduledPill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: var(--primary-purple);
-  background: rgba(139, 92, 246, 0.08);
-  border: 1px solid rgba(139, 92, 246, 0.2);
-  border-radius: 9999px;
-  padding: 0.28rem 0.75rem;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-}
-
-.scheduledPill:hover,
-.scheduledPill.pillActive {
-  background: rgba(139, 92, 246, 0.14);
-  border-color: var(--primary-purple);
-}
-
-.pillIcon {
-  opacity: 0.85;
-  flex-shrink: 0;
-}
-
-.pillRecurrenceIcon {
-  opacity: 0.85;
-  flex-shrink: 0;
-  margin-left: 0.15rem;
-}
-
-.taskTogglePill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.78rem;
-  font-weight: 500;
-  color: var(--text-muted);
-  background: transparent;
-  border: 1px solid rgba(139, 92, 246, 0.2);
-  border-radius: 9999px;
-  padding: 0.25rem 0.65rem;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-  user-select: none;
-}
-
-.taskTogglePill:hover {
-  background: rgba(139, 92, 246, 0.08);
-  color: var(--text-main);
-  border-color: rgba(139, 92, 246, 0.4);
-}
-
-.taskTogglePillActive {
-  background: rgba(16, 185, 129, 0.1);
-  color: #10b981;
-  border-color: rgba(16, 185, 129, 0.4);
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  font-size: 12.5px;
   font-weight: 600;
+  color: var(--fg-2);
+  max-width: 260px;
+  white-space: nowrap;
 }
+.taskTogglePill span, .scheduledPill span { overflow: hidden; text-overflow: ellipsis; }
+.taskTogglePill:hover:not(:disabled),
+.scheduledPill:hover,
+.addDatePill:hover { border-color: var(--line-strong); color: var(--fg); }
+.taskTogglePill:disabled { opacity: 0.5; cursor: not-allowed; }
+.taskTogglePillActive,
+.parentPillActive,
+.scheduledPill { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent); }
+.taskTogglePillActive:hover:not(:disabled),
+.parentPillActive:hover,
+.scheduledPill:hover { border-color: var(--accent); color: var(--accent); }
+.addDatePill { border-style: dashed; color: var(--muted); }
+.pillActive { box-shadow: 0 0 0 3px var(--accent-soft); }
+.pillIcon { flex-shrink: 0; }
+.pillRecurrenceIcon { flex-shrink: 0; opacity: 0.8; }
 
-.taskTogglePillActive:hover {
-  background: rgba(16, 185, 129, 0.16);
-  border-color: #10b981;
+.parentPillWrapper { position: relative; display: inline-flex; align-items: center; }
+.parentPillLabel { max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
+.parentClearBtn {
+  width: 22px;
+  height: 22px;
+  margin-left: -4px;
+  border-radius: 50%;
+  display: inline-grid;
+  place-items: center;
+  color: var(--muted);
 }
+.parentClearBtn:hover { background: var(--subtle); color: var(--fg); }
+.parentPickerPopover { position: absolute; top: 38px; left: 0; z-index: 20; }
 
-/* ── Unified Popover ── */
-.popoverBackdrop {
-  display: none;
-}
-
-.dragHandle {
-  display: none;
-}
+/* ---------- Schedule popover ---------- */
+.popoverBackdrop { display: none; }
+.dragHandle { display: none; }
 
 .popover {
   position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  width: 320px;
-  max-width: 90vw;
-  background: var(--surface-color);
-  border: 1px solid rgba(139, 92, 246, 0.18);
-  border-radius: 14px;
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.14), 0 2px 8px rgba(0, 0, 0, 0.06);
+  top: 38px;
+  right: 0;
+  z-index: 20;
+  width: 330px;
+  max-width: calc(100vw - 48px);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-md);
   padding: 14px;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  z-index: 200;
-  animation: popoverFadeIn 0.15s ease-out;
+  animation: popIn 0.14s ease-out;
 }
+@keyframes popIn { from { opacity: 0; transform: translateY(-4px); } }
 
-@keyframes popoverFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-4px) scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-.popoverHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-bottom: 8px;
-  border-bottom: 1px solid rgba(139, 92, 246, 0.08);
-}
-
-.popoverHeaderTitle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--text-main);
-}
-
-.popoverIcon {
-  color: var(--primary-purple);
-}
-
+.popoverHeader { display: flex; align-items: center; justify-content: space-between; }
+.popoverHeaderTitle { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; }
+.popoverIcon { color: var(--accent); }
 .popoverCloseBtn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
-  color: var(--text-muted);
-  cursor: pointer;
-  border: none;
-  background: transparent;
-  transition: all 0.15s ease;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--r-sm);
+  display: grid;
+  place-items: center;
+  color: var(--muted);
 }
+.popoverCloseBtn:hover { background: var(--subtle); color: var(--fg); }
 
-.popoverCloseBtn:hover {
-  background: rgba(0, 0, 0, 0.05);
-  color: var(--text-main);
-}
-
-.popoverSection {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.presetRow {
-  display: flex;
-  gap: 6px;
-}
-
-.presetBtn {
-  flex: 1;
-  padding: 5px 8px;
-  border-radius: 6px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--text-muted);
-  background: var(--bg-color);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.presetBtn:hover {
-  color: var(--text-main);
-  border-color: rgba(139, 92, 246, 0.3);
-}
-
-.presetBtnActive {
-  background: rgba(139, 92, 246, 0.1);
-  color: var(--primary-purple);
-  border-color: var(--primary-purple);
-  font-weight: 600;
-}
-
-.inputGroup {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
+.popoverSection { display: flex; flex-direction: column; gap: 6px; }
+.sectionHeader { display: flex; justify-content: space-between; align-items: center; }
 .popoverLabel {
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: var(--text-muted);
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--muted);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
 }
+.removeOptionBtn,
+.popoverAddOptionBtn { color: var(--accent); font-size: 12px; font-weight: 600; }
+.popoverAddOptionBtn { align-self: flex-start; padding: 2px 0; }
+.removeOptionBtn:hover,
+.popoverAddOptionBtn:hover { text-decoration: underline; }
 
-.sectionHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+.presetRow { display: flex; gap: 8px; }
+.presetBtn {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--fg-2);
+  font-size: 12.5px;
+  font-weight: 600;
 }
+.presetBtn:hover { border-color: var(--line-strong); color: var(--fg); }
+.presetBtnActive { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent); }
 
-.removeOptionBtn {
-  font-size: 0.7rem;
-  color: var(--danger, #ef4444);
-  font-weight: 500;
-  padding: 1px 4px;
-  border-radius: 4px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  transition: background-color 0.15s;
-}
-
-.removeOptionBtn:hover {
-  background: rgba(239, 68, 68, 0.08);
-}
-
+.inputGroup { display: flex; flex-direction: column; gap: 6px; }
 .popoverInput,
-.popoverSelect {
+.popoverSelect,
+.intervalInput {
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 0 10px;
+  background: var(--surface);
+  color: var(--fg);
   width: 100%;
-  background-color: var(--bg-color, #ffffff);
-  border: 1px solid rgba(139, 92, 246, 0.18);
-  border-radius: 8px;
-  padding: 0.35rem 0.6rem;
-  color: var(--text-main);
-  font-size: 0.82rem;
-  font-family: inherit;
-  outline: none;
-  transition: all 0.15s ease;
+  min-width: 0;
 }
-
 .popoverInput:focus,
-.popoverSelect:focus {
-  border-color: var(--primary-purple);
-  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.12);
-}
+.popoverSelect:focus,
+.intervalInput:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 
 .timeInputWrapper,
-.endDateWrapper {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
+.endDateWrapper { position: relative; display: flex; align-items: center; }
+.timeInputWrapper .popoverInput,
+.endDateWrapper .popoverInput { padding-left: 32px; }
+.inputIcon { position: absolute; left: 10px; color: var(--muted); pointer-events: none; }
 
-.inputIcon {
-  color: var(--text-muted);
-  flex-shrink: 0;
-}
-
-.popoverAddOptionBtn {
-  align-self: flex-start;
-  font-size: 0.75rem;
-  color: var(--primary-purple);
-  font-weight: 600;
-  padding: 4px 10px;
-  border-radius: 6px;
-  background: rgba(139, 92, 246, 0.06);
-  border: 1px dashed rgba(139, 92, 246, 0.25);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.popoverAddOptionBtn:hover {
-  background: rgba(139, 92, 246, 0.12);
-  border-color: var(--primary-purple);
-}
-
-.recurrenceDetails {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 8px;
-  background: rgba(139, 92, 246, 0.04);
-  border-radius: 8px;
-  border: 1px solid rgba(139, 92, 246, 0.08);
-}
-
-.intervalRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.subLabel {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  font-weight: 500;
-}
-
-.intervalInput {
-  width: 52px;
-  text-align: center;
-  background-color: var(--bg-color);
-  border: 1px solid rgba(139, 92, 246, 0.18);
-  border-radius: 6px;
-  padding: 3px 6px;
-  font-size: 0.82rem;
-  color: var(--text-main);
-  outline: none;
-}
-
-.intervalInput:focus {
-  border-color: var(--primary-purple);
-}
-
-.intervalUnit {
-  font-size: 0.78rem;
-  color: var(--text-muted);
-  font-weight: 500;
-}
-
-.repeatUntilSection {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
+.recurrenceDetails { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+.intervalRow { display: flex; align-items: center; gap: 8px; }
+.intervalInput { width: 64px; }
+.subLabel, .intervalUnit { font-size: 13px; color: var(--fg-2); }
+.repeatUntilSection { display: flex; flex-direction: column; gap: 6px; }
 .endTypeToggle {
-  display: flex;
-  background: var(--bg-color);
-  padding: 2px;
-  border-radius: 6px;
-  border: 1px solid rgba(139, 92, 246, 0.12);
+  display: inline-flex;
+  align-self: flex-start;
+  padding: 3px;
   gap: 2px;
+  background: var(--subtle);
+  border: 1px solid var(--line);
+  border-radius: 999px;
 }
-
-.togglePill {
-  flex: 1;
-  padding: 4px 8px;
-  border-radius: 4px;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 0.72rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.togglePill:hover {
-  color: var(--text-main);
-}
-
-.togglePillActive {
-  background: var(--surface-color, #ffffff);
-  color: var(--primary-purple);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
-}
+.togglePill { height: 26px; padding: 0 10px; border-radius: 999px; font-size: 12.5px; font-weight: 500; color: var(--fg-2); }
+.togglePillActive { background: var(--surface); color: var(--accent); font-weight: 600; box-shadow: var(--shadow-sm); }
 
 .popoverFooter {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  padding-top: 8px;
-  border-top: 1px solid rgba(139, 92, 246, 0.08);
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
 }
-
-.popoverClearAllBtn {
-  font-size: 0.75rem;
-  color: var(--danger, #ef4444);
-  font-weight: 500;
-  padding: 4px 6px;
-  border-radius: 6px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  transition: background-color 0.15s ease;
-}
-
-.popoverClearAllBtn:hover {
-  background: rgba(239, 68, 68, 0.08);
-}
-
+.popoverClearAllBtn,
 .popoverDoneBtn {
-  margin-left: auto;
-  font-size: 0.75rem;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 12.5px;
   font-weight: 600;
-  color: white;
-  background: var(--primary-purple);
-  border: none;
-  padding: 5px 14px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: filter 0.15s ease;
 }
+.popoverClearAllBtn { border: 1px solid var(--line); background: var(--surface); color: var(--fg-2); }
+.popoverClearAllBtn:hover { border-color: var(--line-strong); color: var(--fg); }
+.popoverDoneBtn { margin-left: auto; background: var(--accent); color: var(--on-accent); }
+.popoverDoneBtn:hover { background: var(--accent-hover); }
 
-.popoverDoneBtn:hover {
-  filter: brightness(1.1);
-}
+/* ---------- Editor + footer ---------- */
+.contentGroup { flex: 1; display: flex; flex-direction: column; min-height: 320px; }
 
-/* ── Content Area & Editor ── */
-.contentGroup {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  min-height: 0;
-}
-
-/* ── Footer ── */
 .footer {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
-  gap: 1rem;
-  margin-top: 0.5rem;
+  gap: 8px;
+  padding: 12px 16px;
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+  background: var(--surface-2);
+  flex-shrink: 0;
 }
+.footMeta { margin-right: auto; font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; min-width: 0; }
 
-.cancelBtn {
-  padding: 0.65rem 1.4rem;
-  border-radius: 8px;
-  color: var(--text-main);
-  font-weight: 500;
-  cursor: pointer;
-  border: none;
-  background: transparent;
-  transition: background-color 0.2s;
-}
-
-.cancelBtn:hover {
-  background-color: rgba(0, 0, 0, 0.05);
-}
-
-.saveBtn {
-  background-color: var(--primary-purple);
-  color: white;
-  padding: 0.65rem 1.4rem;
-  border-radius: 8px;
-  font-weight: 500;
-  cursor: pointer;
-  border: none;
-  transition: background-color 0.2s, transform 0.1s;
-}
-
-.saveBtn:hover {
-  background-color: var(--primary-purple-hover);
-}
-
-.saveBtn:active {
-  transform: scale(0.98);
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes slideUp {
-  from { 
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to { 
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.modalShaking {
-  animation: modalShake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both !important;
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.45), 0 20px 30px -5px rgba(0, 0, 0, 0.25) !important;
-}
-
-@keyframes modalShake {
-  0%, 100% {
-    transform: translateX(0);
-  }
-  15%, 45%, 75% {
-    transform: translateX(-7px);
-  }
-  30%, 60%, 90% {
-    transform: translateX(7px);
-  }
-}
-
-@media (max-width: 600px) {
-  .overlay {
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-    background-color: rgba(0, 0, 0, 0.6);
-  }
-
+/* ---------- Phones ---------- */
+@media (max-width: 700px) {
+  .overlay { padding: 0; align-items: flex-end; }
   .modal {
-    width: 100%;
-    max-width: 100%;
-    height: 100vh;
     height: 100dvh;
     max-height: 100dvh;
-    border-radius: 0;
-    padding-top: max(0.85rem, env(safe-area-inset-top));
-    padding-right: max(1rem, env(safe-area-inset-right));
-    padding-bottom: max(1rem, env(safe-area-inset-bottom));
-    padding-left: max(1rem, env(safe-area-inset-left));
-    margin: 0;
-    gap: 0.75rem;
+    border-radius: var(--r-xl) var(--r-xl) 0 0;
+    border-bottom: 0;
   }
+  .header { padding-top: max(12px, env(safe-area-inset-top)); }
+  .body { padding: 16px 16px 8px; }
+  .titleInput { font-size: 22px; }
+  .contentGroup { min-height: 220px; }
+  .footMeta { display: none; }
 
-  /* Mobile Sheet Navigation Bar */
-  .header {
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
-    align-items: center;
-    min-height: 40px;
-    padding-bottom: 0.6rem;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-    flex-shrink: 0;
-  }
-
-  .mobileCancelBtn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: flex-start;
-    background: transparent;
-    border: none;
-    color: var(--text-muted);
-    font-size: 0.95rem;
-    font-weight: 500;
-    padding: 0.35rem 0.5rem;
-    margin-left: -0.5rem;
-    cursor: pointer;
-    border-radius: 6px;
-    justify-self: start;
-    transition: color 0.15s ease, background-color 0.15s ease;
-  }
-
-  .mobileCancelBtn:hover,
-  .mobileCancelBtn:active {
-    color: var(--text-main);
-    background-color: rgba(0, 0, 0, 0.05);
-  }
-
-  .headerCenter {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    min-width: 0;
-    justify-self: center;
-  }
-
-  .viewIndicator {
-    display: inline-block;
-  }
-
-  .categoryBadge {
-    max-width: 140px;
-  }
-
-  .headerActions {
-    justify-self: end;
-    margin-left: 0;
-  }
-
-  .closeBtn {
-    display: none;
-  }
-
-  .mobileSaveBtn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background-color: var(--primary-purple);
-    color: #ffffff;
-    font-size: 0.88rem;
-    font-weight: 600;
-    padding: 0.4rem 0.9rem;
-    border-radius: 8px;
-    border: none;
-    cursor: pointer;
-    min-height: 32px;
-    transition: background-color 0.15s ease, transform 0.1s ease, opacity 0.15s ease;
-    box-shadow: 0 1px 3px rgba(139, 92, 246, 0.3);
-  }
-
-  .mobileSaveBtn:hover {
-    background-color: var(--primary-purple-hover);
-  }
-
-  .mobileSaveBtn:active {
-    transform: scale(0.97);
-  }
-
-  .mobileSaveBtn:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
-  }
-
-  /* Relocate actions: remove footer on mobile */
-  .footer {
-    display: none;
-  }
-
-  .titleInput {
-    font-size: 1.5rem;
-  }
-
-  /* Slide-Up Bottom Sheet Drawer */
+  /* Schedule popover becomes a bottom sheet. */
   .popoverBackdrop {
     display: block;
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(0, 0, 0, 0.4);
-    z-index: 200;
-    animation: fadeIn 0.2s ease;
+    inset: 0;
+    z-index: 1010;
+    background: var(--scrim);
   }
-
   .dragHandle {
     display: block;
     width: 36px;
     height: 4px;
-    border-radius: 2px;
-    margin: 8px auto;
-    background: rgba(0, 0, 0, 0.2);
-    flex-shrink: 0;
+    border-radius: 999px;
+    background: var(--line-strong);
+    margin: 4px auto 2px;
   }
-
   .popover {
     position: fixed;
     top: auto;
-    bottom: 0;
     left: 0;
     right: 0;
+    bottom: 0;
     width: 100%;
-    max-width: 100%;
-    border-radius: 20px 20px 0 0;
-    border: none;
-    border-top: 1px solid rgba(139, 92, 246, 0.18);
-    box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.15);
+    max-width: none;
+    z-index: 1011;
+    border-radius: var(--r-xl) var(--r-xl) 0 0;
     padding: 4px 18px max(16px, env(safe-area-inset-bottom));
     max-height: calc(100dvh - 80px);
     overflow-y: auto;
-    z-index: 201;
-    gap: 14px;
-    animation: slideUpMobile 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    animation: none;
   }
-
-  .popoverHeader {
-    padding-bottom: 10px;
-    margin-bottom: 2px;
-  }
-
-  .popoverHeaderTitle {
-    font-size: 0.95rem;
-  }
-
-  .popoverCloseBtn {
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-  }
-
-  .popoverSection {
-    gap: 8px;
-  }
-
-  .presetRow {
-    gap: 8px;
-  }
-
-  .presetBtn {
-    min-height: 40px;
-    padding: 8px 12px;
-    font-size: 0.88rem;
-    border-radius: 8px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .inputGroup {
-    gap: 6px;
-  }
-
-  .popoverLabel {
-    font-size: 0.78rem;
-  }
-
-  .popoverInput,
-  .popoverSelect {
-    min-height: 42px;
-    padding: 0.5rem 0.75rem;
-    font-size: 0.95rem;
-    border-radius: 8px;
-  }
-
-  .popoverAddOptionBtn {
-    min-height: 38px;
-    font-size: 0.84rem;
-    padding: 8px 14px;
-    border-radius: 8px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .removeOptionBtn {
-    font-size: 0.8rem;
-    padding: 4px 8px;
-    min-height: 28px;
-  }
-
-  .togglePill {
-    min-height: 36px;
-    padding: 6px 12px;
-    font-size: 0.85rem;
-  }
-
-  .intervalInput {
-    min-height: 38px;
-    width: 60px;
-    font-size: 0.95rem;
-  }
-
-  .popoverFooter {
-    padding-top: 14px;
-    gap: 12px;
-  }
-
-  .popoverDoneBtn {
-    min-height: 44px;
-    padding: 10px 24px;
-    font-size: 0.95rem;
-    font-weight: 600;
-    border-radius: 10px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .popoverClearAllBtn {
-    min-height: 44px;
-    padding: 10px 14px;
-    font-size: 0.88rem;
-    border-radius: 10px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-}
-
-@keyframes slideUpMobile {
-  from {
-    transform: translateY(100%);
-  }
-  to {
-    transform: translateY(0);
-  }
-}
-
-.taskTogglePill:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.parentPillWrapper {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.2rem;
-}
-
-.parentPillActive {
-  background: rgba(139, 92, 246, 0.08);
-  color: var(--primary-purple);
-  border-color: rgba(139, 92, 246, 0.4);
-  font-weight: 600;
-}
-
-.parentPillLabel {
-  max-width: 160px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.parentClearBtn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border: none;
-  border-radius: 9999px;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-}
-
-.parentClearBtn:hover {
-  background: var(--surface-hover);
-  color: var(--text-main);
-}
-
-.parentPickerPopover {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  z-index: 210;
+  .popoverInput, .popoverSelect { height: 42px; }
+  .presetBtn { height: 38px; }
 }

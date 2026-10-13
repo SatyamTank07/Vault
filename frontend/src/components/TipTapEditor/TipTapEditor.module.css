@@ -1,84 +1,46 @@
+/* The writing area sits directly on the sheet; only the formatting toolbar is boxed. */
 .editorContainer {
-  background-color: var(--surface-color);
-  border: 1.5px solid rgba(0, 0, 0, 0.2);
-  border-radius: 8px;
-  padding: 1rem;
-  color: var(--text-main);
-  font-size: 1rem;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  color: var(--fg);
+  font-size: 15px;
+  line-height: 1.6;
   flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  gap: 12px;
   min-height: 300px;
-}
-
-.editorContainer:focus-within {
-  border-color: var(--primary-purple);
-  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
 }
 
 .menuBar {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.25rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-  margin-bottom: 0.75rem;
+  align-items: center;
+  gap: 2px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
 }
 
 .menuBar button {
-  background: transparent;
-  border: none;
-  border-radius: 6px;
-  padding: 0.4rem;
-  color: var(--text-muted);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 6px;
+  border-radius: var(--r-sm);
+  display: inline-grid;
+  place-items: center;
+  color: var(--fg-2);
+  font-weight: 700;
+  font-size: 13px;
 }
 
-.menuBar button:hover {
-  background-color: rgba(0, 0, 0, 0.05);
-  color: var(--text-main);
+.menuBar button:hover:not(:disabled) {
+  background: var(--subtle);
+  color: var(--fg);
 }
 
 .menuBar button.isActive {
-  background-color: var(--primary-purple);
-  color: white;
-}
-
-.editorImage {
-  max-width: 100%;
-  max-height: 400px; /* Limit height so it fits nicely */
-  width: auto;
-  object-fit: contain;
-  border-radius: 8px;
-  margin: 1rem 0;
-  display: block;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  cursor: zoom-in;
-}
-
-.editorImage:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
-}
-
-.editorImage.enlarged {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%) scale(1.5);
-  max-height: 90vh;
-  max-height: 90dvh;
-  max-width: 90vw;
-  z-index: 9999;
-  cursor: zoom-out;
-  box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.8); /* Dark background overlay */
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 .menuBar button:disabled {
@@ -88,51 +50,40 @@
 
 .divider {
   width: 1px;
-  background-color: rgba(0, 0, 0, 0.1);
-  margin: 0 0.25rem;
+  height: 18px;
+  background: var(--line);
+  margin: 0 4px;
 }
 
 .editorContent {
   flex: 1;
-  overflow-y: auto;
-  padding-right: 0.5rem;
+  padding: 4px 2px 12px;
 }
 
 .editorContent :global(.tiptap) {
   outline: none;
-  height: 100%;
+  min-height: 100%;
 }
 
-/* TipTap Editor Styling */
+.editorContent :global(.tiptap > * + *) {
+  margin-top: 0.6em;
+}
+
 .editorContent :global(.tiptap p.is-editor-empty:first-child::before) {
-  color: var(--text-muted);
+  color: var(--muted);
   content: attr(data-placeholder);
   float: left;
   height: 0;
   pointer-events: none;
 }
 
-.editorContent :global(.tiptap h1) {
-  font-size: 2rem;
-  margin-top: 0.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.editorContent :global(.tiptap h2) {
-  font-size: 1.5rem;
-  margin-top: 0.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.editorContent :global(.tiptap h3) {
-  font-size: 1.25rem;
-  margin-top: 0.5rem;
-  margin-bottom: 0.5rem;
-}
+.editorContent :global(.tiptap h1) { font-size: 22px; line-height: 1.3; }
+.editorContent :global(.tiptap h2) { font-size: 18px; line-height: 1.35; }
+.editorContent :global(.tiptap h3) { font-size: 16px; line-height: 1.4; }
 
 .editorContent :global(.tiptap ul),
 .editorContent :global(.tiptap ol) {
-  padding-left: 1.5rem;
+  padding-left: 1.4rem;
 }
 
 .editorContent :global(.tiptap li p) {
@@ -147,39 +98,49 @@
 .editorContent :global(.tiptap ul[data-type="taskList"] li) {
   display: flex;
   align-items: flex-start;
+  gap: 8px;
   margin-bottom: 0.25rem;
 }
 
 .editorContent :global(.tiptap ul[data-type="taskList"] li > label) {
-  margin-right: 0.5rem;
   user-select: none;
   cursor: pointer;
+  display: inline-flex;
+  padding-top: 4px;
 }
 
 .editorContent :global(.tiptap ul[data-type="taskList"] li > label input[type="checkbox"]) {
-  accent-color: var(--primary-purple);
-  width: 1.1rem;
-  height: 1.1rem;
+  accent-color: var(--done-dot);
+  width: 16px;
+  height: 16px;
+  margin: 0;
   cursor: pointer;
-  margin-top: 0.2rem;
 }
 
 .editorContent :global(.tiptap ul[data-type="taskList"] li > div) {
   flex: 1;
+  min-width: 0;
+}
+
+.editorContent :global(.tiptap ul[data-type="taskList"] li[data-checked="true"] > div) {
+  color: var(--muted);
+  text-decoration: line-through;
 }
 
 .editorContent :global(.tiptap pre) {
-  background: rgba(0, 0, 0, 0.05);
-  padding: 0.75rem 1rem;
-  border-radius: 8px;
+  font-family: var(--mono);
+  background: var(--subtle);
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  font-size: 13px;
   overflow-x: auto;
 }
 
 .editorContent :global(.tiptap code) {
-  background: rgba(0, 0, 0, 0.05);
-  padding: 0.2rem 0.4rem;
+  font-family: var(--mono);
+  background: var(--subtle);
+  padding: 0.15em 0.4em;
   border-radius: 4px;
-  font-family: monospace;
   font-size: 0.9em;
 }
 
@@ -189,14 +150,31 @@
 }
 
 .editorContent :global(.tiptap blockquote) {
-  border-left: 3px solid var(--primary-purple);
-  padding-left: 1rem;
-  color: var(--text-muted);
+  border-left: 3px solid var(--line-strong);
+  padding-left: 12px;
+  color: var(--fg-2);
   margin-left: 0;
 }
 
+.editorImage {
+  max-width: 100%;
+  max-height: 400px;
+  width: auto;
+  object-fit: contain;
+  border-radius: var(--r-md);
+  margin: 0.5rem 0;
+  display: block;
+  box-shadow: var(--shadow-sm);
+  cursor: zoom-in;
+  transition: box-shadow 0.2s;
+}
+
+.editorImage:hover {
+  box-shadow: var(--shadow-md);
+}
+
 .imageNodeWrapper {
-  margin: 1rem 0;
+  margin: 0.5rem 0;
   display: flex;
   justify-content: flex-start;
 }
@@ -206,10 +184,10 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.75rem 1rem;
-  border-radius: 8px;
-  background-color: rgba(139, 92, 246, 0.08);
-  border: 1px dashed var(--primary-purple);
-  color: var(--text-muted);
+  border-radius: var(--r-md);
+  background: var(--accent-soft);
+  border: 1px dashed var(--accent-line);
+  color: var(--muted);
   font-size: 0.875rem;
 }
 
@@ -217,18 +195,18 @@
   display: inline-flex;
   align-items: center;
   padding: 0.75rem 1rem;
-  border-radius: 8px;
-  background-color: rgba(239, 68, 68, 0.08);
-  border: 1px dashed #ef4444;
-  color: #ef4444;
+  border-radius: var(--r-md);
+  background: var(--danger-bg);
+  border: 1px dashed var(--danger);
+  color: var(--danger);
   font-size: 0.875rem;
 }
 
 .spinner {
   width: 1rem;
   height: 1rem;
-  border: 2px solid rgba(139, 92, 246, 0.3);
-  border-top-color: var(--primary-purple);
+  border: 2px solid var(--accent-line);
+  border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -240,13 +218,16 @@
 }
 
 .selectedImage {
-  outline: 2px solid var(--primary-purple);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
-@media (max-width: 600px) {
+.readOnly .menuBar {
+  display: none;
+}
+
+@media (max-width: 700px) {
   .editorContainer {
-    padding: 0.75rem;
     min-height: 200px;
   }
 
@@ -255,35 +236,22 @@
     overflow-x: auto;
     overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
-    scrollbar-width: none; /* Firefox */
-    -ms-overflow-style: none; /* IE/Edge */
-    padding-bottom: 0.5rem;
-    margin-bottom: 0.5rem;
-    gap: 0.35rem;
+    scrollbar-width: none;
     overscroll-behavior-x: contain;
     touch-action: pan-x;
   }
 
   .menuBar::-webkit-scrollbar {
-    display: none; /* Chrome, Safari, Opera */
+    display: none;
   }
 
   .menuBar button {
     flex-shrink: 0;
     min-width: 36px;
     height: 36px;
-    padding: 0.4rem;
-  }
-
-  .menuBar button:active {
-    background-color: rgba(139, 92, 246, 0.15);
   }
 
   .divider {
     flex-shrink: 0;
-    height: 20px;
-    align-self: center;
-    margin: 0 0.15rem;
   }
 }
-
