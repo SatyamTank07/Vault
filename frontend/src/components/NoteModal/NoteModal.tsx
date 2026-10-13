@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Calendar, Repeat, X, Clock, ArrowRight, CheckSquare } from 'lucide-react';
+import { Calendar, Repeat, X, Clock, ArrowRight, CheckSquare, Eye, EyeOff, CornerDownRight } from 'lucide-react';
 import styles from './NoteModal.module.css';
 import type { Note } from '../NoteCard/NoteCard';
 import { TipTapEditor } from '../TipTapEditor/TipTapEditor';
 import { ConfirmModal } from '../ConfirmModal/ConfirmModal';
+import { NotePicker } from '../NotePicker/NotePicker';
+import { getParentCandidates } from '../../lib/noteTree';
 
 interface NoteModalProps {
   isOpen: boolean;
@@ -12,6 +14,9 @@ interface NoteModalProps {
   initialData?: Note | null;
   isViewMode?: boolean;
   cryptoKey?: CryptoKey | null;
+  allNotes?: Note[];
+  defaultParentId?: string | null;
+  defaultCanvasOnly?: boolean;
 }
 
 function getTodayString(): string {
@@ -99,6 +104,9 @@ export const NoteModal: React.FC<NoteModalProps> = ({
   onSave,
   initialData,
   cryptoKey,
+  allNotes = [],
+  defaultParentId = null,
+  defaultCanvasOnly = false,
 }) => {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -110,6 +118,10 @@ export const NoteModal: React.FC<NoteModalProps> = ({
   const [recurrenceRule, setRecurrenceRule] = useState<string | null>(null);
   const [recurrenceInterval, setRecurrenceInterval] = useState<number>(1);
   const [recurrenceEndDate, setRecurrenceEndDate] = useState<string | null>(null);
+  const [parentNoteId, setParentNoteId] = useState<string | null>(null);
+  const [canvasOnly, setCanvasOnly] = useState(false);
+  const [isParentPickerOpen, setIsParentPickerOpen] = useState(false);
+  const parentPickerRef = useRef<HTMLDivElement>(null);
 
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [showConfirmDiscard, setShowConfirmDiscard] = useState(false);
@@ -125,6 +137,18 @@ export const NoteModal: React.FC<NoteModalProps> = ({
   const todayStr = getTodayString();
   const tomorrowStr = getTomorrowString();
 
+  const isExistingNote = Boolean(initialData?.id);
+  const initialParentId = isExistingNote ? initialData?.parent_note_id ?? null : defaultParentId;
+  const initialCanvasOnly = isExistingNote ? Boolean(initialData?.canvas_only) : defaultCanvasOnly;
+  // Hiding only sticks while the note has a parent or lives on a canvas (the server enforces this too).
+  const canHide = Boolean(parentNoteId || initialData?.canvas_name || defaultCanvasOnly);
+  const effectiveCanvasOnly = canHide && canvasOnly;
+  const parentCandidates = useMemo(
+    () => getParentCandidates(allNotes, initialData?.id ?? null),
+    [allNotes, initialData],
+  );
+  const parentNote = parentNoteId ? allNotes.find((note) => note.id === parentNoteId) : undefined;
+
   useEffect(() => {
     if (isOpen) {
       if (!initialData?.id) {
@@ -139,10 +163,13 @@ export const NoteModal: React.FC<NoteModalProps> = ({
       setRecurrenceRule(initialData?.recurrence_rule || null);
       setRecurrenceInterval(initialData?.recurrence_interval || 1);
       setRecurrenceEndDate(initialData?.recurrence_end_date || null);
+      setParentNoteId(initialData?.id ? initialData.parent_note_id ?? null : defaultParentId);
+      setCanvasOnly(initialData?.id ? Boolean(initialData.canvas_only) : defaultCanvasOnly);
+      setIsParentPickerOpen(false);
       setIsPopoverOpen(false);
       setShowConfirmDiscard(false);
     }
-  }, [isOpen, initialData]);
+  }, [isOpen, initialData, defaultParentId, defaultCanvasOnly]);
 
   // Check if current form values differ from initial values
   const hasUnsavedChanges = useMemo(() => {
@@ -182,6 +209,9 @@ export const NoteModal: React.FC<NoteModalProps> = ({
     const initialRecurrenceEndDate = initialData?.recurrence_end_date || null;
     if ((recurrenceEndDate || null) !== initialRecurrenceEndDate) return true;
 
+    if (parentNoteId !== initialParentId) return true;
+    if (effectiveCanvasOnly !== initialCanvasOnly) return true;
+
     return false;
   }, [
     title,
@@ -193,6 +223,10 @@ export const NoteModal: React.FC<NoteModalProps> = ({
     recurrenceRule,
     recurrenceInterval,
     recurrenceEndDate,
+    parentNoteId,
+    effectiveCanvasOnly,
+    initialParentId,
+    initialCanvasOnly,
     initialData,
   ]);
 
@@ -232,6 +266,17 @@ export const NoteModal: React.FC<NoteModalProps> = ({
     document.addEventListener('mousedown', handlePointerDown);
     return () => document.removeEventListener('mousedown', handlePointerDown);
   }, [isPopoverOpen]);
+
+  useEffect(() => {
+    if (!isParentPickerOpen) return;
+    const handlePointerDown = (e: MouseEvent) => {
+      if (parentPickerRef.current && !parentPickerRef.current.contains(e.target as Node)) {
+        setIsParentPickerOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, [isParentPickerOpen]);
 
   // Escape key handler: dismiss popover first, then prompt if unsaved changes exist
   useEffect(() => {
@@ -346,6 +391,8 @@ export const NoteModal: React.FC<NoteModalProps> = ({
       recurrence_rule: recurrenceRule,
       recurrence_interval: recurrenceInterval,
       recurrence_end_date: recurrenceEndDate,
+      parent_note_id: parentNoteId,
+      canvas_only: effectiveCanvasOnly,
     });
     onClose();
   };
@@ -444,6 +491,65 @@ export const NoteModal: React.FC<NoteModalProps> = ({
                 <CheckSquare size={13} className={styles.pillIcon} />
                 <span>{status ? 'Task' : 'Make Task'}</span>
               </button>
+
+              <button
+                type="button"
+                className={`${styles.taskTogglePill} ${!effectiveCanvasOnly ? styles.taskTogglePillActive : ''}`}
+                onClick={() => setCanvasOnly((prev) => !prev)}
+                disabled={!canHide}
+                title={
+                  !canHide
+                    ? 'Add a parent or place this note on a canvas to hide it from Grid & Calendar'
+                    : effectiveCanvasOnly
+                      ? 'Hidden from Grid & Calendar (click to show)'
+                      : 'Shown in Grid & Calendar (click to hide)'
+                }
+              >
+                {effectiveCanvasOnly ? (
+                  <EyeOff size={13} className={styles.pillIcon} />
+                ) : (
+                  <Eye size={13} className={styles.pillIcon} />
+                )}
+                <span>{effectiveCanvasOnly ? 'Hidden from Grid' : 'Grid & Calendar'}</span>
+              </button>
+
+              <div className={styles.parentPillWrapper} ref={parentPickerRef}>
+                <button
+                  type="button"
+                  className={`${styles.taskTogglePill} ${parentNoteId ? styles.parentPillActive : ''}`}
+                  onClick={() => setIsParentPickerOpen((prev) => !prev)}
+                  title="Group this note under another note"
+                >
+                  <CornerDownRight size={13} className={styles.pillIcon} />
+                  <span className={styles.parentPillLabel}>
+                    {parentNoteId ? parentNote?.title || 'Untitled' : 'Add parent'}
+                  </span>
+                </button>
+                {parentNoteId && (
+                  <button
+                    type="button"
+                    className={styles.parentClearBtn}
+                    onClick={() => setParentNoteId(null)}
+                    aria-label="Remove parent"
+                    title="Remove parent"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+                {isParentPickerOpen && (
+                  <div className={styles.parentPickerPopover}>
+                    <NotePicker
+                      notes={parentCandidates}
+                      placeholder="Search for a parent note…"
+                      onPick={(note) => {
+                        setParentNoteId(note.id);
+                        setIsParentPickerOpen(false);
+                      }}
+                      onClose={() => setIsParentPickerOpen(false)}
+                    />
+                  </div>
+                )}
+              </div>
 
               {scheduledDate ? (
                 <button

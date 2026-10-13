@@ -548,6 +548,8 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
         }}
         onSave={handleSaveNewCanvasNode}
         cryptoKey={cryptoKey}
+        allNotes={notes}
+        defaultCanvasOnly={true}
       />
 
       <ConfirmModal

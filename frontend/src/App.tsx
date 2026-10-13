@@ -510,6 +510,7 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
         initialData={editingNote}
         isViewMode={isViewMode}
         cryptoKey={cryptoKey}
+        allNotes={notes}
       />
 
       {enlargedImageUrl && (

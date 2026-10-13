@@ -943,3 +943,54 @@
     transform: translateY(0);
   }
 }
+
+.taskTogglePill:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.parentPillWrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.parentPillActive {
+  background: rgba(139, 92, 246, 0.08);
+  color: var(--primary-purple);
+  border-color: rgba(139, 92, 246, 0.4);
+  font-weight: 600;
+}
+
+.parentPillLabel {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.parentClearBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.parentClearBtn:hover {
+  background: var(--surface-hover);
+  color: var(--text-main);
+}
+
+.parentPickerPopover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 210;
+}
