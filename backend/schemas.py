@@ -1,7 +1,15 @@
 from datetime import date, datetime
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
+
+MAX_RECURRENCE_INTERVAL = 99
+
+
+def _clamp_interval(value: Optional[int]) -> Optional[int]:
+    if value is None:
+        return None
+    return min(MAX_RECURRENCE_INTERVAL, max(1, value))
 
 
 class UserCreate(BaseModel):
@@ -31,6 +39,7 @@ class CurrentUserResponse(BaseModel):
     created_at: Optional[datetime] = None
     has_set_vault: bool = False
     encrypted_master_seed: Optional[str] = None
+    seed_verifier: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -38,6 +47,7 @@ class CurrentUserResponse(BaseModel):
 
 class UpdateMasterSeed(BaseModel):
     encrypted_master_seed: str
+    seed_verifier: Optional[str] = None
 
 
 class AuthTokenResponse(BaseModel):
@@ -62,6 +72,10 @@ class NoteCreate(NoteBase):
     recurrence_end_date: Optional[date] = None
     parent_note_id: Optional[str] = None
     canvas_only: bool = False
+    # Filenames in this note's upload folder that the content still uses; see crud.prune_note_uploads.
+    referenced_uploads: Optional[list[str]] = None
+
+    _clamp_recurrence_interval = field_validator("recurrence_interval")(_clamp_interval)
 
 
 class NoteUpdate(BaseModel):
@@ -75,6 +89,9 @@ class NoteUpdate(BaseModel):
     recurrence_interval: Optional[int] = None
     recurrence_end_date: Optional[date] = None
     canvas_only: Optional[bool] = None
+    referenced_uploads: Optional[list[str]] = None
+
+    _clamp_recurrence_interval = field_validator("recurrence_interval")(_clamp_interval)
 
 
 class NoteScheduleUpdate(BaseModel):
@@ -176,6 +193,8 @@ class RecurrenceUpdate(BaseModel):
     recurrence_end_date: Optional[date] = None
     clear_end_date: Optional[bool] = False
     clear_recurrence: Optional[bool] = False
+
+    _clamp_recurrence_interval = field_validator("recurrence_interval")(_clamp_interval)
 
 
 class OccurrenceStatusUpdate(BaseModel):

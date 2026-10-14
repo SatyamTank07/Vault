@@ -77,6 +77,7 @@ export const CanvasSelector: React.FC<CanvasSelectorProps> = ({
                 className={styles.input}
                 value={renameValue}
                 aria-label="Canvas name"
+                data-escape-local
                 onChange={(e) => setRenameValue(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') handleRename(canvas.id);

@@ -25,10 +25,12 @@ export const WeekView: React.FC<WeekViewProps> = ({ weekStart, tasksByDate, layo
   );
   const keys = days.map(toIsoDate);
 
-  // Multi-day notes active this week, once each.
+  // Multi-day notes active this week, once each (a repeating one once per repeat).
   const spans = useMemo(() => {
     const byNote = new Map<string, TimelineTask>();
-    Object.values(tasksByDate).forEach((list) => list.forEach((t) => t.is_span && byNote.set(t.note.id, t)));
+    Object.values(tasksByDate).forEach((list) =>
+      list.forEach((t) => t.is_span && byNote.set(`${t.note.id}:${t.start_date}`, t)),
+    );
     return [...byNote.values()];
   }, [tasksByDate]);
 
@@ -132,7 +134,7 @@ export const WeekView: React.FC<WeekViewProps> = ({ weekStart, tasksByDate, layo
           <div className={`${styles.weekGrid} ${styles.weekRibbons}`}>
             {spans.map((task) => (
               <SpanRibbon
-                key={`ribbon-${task.note.id}`}
+                key={`ribbon-${task.note.id}-${task.start_date}`}
                 task={task}
                 style={{ gridColumn: spanColumns(task) }}
                 onOpenNote={handlers.onOpenNote}

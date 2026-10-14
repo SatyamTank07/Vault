@@ -28,7 +28,7 @@ export const OngoingRow: React.FC<{ spans: TimelineTask[] } & AgendaHandlers> = 
       </div>
       <div className={styles.agItems}>
         {spans.map((task) => (
-          <SpanRibbon key={`span-${task.note.id}`} task={task} onOpenNote={onOpenNote} onStatusChange={onStatusChange} />
+          <SpanRibbon key={`span-${task.note.id}-${task.start_date}`} task={task} onOpenNote={onOpenNote} onStatusChange={onStatusChange} />
         ))}
       </div>
     </div>

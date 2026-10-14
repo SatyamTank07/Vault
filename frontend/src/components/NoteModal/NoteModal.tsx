@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Calendar, Repeat, X, Clock, ArrowRight, CheckSquare, Eye, EyeOff, CornerDownRight, Lock } from 'lucide-react';
 import styles from './NoteModal.module.css';
 import type { Note } from '../NoteCard/NoteCard';
 import { TipTapEditor } from '../TipTapEditor/TipTapEditor';
 import { ConfirmModal } from '../ConfirmModal/ConfirmModal';
 import { NotePicker } from '../NotePicker/NotePicker';
+import { apiFetch, referencedUploads } from '../../lib/api';
 import { getParentCandidates } from '../../lib/noteTree';
 import { normalizeStatus, STATUS_LABELS } from '../../lib/noteText';
 import { statusClass } from '../ui/statusClass';
@@ -144,6 +145,8 @@ export const NoteModal: React.FC<NoteModalProps> = ({
   // Generate a temporary ID for new notes to use as a folder name
   const [generatedId, setGeneratedId] = useState(() => crypto.randomUUID());
   const currentNoteId = initialData?.id || generatedId;
+  // Images uploaded while the modal is open; deleted again if the edit is discarded.
+  const sessionUploadsRef = useRef<string[]>([]);
 
   const todayStr = getTodayString();
   const tomorrowStr = getTomorrowString();
@@ -182,6 +185,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
       setIsParentPickerOpen(false);
       setIsPopoverOpen(initialPopover === 'schedule');
       setShowConfirmDiscard(false);
+      sessionUploadsRef.current = [];
     }
   }, [isOpen, initialData, defaultParentId, defaultCanvasOnly, defaultScheduledDate, initialPopover]);
 
@@ -291,6 +295,20 @@ export const NoteModal: React.FC<NoteModalProps> = ({
     return () => document.removeEventListener('mousedown', handlePointerDown);
   }, [isParentPickerOpen]);
 
+  // Close without saving: drop the images this edit uploaded that the saved note doesn't use.
+  const savedContent = initialData?.id ? initialData.content : null;
+  const discardAndClose = useCallback(() => {
+    const kept = new Set(referencedUploads(savedContent, currentNoteId));
+    for (const url of sessionUploadsRef.current) {
+      const filename = url.split('/').pop();
+      if (filename && !kept.has(filename)) {
+        apiFetch(url, { method: 'DELETE' }).catch((error) => console.error('Failed to delete upload:', error));
+      }
+    }
+    sessionUploadsRef.current = [];
+    onClose();
+  }, [savedContent, currentNoteId, onClose]);
+
   // Escape key handler: dismiss popover first, then prompt if unsaved changes exist
   useEffect(() => {
     if (!isOpen) return;
@@ -310,14 +328,14 @@ export const NoteModal: React.FC<NoteModalProps> = ({
           e.preventDefault();
           setShowConfirmDiscard(true);
         } else {
-          onClose();
+          discardAndClose();
         }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, hasUnsavedChanges, isPopoverOpen, showConfirmDiscard, onClose]);
+  }, [isOpen, hasUnsavedChanges, isPopoverOpen, showConfirmDiscard, discardAndClose]);
 
   const handleOverlayClick = () => {
     if (isPopoverOpen) {
@@ -328,7 +346,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
       setShowConfirmDiscard(true);
       return;
     }
-    onClose();
+    discardAndClose();
   };
 
   const handleCloseClick = () => {
@@ -338,7 +356,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
     if (hasUnsavedChanges) {
       setShowConfirmDiscard(true);
     } else {
-      onClose();
+      discardAndClose();
     }
   };
 
@@ -349,14 +367,14 @@ export const NoteModal: React.FC<NoteModalProps> = ({
     if (hasUnsavedChanges) {
       setShowConfirmDiscard(true);
     } else {
-      onClose();
+      discardAndClose();
     }
   };
 
   const handleConfirmDiscard = () => {
     setShowConfirmDiscard(false);
     setIsPopoverOpen(false);
-    onClose();
+    discardAndClose();
   };
 
   const handleClearSchedule = () => {
@@ -388,7 +406,8 @@ export const NoteModal: React.FC<NoteModalProps> = ({
     if (status === null) {
       setStatus('todo');
     }
-    setIsPopoverOpen((prev) => !prev);
+    // Opens even when already open: after clearing the date inside the popover, this pill replaces the date one.
+    setIsPopoverOpen(true);
   };
 
   const handleSubmit = (e?: React.FormEvent) => {
@@ -429,7 +448,13 @@ export const NoteModal: React.FC<NoteModalProps> = ({
   return (
     <>
       <div className={styles.overlay} onClick={handleOverlayClick}>
-        <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+        <div
+          className={styles.modal}
+          role="dialog"
+          aria-modal="true"
+          aria-label={initialData?.id ? 'Edit note' : 'New note'}
+          onClick={(e) => e.stopPropagation()}
+        >
           <div className={styles.header}>
             <span className={styles.kind}>
               {(initialData?.canvas_name || canvasName) && (
@@ -777,7 +802,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
                               value={recurrenceInterval}
                               min={1}
                               max={99}
-                              onChange={(e) => setRecurrenceInterval(Math.max(1, parseInt(e.target.value) || 1))}
+                              onChange={(e) => setRecurrenceInterval(Math.min(99, Math.max(1, parseInt(e.target.value) || 1)))}
                             />
                             <span className={styles.intervalUnit}>
                               {recurrenceRule === 'daily'
@@ -863,6 +888,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
                 noteId={currentNoteId}
                 readOnly={false}
                 cryptoKey={cryptoKey}
+                onUpload={(url) => sessionUploadsRef.current.push(url)}
               />
             </div>
             </div>

@@ -15,6 +15,7 @@ import {
   phraseToSeed,
   wrapMasterSeed,
   unwrapMasterSeed,
+  seedVerifier,
 } from '../../lib/crypto';
 
 interface VaultSecretScreenProps {
@@ -70,6 +71,33 @@ export function VaultSecretScreen({ currentUser, onUnlocked, onUserUpdated }: Va
       }
     }
   }, [savedPendingPhrase, pendingNoteKey]);
+
+  // Does this seed belong to the user's vault? A typo that hits another real word still
+  // decodes to *some* seed, and saving that one would lock the user out. An encrypted note
+  // is the ground truth (the stored seed may itself be a wrong one saved before this check
+  // existed); the verifier covers vaults with nothing encrypted yet.
+  const seedMatchesVault = async (seed: Uint8Array): Promise<boolean> => {
+    const response = await apiFetch('/notes/?limit=1000');
+    if (!response.ok) throw new Error('Could not load notes to check the seed.');
+    const notes: { title?: string | null; content?: string | null }[] = await response.json();
+    const sample = notes.find((note) => note.title?.startsWith('v1:') || note.content?.startsWith('v1:'));
+    if (sample) {
+      const { failed } = await decryptNote(sample, await deriveNoteKey(seed));
+      return !failed;
+    }
+    if (currentUser.seed_verifier) return (await seedVerifier(seed)) === currentUser.seed_verifier;
+    return true; // Nothing encrypted and nothing to compare with: nothing to lose either.
+  };
+
+  const backfillSeedVerifier = async (seed: Uint8Array) => {
+    if (!(await seedMatchesVault(seed))) return;
+    const verifier = await seedVerifier(seed);
+    const response = await apiFetch('/api/auth/master-seed', {
+      method: 'POST',
+      body: JSON.stringify({ encrypted_master_seed: currentUser.encrypted_master_seed, seed_verifier: verifier }),
+    });
+    if (response.ok) onUserUpdated({ ...currentUser, seed_verifier: verifier });
+  };
 
   // ─── Submit: Vault Secret ───
   const handleSubmit = async (event: React.FormEvent) => {
@@ -175,9 +203,10 @@ export function VaultSecretScreen({ currentUser, onUnlocked, onUserUpdated }: Va
         // 3. Wrap seed with vault secret and store on server
         setMigrationStatus('Securing recovery key...');
         const encryptedSeed = await wrapMasterSeed(seed, secret, salt);
+        const verifier = await seedVerifier(seed);
         await apiFetch('/api/auth/master-seed', {
           method: 'POST',
-          body: JSON.stringify({ encrypted_master_seed: encryptedSeed }),
+          body: JSON.stringify({ encrypted_master_seed: encryptedSeed, seed_verifier: verifier }),
         });
 
         // 4. Generate recovery phrase
@@ -196,6 +225,7 @@ export function VaultSecretScreen({ currentUser, onUnlocked, onUserUpdated }: Va
           ...currentUser,
           has_set_vault: true,
           encrypted_master_seed: encryptedSeed,
+          seed_verifier: verifier,
         });
       } else {
         // ── Returning user: unwrap master seed ──
@@ -205,6 +235,11 @@ export function VaultSecretScreen({ currentUser, onUnlocked, onUserUpdated }: Va
           salt,
         );
         const noteKey = await deriveNoteKey(seed);
+
+        if (!currentUser.seed_verifier) {
+          // Vault set up before verifiers existed: add one, once the seed is shown to open the notes.
+          backfillSeedVerifier(seed).catch((err) => console.error('Failed to store seed verifier:', err));
+        }
 
         setVaultSecret(secret);
         onUnlocked(noteKey);
@@ -239,8 +274,10 @@ export function VaultSecretScreen({ currentUser, onUnlocked, onUserUpdated }: Va
 
     try {
       const seed = phraseToSeed(words);
-      // Verify the seed works by deriving a key (will throw if invalid)
-      await deriveNoteKey(seed);
+      if (!(await seedMatchesVault(seed))) {
+        setError("This phrase doesn't match your vault. Check each word and the order.");
+        return;
+      }
       // Store seed and move to reset-secret phase
       setRecoveredSeed(seed);
       setPhase('reset-secret');
@@ -281,9 +318,10 @@ export function VaultSecretScreen({ currentUser, onUnlocked, onUserUpdated }: Va
 
       // Re-wrap the master seed with the new secret
       const encryptedSeed = await wrapMasterSeed(recoveredSeed, newSecret, salt);
+      const verifier = await seedVerifier(recoveredSeed);
       await apiFetch('/api/auth/master-seed', {
         method: 'POST',
-        body: JSON.stringify({ encrypted_master_seed: encryptedSeed }),
+        body: JSON.stringify({ encrypted_master_seed: encryptedSeed, seed_verifier: verifier }),
       });
 
       // Derive note key and unlock
@@ -292,6 +330,7 @@ export function VaultSecretScreen({ currentUser, onUnlocked, onUserUpdated }: Va
       onUserUpdated({
         ...currentUser,
         encrypted_master_seed: encryptedSeed,
+        seed_verifier: verifier,
       });
 
       setVaultSecret(newSecret);

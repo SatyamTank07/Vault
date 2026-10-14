@@ -9,7 +9,7 @@ export const STATUS_LABELS: Record<TaskStatus, string> = {
   done: 'Done',
 };
 
-export const RECURRENCE_LABELS: Record<string, string> = {
+const RECURRENCE_LABELS: Record<string, string> = {
   daily: 'Daily',
   weekly: 'Weekly',
   monthly: 'Monthly',

@@ -16,7 +16,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
-import { apiFetch } from '../../lib/api';
+import { apiFetch, referencedUploads } from '../../lib/api';
 import { useResolvedTheme } from '../../lib/theme';
 import { decryptNote, encryptNote } from '../../lib/crypto';
 import type { Note } from '../NoteCard/NoteCard';
@@ -329,7 +329,12 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
         ? (nodes.find((n) => n.id === parentNodeIdForNewNote)?.data as { noteId?: string } | undefined)
         : undefined;
       const parentNoteId = parentNodeData?.noteId ?? noteData.parent_note_id ?? null;
-      const notePayload = { ...noteData, parent_note_id: null, canvas_only: false };
+      const notePayload = {
+        ...noteData,
+        parent_note_id: null,
+        canvas_only: false,
+        referenced_uploads: referencedUploads(noteData.content, noteData.id),
+      };
 
       // Encrypt note before sending
       const dataToSend = cryptoKey ? await encryptNote(notePayload, cryptoKey) : notePayload;
@@ -396,9 +401,19 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
     if (!nodeToUpdate) return;
     const noteId = (nodeToUpdate.data as { noteId: string }).noteId;
 
+    // Clearing the date also clears the repeat (the server does the same).
+    const clearedRepeat =
+      date === null
+        ? {
+            recurrenceRule: null,
+            note: { ...(nodeToUpdate.data.note as object), recurrence_rule: null, recurrence_interval: 1, recurrence_end_date: null },
+          }
+        : {};
     setNodes((prev) =>
       prev.map((node) =>
-        node.id === nodeId ? { ...node, data: { ...node.data, scheduledDate: date, scheduledTime: time, status } } : node,
+        node.id === nodeId
+          ? { ...node, data: { ...node.data, scheduledDate: date, scheduledTime: time, status, ...clearedRepeat } }
+          : node,
       ),
     );
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import {
   Editor,
   EditorContent,
@@ -42,6 +42,7 @@ interface MenuBarProps {
   editor: Editor | null;
   noteId: string;
   cryptoKey?: CryptoKey | null;
+  onUpload?: (url: string) => void;
 }
 
 const EncryptedImageNodeView: React.FC<NodeViewProps> = ({ node, selected }) => {
@@ -80,7 +81,7 @@ const EncryptedImage = Image.extend({
   },
 });
 
-const MenuBar: React.FC<MenuBarProps> = ({ editor, noteId, cryptoKey }) => {
+const MenuBar: React.FC<MenuBarProps> = ({ editor, noteId, cryptoKey, onUpload }) => {
   if (!editor) {
     return null;
   }
@@ -185,6 +186,7 @@ const MenuBar: React.FC<MenuBarProps> = ({ editor, noteId, cryptoKey }) => {
               const file = input.files[0];
               const url = await uploadImage(file, noteId, cryptoKey);
               if (url) {
+                onUpload?.(url);
                 editor.chain().focus().setImage({ src: url }).run();
               }
             }
@@ -265,6 +267,8 @@ interface TipTapEditorProps {
   noteId: string;
   readOnly?: boolean;
   cryptoKey?: CryptoKey | null;
+  /** Called with the server URL of each image uploaded from this editor. */
+  onUpload?: (url: string) => void;
 }
 
 export const TipTapEditor: React.FC<TipTapEditorProps> = ({
@@ -273,8 +277,14 @@ export const TipTapEditor: React.FC<TipTapEditorProps> = ({
   noteId,
   readOnly = false,
   cryptoKey,
+  onUpload,
 }) => {
   const displayContent = useMemo(() => stripProtectedAssetTokens(content), [content]);
+  // The paste/drop handlers are bound once when the editor is created; read the latest callback.
+  const onUploadRef = useRef(onUpload);
+  useEffect(() => {
+    onUploadRef.current = onUpload;
+  }, [onUpload]);
 
   const editor = useEditor({
     extensions: [
@@ -303,6 +313,7 @@ export const TipTapEditor: React.FC<TipTapEditorProps> = ({
           if (file) {
             uploadImage(file, noteId, cryptoKey).then((url) => {
               if (url) {
+                onUploadRef.current?.(url);
                 const { schema } = view.state;
                 const node = schema.nodes.image.create({ src: url });
                 const transaction = view.state.tr.replaceSelectionWith(node);
@@ -320,6 +331,7 @@ export const TipTapEditor: React.FC<TipTapEditorProps> = ({
           if (file.type.startsWith('image/')) {
             uploadImage(file, noteId, cryptoKey).then((url) => {
               if (url) {
+                onUploadRef.current?.(url);
                 const { schema } = view.state;
                 const node = schema.nodes.image.create({ src: url });
                 const transaction = view.state.tr.replaceSelectionWith(node);
@@ -340,10 +352,13 @@ export const TipTapEditor: React.FC<TipTapEditorProps> = ({
   });
 
   useEffect(() => {
-    if (editor && displayContent !== editor.getHTML()) {
+    if (!editor || displayContent === editor.getHTML()) return;
+    // Image node views render with flushSync, which React rejects inside an effect; run after it.
+    queueMicrotask(() => {
+      if (editor.isDestroyed || displayContent === editor.getHTML()) return;
       // Syncing from props is not a user edit; emitting would echo back through onChange.
       editor.commands.setContent(displayContent, { emitUpdate: false });
-    }
+    });
   }, [editor, displayContent]);
 
   useEffect(() => {
@@ -359,7 +374,7 @@ export const TipTapEditor: React.FC<TipTapEditorProps> = ({
 
   return (
     <div className={`${styles.editorContainer} ${readOnly ? styles.readOnly : ''}`}>
-      {!readOnly && <MenuBar editor={editor} noteId={noteId} cryptoKey={cryptoKey} />}
+      {!readOnly && <MenuBar editor={editor} noteId={noteId} cryptoKey={cryptoKey} onUpload={onUpload} />}
       <EditorContent editor={editor} className={styles.editorContent} />
     </div>
   );
