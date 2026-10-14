@@ -2148,12 +2148,29 @@ export function phraseToSeed(words: string[]): Uint8Array {
     bitString += index.toString(2).padStart(11, '0');
   }
 
+  // seedToPhrase pads the last word with four zero bits. Anything else is a mistyped
+  // word (it catches 15 of 16 wrong last words), not a phrase this app produced.
+  if (bitString.slice(128) !== '0000') throw new Error('Invalid recovery phrase');
+
   const seedBits = bitString.slice(0, 128);
   const seed = new Uint8Array(16);
   for (let i = 0; i < 16; i++) {
     seed[i] = parseInt(seedBits.slice(i * 8, (i + 1) * 8), 2);
   }
   return seed;
+}
+
+/**
+ * A one-way fingerprint of the master seed, stored next to the wrapped seed. Recovery
+ * compares against it so a wrong phrase can't replace the real seed on the server.
+ */
+export async function seedVerifier(seed: Uint8Array): Promise<string> {
+  const label = new TextEncoder().encode('vault-seed-verifier');
+  const input = new Uint8Array(label.length + seed.length);
+  input.set(label, 0);
+  input.set(seed, label.length);
+  const digest = await window.crypto.subtle.digest('SHA-256', input);
+  return arrayBufferToBase64(digest);
 }
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {

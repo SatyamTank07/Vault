@@ -282,9 +282,14 @@ export const TimeStreamCanvas: React.FC<TimeStreamCanvasProps> = ({
       title: occurrences[0].note.title || 'Untitled',
       note: occurrences[0].note,
       lane: laneEnds.length + i,
+      // A multi-day repeat is a short bar across its days; a single-day one a dot at midday.
       dots: occurrences
-        .map((ev) => ({ event: ev, x: toX(new Date(ev.start_date + 'T12:00:00').getTime()) }))
-        .filter((d) => d.x >= -10 && d.x <= containerWidth + 10),
+        .map((ev) => {
+          if (!ev.is_span) return { event: ev, x: toX(new Date(ev.start_date + 'T12:00:00').getTime()), width: 0 };
+          const x = toX(new Date(ev.start_date + 'T00:00:00').getTime());
+          return { event: ev, x, width: toX(new Date(ev.end_date + 'T00:00:00').getTime() + DAY_MS) - x };
+        })
+        .filter((d) => d.x + d.width >= -10 && d.x <= containerWidth + 10),
     }));
 
     return { bars: placed, tracks: trackList, laneCount: laneEnds.length + trackList.length };
@@ -409,11 +414,11 @@ export const TimeStreamCanvas: React.FC<TimeStreamCanvasProps> = ({
                   <Repeat size={11} />
                   {track.title}
                 </button>
-                {track.dots.map(({ event, x }) => (
+                {track.dots.map(({ event, x, width }) => (
                   <span
                     key={`${event.id}-${event.start_date}`}
-                    className={`${styles.trackDot} ${statusMod(event.status)}`}
-                    style={{ left: x }}
+                    className={`${styles.trackDot} ${width ? styles.trackSpan : ''} ${statusMod(event.status)}`}
+                    style={width ? { left: x, width } : { left: x }}
                     onMouseDown={(e) => e.stopPropagation()}
                     onClick={(e) => {
                       e.stopPropagation();

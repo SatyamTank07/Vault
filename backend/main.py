@@ -197,6 +197,8 @@ def store_master_seed(
     current_user: models.User = Depends(get_current_user),
 ):
     current_user.encrypted_master_seed = payload.encrypted_master_seed
+    # Always replaced along with the seed: a stale verifier would reject the right phrase.
+    current_user.seed_verifier = payload.seed_verifier
     if not current_user.has_set_vault:
         current_user.has_set_vault = True
     db.commit()
@@ -265,6 +267,22 @@ def get_uploaded_file(
         return FileResponse(legacy_path, media_type=media_type)
 
     raise HTTPException(status_code=404, detail="File not found.")
+
+
+@app.delete("/api/uploads/{note_id}/{filename}")
+def delete_uploaded_file(
+    note_id: str,
+    filename: str,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    safe_note_id = os.path.basename(note_id)
+    safe_filename = os.path.basename(filename)
+    if safe_note_id != note_id or safe_filename != filename or {note_id, filename} & {".", ".."}:
+        raise HTTPException(status_code=400, detail="Invalid file path.")
+    if not crud.delete_upload(db, current_user.id, safe_note_id, safe_filename):
+        raise HTTPException(status_code=404, detail="File not found.")
+    return {"message": "File deleted."}
 
 
 @app.post("/notes/", response_model=schemas.NoteResponse)

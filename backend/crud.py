@@ -1,5 +1,4 @@
 import os
-import re
 from datetime import date, timedelta
 
 from sqlalchemy.orm import Session, joinedload
@@ -8,23 +7,11 @@ import models
 import schemas
 
 UPLOAD_DIR = "uploads"
-UPLOAD_URL_PATTERN = re.compile(
-    r'(?:https?://[^"\']+)?/(?:api/uploads|uploads)/([a-zA-Z0-9-]+)/([a-zA-Z0-9._-]+)(?:\?[^"\']*)?'
-)
 
 
-def extract_image_refs(content: str):
-    if not content:
-        return []
-    return UPLOAD_URL_PATTERN.findall(content)
-
-
-def _upload_candidate_paths(user_id: str | None, note_id: str, filename: str) -> list[str]:
-    paths = []
-    if user_id:
-        paths.append(os.path.join(UPLOAD_DIR, user_id, note_id, filename))
-    paths.append(os.path.join(UPLOAD_DIR, note_id, filename))
-    return paths
+def _note_upload_folders(user_id: str, note_id: str) -> list[str]:
+    # Current uploads live under the user; legacy ones sit directly under the note id.
+    return [os.path.join(UPLOAD_DIR, user_id, note_id), os.path.join(UPLOAD_DIR, note_id)]
 
 
 def _cleanup_empty_directories(path: str) -> None:
@@ -35,15 +22,40 @@ def _cleanup_empty_directories(path: str) -> None:
             current_path = os.path.dirname(current_path)
 
 
-def delete_unused_images(image_refs: list[tuple[str, str]], user_id: str | None):
-    for note_id, filename in image_refs:
-        for file_path in _upload_candidate_paths(user_id, note_id, filename):
-            if os.path.exists(file_path):
-                try:
-                    os.remove(file_path)
-                    _cleanup_empty_directories(file_path)
-                except Exception as exc:
-                    print(f"Error during cleanup of {file_path}: {exc}")
+def _remove_upload(file_path: str) -> None:
+    try:
+        os.remove(file_path)
+        _cleanup_empty_directories(file_path)
+    except Exception as exc:
+        print(f"Error during cleanup of {file_path}: {exc}")
+
+
+def prune_note_uploads(user_id: str, note_id: str, referenced: list[str]) -> None:
+    """Delete the note's uploaded files that its content no longer uses.
+
+    Content is ciphertext, so the server can't find image references itself; the
+    client reads them from the plaintext and sends the filenames that are still used.
+    """
+    keep = {os.path.basename(name) for name in referenced}
+    for folder in _note_upload_folders(user_id, note_id):
+        if not os.path.isdir(folder):
+            continue
+        for filename in os.listdir(folder):
+            file_path = os.path.join(folder, filename)
+            if filename not in keep and os.path.isfile(file_path):
+                _remove_upload(file_path)
+
+
+def delete_upload(db: Session, user_id: str, note_id: str, filename: str) -> bool:
+    """Delete one uploaded file, e.g. an image added to an edit that was then discarded."""
+    paths = [os.path.join(UPLOAD_DIR, user_id, note_id, filename)]
+    if get_note(db, user_id, note_id) is not None:
+        paths.append(os.path.join(UPLOAD_DIR, note_id, filename))
+    for file_path in paths:
+        if os.path.isfile(file_path):
+            _remove_upload(file_path)
+            return True
+    return False
 
 
 def get_note(db: Session, user_id: str, note_id: str):
@@ -108,8 +120,20 @@ def _mirror_onto_parent_canvas(db: Session, parent, child) -> None:
             note_id=child.id,
             position_x=parent_node.position_x,
             position_y=parent_node.position_y + 150,
+            mirrored=True,
         )
     )
+
+
+def _remove_mirrored_nodes(db: Session, note, keep_canvas_id: str | None = None) -> None:
+    """Undo _mirror_onto_parent_canvas. Nodes the user placed by hand stay."""
+    stale = [node for node in note.canvas_nodes if node.mirrored and node.canvas_id != keep_canvas_id]
+    if not stale:
+        return
+    for node in stale:
+        db.delete(node)
+    db.flush()
+    db.expire(note, ["canvas_nodes"])
 
 
 def _enforce_visibility(note) -> None:
@@ -124,9 +148,14 @@ def set_note_parent(db: Session, user_id: str, note_id: str, parent_note_id: str
         return None
     if parent_note_id is None:
         db_note.parent_note_id = None
+        _remove_mirrored_nodes(db, db_note)
         _enforce_visibility(db_note)
     else:
         parent = _validate_parent(db, user_id, note_id, parent_note_id)
+        if parent.id != db_note.parent_note_id:
+            # Moving to a new parent: drop the copy on the old parent's canvas.
+            parent_canvas_id = parent.canvas_nodes[0].canvas_id if parent.canvas_nodes else None
+            _remove_mirrored_nodes(db, db_note, keep_canvas_id=parent_canvas_id)
         db_note.parent_note_id = parent.id
         _mirror_onto_parent_canvas(db, parent, db_note)
     db.commit()
@@ -170,18 +199,17 @@ def create_note(db: Session, user_id: str, note: schemas.NoteCreate):
     _enforce_visibility(db_note)
     db.commit()
     db.refresh(db_note)
+    if note.referenced_uploads is not None:
+        # Images added to the draft and removed again before the first save.
+        prune_note_uploads(user_id, db_note.id, note.referenced_uploads)
     return db_note
 
 
 def update_note(db: Session, user_id: str, note_id: str, note: schemas.NoteUpdate):
     db_note = get_note(db, user_id, note_id)
     if db_note:
-        if note.content is not None:
-            old_refs = set(extract_image_refs(db_note.content))
-            new_refs = set(extract_image_refs(note.content))
-            delete_unused_images(list(old_refs - new_refs), db_note.user_id)
-
         update_data = note.dict(exclude_unset=True)
+        referenced_uploads = update_data.pop("referenced_uploads", None)
         if update_data.get("canvas_only") is None:
             update_data.pop("canvas_only", None)
         for key, value in update_data.items():
@@ -191,6 +219,9 @@ def update_note(db: Session, user_id: str, note_id: str, note: schemas.NoteUpdat
         if not db_note.scheduled_date:
             db_note.scheduled_time = None
             db_note.end_date = None
+            db_note.recurrence_rule = None
+            db_note.recurrence_interval = 1
+            db_note.recurrence_end_date = None
         elif db_note.end_date and db_note.scheduled_date > db_note.end_date:
             db_note.end_date = db_note.scheduled_date
 
@@ -199,6 +230,8 @@ def update_note(db: Session, user_id: str, note_id: str, note: schemas.NoteUpdat
 
         db.commit()
         db.refresh(db_note)
+        if referenced_uploads is not None:
+            prune_note_uploads(user_id, note_id, referenced_uploads)
     return db_note
 
 
@@ -213,10 +246,7 @@ def delete_note(db: Session, user_id: str, note_id: str):
         ]
         import shutil
 
-        for note_folder in [
-            os.path.join(UPLOAD_DIR, user_id, note_id),
-            os.path.join(UPLOAD_DIR, note_id),
-        ]:
+        for note_folder in _note_upload_folders(user_id, note_id):
             if os.path.exists(note_folder):
                 try:
                     shutil.rmtree(note_folder)
@@ -373,6 +403,10 @@ def update_note_schedule(db: Session, user_id: str, note_id: str, data: schemas.
         db_note.scheduled_date = None
         db_note.scheduled_time = None
         db_note.end_date = None
+        # A repeat has nothing to repeat from without a date; don't let it come back later.
+        db_note.recurrence_rule = None
+        db_note.recurrence_interval = 1
+        db_note.recurrence_end_date = None
     if data.scheduled_time is not None:
         db_note.scheduled_time = data.scheduled_time
     if data.clear_time:
@@ -454,6 +488,13 @@ def _add_months(source_date: date, months: int) -> date:
 
     day = min(source_date.day, calendar.monthrange(year, month)[1])
     return date(year, month, day)
+
+
+def _span_days(note) -> int:
+    """Extra days a multi-day note covers after its start (0 for a single-day note)."""
+    if note.scheduled_date and note.end_date and note.end_date > note.scheduled_date:
+        return (note.end_date - note.scheduled_date).days
+    return 0
 
 
 def expand_recurrence(note, start_date: date, end_date: date) -> list[date]:
@@ -562,7 +603,8 @@ def get_timeline(db: Session, user_id: str, start_date: date, end_date: date):
     recurring_notes = [
         note
         for note in recurring_notes
-        if note.recurrence_end_date is None or note.recurrence_end_date >= start_date
+        if note.recurrence_end_date is None
+        or note.recurrence_end_date + timedelta(days=_span_days(note)) >= start_date
     ]
 
     result: dict[str, list] = {}
@@ -631,7 +673,9 @@ def get_timeline(db: Session, user_id: str, start_date: date, end_date: date):
             )
 
     for note in recurring_notes:
-        occurrence_dates = expand_recurrence(note, start_date, end_date)
+        span_days = _span_days(note)
+        # A repeat of a multi-day note that starts before the range can still overlap it.
+        occurrence_dates = expand_recurrence(note, start_date - timedelta(days=span_days), end_date)
         occurrences = ensure_occurrences(db, note, occurrence_dates)
         canvas_id = note.canvas_nodes[0].canvas_id if note.canvas_nodes else ""
 
@@ -639,40 +683,47 @@ def get_timeline(db: Session, user_id: str, start_date: date, end_date: date):
             if occ.skipped:
                 continue
 
-            date_key = occ.occurrence_date.isoformat()
-            result.setdefault(date_key, [])
-            result[date_key].append(
-                {
-                    "id": note.id,
-                    "canvas_id": canvas_id,
-                    "canvas_name": note.canvas_name,
-                    "note": {
+            occ_start = occ.occurrence_date
+            occ_end = occ_start + timedelta(days=span_days)
+            note_dict = {
+                "id": note.id,
+                "title": note.title,
+                "content": note.content,
+                "created_at": note.created_at.isoformat() if note.created_at else None,
+                "updated_at": note.updated_at.isoformat() if note.updated_at else None,
+                "scheduled_date": occ_start.isoformat(),
+                "scheduled_time": note.scheduled_time,
+                "end_date": occ_end.isoformat() if span_days else None,
+                "status": occ.status or "todo",
+                "canvas_name": note.canvas_name,
+                "recurrence_rule": note.recurrence_rule,
+                "recurrence_interval": note.recurrence_interval,
+                "recurrence_end_date": note.recurrence_end_date.isoformat() if note.recurrence_end_date else None,
+                **_hierarchy_fields(note),
+            }
+
+            curr = max(occ_start, start_date)
+            while curr <= min(occ_end, end_date):
+                date_key = curr.isoformat()
+                result.setdefault(date_key, [])
+                result[date_key].append(
+                    {
                         "id": note.id,
-                        "title": note.title,
-                        "content": note.content,
-                        "created_at": note.created_at.isoformat() if note.created_at else None,
-                        "updated_at": note.updated_at.isoformat() if note.updated_at else None,
-                        "scheduled_date": occ.occurrence_date.isoformat(),
-                        "scheduled_time": note.scheduled_time,
-                        "end_date": None,
-                        "status": occ.status or "todo",
+                        "canvas_id": canvas_id,
                         "canvas_name": note.canvas_name,
+                        "note": note_dict,
+                        "scheduled_date": date_key,
+                        "scheduled_time": note.scheduled_time,
+                        "status": occ.status or "todo",
+                        "is_recurring": True,
+                        "occurrence_id": occ.id,
                         "recurrence_rule": note.recurrence_rule,
-                        "recurrence_interval": note.recurrence_interval,
-                        "recurrence_end_date": note.recurrence_end_date.isoformat() if note.recurrence_end_date else None,
-                        **_hierarchy_fields(note),
-                    },
-                    "scheduled_date": occ.occurrence_date.isoformat(),
-                    "scheduled_time": note.scheduled_time,
-                    "status": occ.status or "todo",
-                    "is_recurring": True,
-                    "occurrence_id": occ.id,
-                    "recurrence_rule": note.recurrence_rule,
-                    "is_span": False,
-                    "start_date": occ.occurrence_date.isoformat(),
-                    "end_date": occ.occurrence_date.isoformat(),
-                }
-            )
+                        "is_span": span_days > 0,
+                        "start_date": occ_start.isoformat(),
+                        "end_date": occ_end.isoformat(),
+                    }
+                )
+                curr += timedelta(days=1)
 
     for date_key in result:
         result[date_key].sort(key=lambda x: (not x.get("is_span", False), x["scheduled_time"] or "23:59"))
@@ -765,11 +816,15 @@ def get_timestream(db: Session, user_id: str, start_date: date, end_date: date):
     recurring_notes = [
         note
         for note in recurring_notes
-        if note.recurrence_end_date is None or note.recurrence_end_date >= start_date
+        if note.recurrence_end_date is None
+        or note.recurrence_end_date + timedelta(days=_span_days(note)) >= start_date
     ]
 
     for note in recurring_notes:
-        occurrence_dates = expand_recurrence(note, start_date, end_date)
+        span_days = _span_days(note)
+        # A repeat of a multi-day note that starts before the range can still overlap it.
+        range_start = start_date - timedelta(days=span_days)
+        occurrence_dates = expand_recurrence(note, range_start, end_date)
         if not occurrence_dates:
             continue
 
@@ -779,7 +834,7 @@ def get_timestream(db: Session, user_id: str, start_date: date, end_date: date):
             for occ in db.query(models.TaskOccurrence)
             .filter(
                 models.TaskOccurrence.note_id == note.id,
-                models.TaskOccurrence.occurrence_date >= start_date,
+                models.TaskOccurrence.occurrence_date >= range_start,
                 models.TaskOccurrence.occurrence_date <= end_date,
             )
             .all()
@@ -792,6 +847,7 @@ def get_timestream(db: Session, user_id: str, start_date: date, end_date: date):
 
             occ_status = occ.status if (occ and occ.status) else (note.status or "todo")
             occ_id = occ.id if occ else None
+            occ_end = occ_date + timedelta(days=span_days)
 
             result.append({
                 "id": f"{note.id}_{occ_date.isoformat()}",
@@ -808,15 +864,15 @@ def get_timestream(db: Session, user_id: str, start_date: date, end_date: date):
                     "recurrence_rule": note.recurrence_rule,
                     "recurrence_interval": note.recurrence_interval,
                     "recurrence_end_date": note.recurrence_end_date.isoformat() if note.recurrence_end_date else None,
-                    "end_date": None,
+                    "end_date": occ_end.isoformat() if span_days else None,
                     **_hierarchy_fields(note),
                 },
                 "start_date": occ_date.isoformat(),
-                "end_date": occ_date.isoformat(),
+                "end_date": occ_end.isoformat(),
                 "status": occ_status,
                 "canvas_name": note.canvas_name,
                 "is_recurring": True,
-                "is_span": False,
+                "is_span": span_days > 0,
                 "occurrence_id": occ_id,
                 "parent_note_id": note.parent_note_id,
             })

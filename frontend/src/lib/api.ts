@@ -9,6 +9,7 @@ export interface CurrentUser {
   is_mobile_verified: boolean;
   has_set_vault: boolean;
   encrypted_master_seed: string | null;
+  seed_verifier?: string | null;
   created_at: string;
 }
 
@@ -84,6 +85,19 @@ export async function getErrorMessage(response: Response, fallback = 'Request fa
 
 export function isProtectedUploadUrl(url: string): boolean {
   return url.includes('/api/uploads/');
+}
+
+/**
+ * Filenames in this note's upload folder that the plaintext content still uses. The server
+ * only sees ciphertext, so it relies on this list to delete images removed from the note.
+ */
+export function referencedUploads(content: string | null | undefined, noteId: string): string[] {
+  if (!content) return [];
+  const names = new Set<string>();
+  for (const [, folder, filename] of content.matchAll(/\/uploads\/([^/"'?#\s<>]+)\/([^/"'?#\s<>]+)/g)) {
+    if (folder === noteId) names.add(filename);
+  }
+  return [...names];
 }
 
 function normalizeAssetUrl(url: string): URL {

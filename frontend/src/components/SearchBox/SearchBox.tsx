@@ -18,6 +18,7 @@ export const SearchBox: React.FC<SearchBoxProps> = ({ notes, query, onQueryChang
   const inputRef = useRef<HTMLInputElement>(null);
   const [focused, setFocused] = useState(false);
   const [active, setActive] = useState(0);
+  const blurTimer = useRef<number | undefined>(undefined);
 
   const index = useMemo(
     () => notes.map((note) => ({ note, text: `${note.title} ${plainText(note.content || '')}`.toLowerCase() })),
@@ -33,13 +34,18 @@ export const SearchBox: React.FC<SearchBoxProps> = ({ notes, query, onQueryChang
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+        // Leave it to the open dialog (and the editor, where Ctrl K is often "insert link").
+        if (document.querySelector('[aria-modal="true"]')) return;
         event.preventDefault();
         inputRef.current?.focus();
         inputRef.current?.select();
       }
     };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.clearTimeout(blurTimer.current);
+    };
   }, []);
 
   const open = (note: Note) => {
@@ -83,9 +89,15 @@ export const SearchBox: React.FC<SearchBoxProps> = ({ notes, query, onQueryChang
           onQueryChange(event.target.value);
           setActive(0);
         }}
-        onFocus={() => setFocused(true)}
+        onFocus={() => {
+          // A blur just before this would otherwise hide the results after the re-focus.
+          window.clearTimeout(blurTimer.current);
+          setFocused(true);
+        }}
         // Delay so a click on a result lands before the list unmounts.
-        onBlur={() => setTimeout(() => setFocused(false), 150)}
+        onBlur={() => {
+          blurTimer.current = window.setTimeout(() => setFocused(false), 150);
+        }}
         onKeyDown={onKeyDown}
       />
       <kbd className={styles.kbd}>Ctrl K</kbd>

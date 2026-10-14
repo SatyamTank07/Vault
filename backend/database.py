@@ -30,6 +30,7 @@ def run_schema_migrations():
         "CREATE UNIQUE INDEX IF NOT EXISTS ix_users_mobile_number ON users (mobile_number)",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS has_set_vault BOOLEAN DEFAULT FALSE",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS encrypted_master_seed TEXT",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS seed_verifier TEXT",
         "UPDATE notes SET status = NULL WHERE scheduled_date IS NULL AND end_date IS NULL AND recurrence_rule IS NULL AND status = 'todo'",
         "ALTER TABLE notes ADD COLUMN IF NOT EXISTS parent_note_id VARCHAR REFERENCES notes(id) ON DELETE SET NULL",
         "CREATE INDEX IF NOT EXISTS ix_notes_parent_note_id ON notes (parent_note_id)",
@@ -38,6 +39,7 @@ def run_schema_migrations():
         "UPDATE notes SET canvas_only = EXISTS (SELECT 1 FROM canvas_nodes c WHERE c.note_id = notes.id) WHERE canvas_only IS NULL",
         "ALTER TABLE notes ALTER COLUMN canvas_only SET DEFAULT FALSE",
         "ALTER TABLE notes ALTER COLUMN canvas_only SET NOT NULL",
+        "ALTER TABLE canvas_nodes ADD COLUMN IF NOT EXISTS mirrored BOOLEAN NOT NULL DEFAULT FALSE",
         # One-time: move canvas parent links onto notes, then drop the old column.
         # Guarded by the column's existence, so it is a no-op on every later startup.
         """

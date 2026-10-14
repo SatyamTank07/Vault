@@ -16,6 +16,8 @@ class User(Base):
     is_mobile_verified = Column(Boolean, default=False, nullable=False)
     has_set_vault = Column(Boolean, default=False, nullable=False, server_default="false")
     encrypted_master_seed = Column(String, nullable=True)
+    # Hash of the master seed, so recovery can tell a mistyped phrase from the real one.
+    seed_verifier = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -101,6 +103,8 @@ class CanvasNode(Base):
     note_id = Column(String, ForeignKey("notes.id", ondelete="CASCADE"), nullable=False)
     position_x = Column(Float, default=0.0)
     position_y = Column(Float, default=0.0)
+    # Placed automatically because the note's parent is on this canvas; removed again on detach.
+    mirrored = Column(Boolean, nullable=False, default=False, server_default="false")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     canvas = relationship("Canvas", back_populates="nodes")

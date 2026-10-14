@@ -43,10 +43,12 @@ export const Menu: React.FC<MenuProps> = ({ anchor, open, onClose, align = 'star
       onClose();
     };
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.stopPropagation();
-        onClose();
-      }
+      if (event.key !== 'Escape') return;
+      // Fields marked data-escape-local (e.g. an inline rename) cancel themselves on Escape.
+      const target = event.target as HTMLElement;
+      if (menuRef.current?.contains(target) && target.closest('[data-escape-local]')) return;
+      event.stopPropagation();
+      onClose();
     };
     const onScroll = (event: Event) => {
       if (menuRef.current?.contains(event.target as Node)) return;

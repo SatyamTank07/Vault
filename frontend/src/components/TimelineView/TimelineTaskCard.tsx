@@ -1,7 +1,7 @@
 import React from 'react';
 import { Repeat, SkipForward } from 'lucide-react';
 import type { Note } from '../NoteCard/NoteCard';
-import { formatDateRange, formatTime, RECURRENCE_LABELS } from '../../lib/noteText';
+import { describeRecurrence, formatDateRange, formatTime } from '../../lib/noteText';
 import { StatusDot } from '../ui/StatusControl';
 import ui from '../ui/ui.module.css';
 import styles from './TimelineView.module.css';
@@ -16,6 +16,7 @@ export interface TimelineTask {
     content: string;
     created_at: string | null;
     updated_at: string | null;
+    recurrence_interval?: number;
   };
   scheduled_date: string;
   scheduled_time: string | null;
@@ -51,7 +52,8 @@ export const TaskRow: React.FC<TaskRowProps> = ({ task, parentTitle, hideTime, o
     meta.push(
       <span key="r" className={styles.metaRepeat}>
         <Repeat size={11} />
-        {RECURRENCE_LABELS[task.recurrence_rule || ''] || 'Repeats'}
+        {describeRecurrence({ recurrence_rule: task.recurrence_rule, recurrence_interval: task.note.recurrence_interval }) ||
+          'Repeats'}
       </span>,
     );
   }

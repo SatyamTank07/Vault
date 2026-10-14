@@ -27,7 +27,7 @@ import { Menu, MenuItem, MenuSeparator } from './components/ui/Menu';
 import { SegmentedControl } from './components/ui/SegmentedControl';
 import { Toolbar } from './components/ui/Toolbar';
 import ui from './components/ui/ui.module.css';
-import { apiFetch, type CurrentUser } from './lib/api';
+import { apiFetch, referencedUploads, type CurrentUser } from './lib/api';
 import { encryptNote, decryptNote } from './lib/crypto';
 import { isTask, plainText } from './lib/noteText';
 import { parentSaveOrder, withLiveHierarchy } from './lib/noteTree';
@@ -102,6 +102,8 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
       const target = event.target as HTMLElement;
       if (target.tagName === 'IMG') {
         const image = target as HTMLImageElement;
+        // In the editor a click selects the image (e.g. to delete it); it shouldn't open the lightbox.
+        if (image.closest('.ProseMirror[contenteditable="true"]')) return;
         if (!image.closest('[class*="lightboxContent"]')) {
           setEnlargedImageUrl(image.src);
           event.preventDefault();
@@ -163,6 +165,7 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
         recurrence_end_date: noteData.recurrence_end_date || null,
         parent_note_id: noteData.parent_note_id || null,
         ...(noteData.canvas_only !== undefined ? { canvas_only: noteData.canvas_only } : {}),
+        referenced_uploads: referencedUploads(noteData.content, noteData.id),
       };
       const encrypted = await encryptNote(payload, cryptoKey);
       const response = await apiFetch('/notes/', {
@@ -209,6 +212,7 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
         recurrence_end_date: noteData.recurrence_end_date || null,
         parent_note_id: noteData.parent_note_id || null,
         ...(noteData.canvas_only !== undefined ? { canvas_only: noteData.canvas_only } : {}),
+        referenced_uploads: referencedUploads(noteData.content, noteData.id),
       };
       const encrypted = await encryptNote(payload, cryptoKey);
       const response = await apiFetch(`/notes/${noteData.id}`, {
@@ -258,8 +262,14 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
         }),
       });
       if (response.ok) {
+        // Clearing the date also clears the repeat (the server does the same).
+        const clearedRepeat = date ? {} : { recurrence_rule: null, recurrence_interval: 1, recurrence_end_date: null };
         setNotes((prev) =>
-          prev.map((n) => (n.id === noteId ? { ...n, scheduled_date: date, scheduled_time: time, end_date: finalEndDate, status } : n)),
+          prev.map((n) =>
+            n.id === noteId
+              ? { ...n, scheduled_date: date, scheduled_time: time, end_date: finalEndDate, status, ...clearedRepeat }
+              : n,
+          ),
         );
       }
     } catch (error) {
