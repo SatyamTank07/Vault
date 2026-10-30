@@ -99,4 +99,18 @@ docker compose -p vault_prod -f docker-compose.prod.yml logs -f backend
 docker compose -p vault_prod -f docker-compose.prod.yml exec db psql -U vault_user -d vault_db
 ```
 
-The site is unreachable while the laptop sleeps or Docker is stopped; containers restart on their own when Docker starts.
+The server is unreachable while the laptop sleeps or Docker is stopped; containers restart on their own when Docker starts.
+
+## While the laptop is off
+
+Vault is an installable PWA. Every browser that has opened it keeps:
+
+- the app itself, in a service worker, so `https://vault.satyamtank.com` still opens when Cloudflare would show error 1033;
+- an encrypted copy of the user's notes, canvases and schedule in IndexedDB (`vault-<user id>`), refreshed after every
+  change and on every load. The browser decrypts it with the vault secret, as usual.
+
+While the server is unreachable the header shows **Offline** and the app is read-only. A device that has never opened
+Vault, or a user who never signed in on it, can't use it until the laptop is back. Logging out deletes the device's copy.
+
+On an iPhone, use Safari's **Add to Home Screen**: Safari may delete a website's storage after 7 days without a visit,
+but not an installed app's.

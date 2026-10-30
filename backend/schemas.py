@@ -213,6 +213,33 @@ class OccurrenceResponse(BaseModel):
         from_attributes = True
 
 
+class OccurrenceDateUpdate(BaseModel):
+    status: Optional[str] = None
+    skipped: Optional[bool] = None
+
+
+class SnapshotCanvasNode(BaseModel):
+    id: str
+    canvas_id: str
+    note_id: str
+    position_x: float
+    position_y: float
+    mirrored: bool = False
+
+    class Config:
+        from_attributes = True
+
+
+class SnapshotResponse(BaseModel):
+    """Everything the user owns, so the client can keep an offline copy."""
+
+    server_time: datetime
+    notes: list[NoteResponse]
+    canvases: list[CanvasListResponse]
+    canvas_nodes: list[SnapshotCanvasNode]
+    occurrences: list[OccurrenceResponse]
+
+
 class TimelineEntry(BaseModel):
     id: str
     canvas_id: str

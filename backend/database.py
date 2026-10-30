@@ -40,6 +40,11 @@ def run_schema_migrations():
         "ALTER TABLE notes ALTER COLUMN canvas_only SET DEFAULT FALSE",
         "ALTER TABLE notes ALTER COLUMN canvas_only SET NOT NULL",
         "ALTER TABLE canvas_nodes ADD COLUMN IF NOT EXISTS mirrored BOOLEAN NOT NULL DEFAULT FALSE",
+        # Offline sync compares updated_at, so it must be set from the first insert.
+        "UPDATE notes SET updated_at = created_at WHERE updated_at IS NULL",
+        "ALTER TABLE notes ALTER COLUMN updated_at SET DEFAULT now()",
+        "UPDATE canvases SET updated_at = created_at WHERE updated_at IS NULL",
+        "ALTER TABLE canvases ALTER COLUMN updated_at SET DEFAULT now()",
         # One-time: move canvas parent links onto notes, then drop the old column.
         # Guarded by the column's existence, so it is a no-op on every later startup.
         """

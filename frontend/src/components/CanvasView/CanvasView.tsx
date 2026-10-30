@@ -17,6 +17,8 @@ import {
 import '@xyflow/react/dist/style.css';
 
 import { apiFetch, referencedUploads } from '../../lib/api';
+import { useOnline } from '../../lib/connectivity';
+import { buildCanvas, buildCanvasList, cachedGet } from '../../lib/replica';
 import { useResolvedTheme } from '../../lib/theme';
 import { decryptNote, encryptNote } from '../../lib/crypto';
 import type { Note } from '../NoteCard/NoteCard';
@@ -59,6 +61,7 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
   cryptoKey,
 }) => {
   const storageKey = useMemo(() => `vault_last_canvas_id_${currentUserId}`, [currentUserId]);
+  const online = useOnline();
   const [canvases, setCanvases] = useState<CanvasListItem[]>([]);
   const [activeCanvasId, setActiveCanvasId] = useState<string | null>(() => localStorage.getItem(storageKey) || null);
   const [canvasData, setCanvasData] = useState<CanvasData | null>(null);
@@ -107,7 +110,7 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
 
   const fetchCanvases = useCallback(async () => {
     try {
-      const response = await apiFetch('/api/canvases/');
+      const response = await cachedGet('/api/canvases/', buildCanvasList);
       if (response.ok) {
         const data: CanvasListItem[] = await response.json();
         setCanvases(data);
@@ -132,7 +135,7 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
   const fetchCanvasData = useCallback(
     async (canvasId: string) => {
       try {
-        const response = await apiFetch(`/api/canvases/${canvasId}`);
+        const response = await cachedGet(`/api/canvases/${canvasId}`, (local) => buildCanvas(local, canvasId));
         if (response.ok) {
           const data: CanvasData = await response.json();
 
@@ -557,7 +560,7 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
               type="button"
               className={`${ui.btn} ${ui.ghost} ${ui.sm}`}
               onClick={handleAutoLayout}
-              disabled={nodes.length === 0}
+              disabled={!online || nodes.length === 0}
             >
               <Wand2 size={14} />
               Auto layout
@@ -583,6 +586,8 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
             onConnect={onConnect}
             nodeTypes={nodeTypes}
             onNodeDragStop={onNodeDragStop}
+            nodesDraggable={online}
+            nodesConnectable={online}
             colorMode={theme}
             fitView
             fitViewOptions={{ padding: 0.3, maxZoom: 1.1 }}

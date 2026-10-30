@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, Lock, Columns2, List } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
+import { cachedGet } from '../../lib/replica';
+import { buildTimeline } from '../../lib/schedule';
 import { decryptNote } from '../../lib/crypto';
 import type { Note } from '../NoteCard/NoteCard';
 import { DayView } from './DayView';
@@ -175,7 +177,9 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
     setLoading(true);
 
     try {
-      const response = await apiFetch(`/api/timeline/?start_date=${start}&end_date=${end}`);
+      const response = await cachedGet(`/api/timeline/?start_date=${start}&end_date=${end}`, (local) =>
+        buildTimeline(local, start, end),
+      );
       if (response.ok) {
         const data: Record<string, TimelineTask[]> = await response.json();
 
@@ -293,17 +297,16 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
     });
 
     try {
-      if (occurrenceId) {
-        await apiFetch(`/api/occurrences/${occurrenceId}/status`, {
-          method: 'PUT',
-          body: JSON.stringify({ status: newStatus }),
-        });
-      } else {
-        await apiFetch(`/api/notes/${taskId}/schedule`, {
-          method: 'PUT',
-          body: JSON.stringify({ status: newStatus }),
-        });
-      }
+      const response = occurrenceId
+        ? await apiFetch(`/api/occurrences/${occurrenceId}/status`, {
+            method: 'PUT',
+            body: JSON.stringify({ status: newStatus }),
+          })
+        : await apiFetch(`/api/notes/${taskId}/schedule`, {
+            method: 'PUT',
+            body: JSON.stringify({ status: newStatus }),
+          });
+      if (!response.ok) throw new Error(`Status update failed (${response.status})`);
       fetchNotes();
     } catch (error) {
       console.error('Failed to update status:', error);
@@ -324,10 +327,11 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
     });
 
     try {
-      await apiFetch(`/api/occurrences/${occurrenceId}/status`, {
+      const response = await apiFetch(`/api/occurrences/${occurrenceId}/status`, {
         method: 'PUT',
         body: JSON.stringify({ status: 'todo', skipped: true }),
       });
+      if (!response.ok) throw new Error(`Skip failed (${response.status})`);
       fetchNotes();
     } catch (error) {
       console.error('Failed to skip occurrence:', error);

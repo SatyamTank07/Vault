@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Lock } from 'lucide-react';
-import { apiFetch } from '../../lib/api';
+import { cachedGet } from '../../lib/replica';
+import { buildTimestream } from '../../lib/schedule';
 import { decryptNote } from '../../lib/crypto';
 import type { Note } from '../NoteCard/NoteCard';
 import ui from '../ui/ui.module.css';
@@ -86,7 +87,9 @@ export const TimeStreamView: React.FC<TimeStreamViewProps> = ({
         const fetchStart = toISODateString(new Date(viewportStart.getTime() - bufferMs));
         const fetchEnd = toISODateString(new Date(viewportEnd.getTime() + bufferMs));
 
-        const res = await apiFetch(`/api/timestream/?start_date=${fetchStart}&end_date=${fetchEnd}`);
+        const res = await cachedGet(`/api/timestream/?start_date=${fetchStart}&end_date=${fetchEnd}`, (local) =>
+          buildTimestream(local, fetchStart, fetchEnd),
+        );
         if (res.ok && isMounted) {
           const data = await res.json();
 

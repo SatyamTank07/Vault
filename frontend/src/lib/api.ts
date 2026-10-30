@@ -1,3 +1,5 @@
+import { reportConnectivity, reportServerWrite } from './connectivity';
+
 // An empty VITE_API_URL means the API is served from the same origin as the app (self-hosted behind nginx).
 export const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
@@ -56,16 +58,36 @@ export async function apiFetch(
     headers.set('Content-Type', 'application/json');
   }
 
-  const response = await fetch(url, {
-    ...init,
-    headers,
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...init,
+      headers,
+    });
+  } catch (error) {
+    reportConnectivity(false);
+    throw error;
+  }
+  reportConnectivity(!isServerUnreachable(response));
+  const method = (init.method ?? 'GET').toUpperCase();
+  if (response.ok && method !== 'GET' && options.auth !== false) {
+    reportServerWrite();
+  }
 
   if (response.status === 401 && options.auth !== false && !options.suppressUnauthorizedEvent) {
     window.dispatchEvent(new CustomEvent(UNAUTHORIZED_EVENT));
   }
 
   return response;
+}
+
+/**
+ * True when the response came from something in front of the server rather than the API itself,
+ * e.g. Cloudflare's 530 page while the laptop running Vault is asleep.
+ */
+export function isServerUnreachable(response: Response): boolean {
+  return response.status === 502 || response.status === 503 || response.status === 504 ||
+    (response.status >= 520 && response.status <= 530);
 }
 
 export async function getErrorMessage(response: Response, fallback = 'Request failed.'): Promise<string> {
