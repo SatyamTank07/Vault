@@ -1,0 +1,79 @@
+# Deploys main to the self-hosted Vault on Satyam's laptop.
+# Runs only on the self-hosted runner labelled vault-host, only for pushes to main (or a manual run).
+# It never checks out code into the runner: it updates the host clone and rebuilds the vault_prod stack there.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-vault-host
+  cancel-in-progress: false
+
+env:
+  HOST_DIR: C:\Satyam\Vault_Project\Vault_Host
+  BACKUP_DIR: C:\Satyam\Vault_Project\Vault_Host_backups
+  COMPOSE_FILE: docker-compose.prod.yml
+  KEEP_BACKUPS: 14
+
+jobs:
+  deploy:
+    if: github.repository == 'SatyamTank07/Vault'
+    runs-on: [self-hosted, vault-host]
+    defaults:
+      run:
+        shell: powershell
+        working-directory: C:\Satyam\Vault_Project\Vault_Host
+    steps:
+      - name: Back up the database
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $running = docker compose -p vault_prod -f $env:COMPOSE_FILE ps --status running --services db
+          if (-not $running) {
+            Write-Host "Database is not running yet, skipping backup."
+            exit 0
+          }
+          New-Item -ItemType Directory -Force $env:BACKUP_DIR | Out-Null
+          $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+          $target = Join-Path $env:BACKUP_DIR "vault_$stamp.sql"
+          docker compose -p vault_prod -f $env:COMPOSE_FILE exec -T db sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /tmp/backup.sql'
+          if ($LASTEXITCODE -ne 0) { throw "pg_dump failed" }
+          docker compose -p vault_prod -f $env:COMPOSE_FILE cp db:/tmp/backup.sql $target
+          if ($LASTEXITCODE -ne 0) { throw "copying the backup out of the container failed" }
+          Write-Host "Backup written to $target"
+          Get-ChildItem $env:BACKUP_DIR -Filter 'vault_*.sql' |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -Skip ([int]$env:KEEP_BACKUPS) |
+            Remove-Item -Force
+
+      - name: Update the host clone to main
+        run: |
+          git fetch origin main
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          git reset --hard origin/main
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          git log -1 --oneline
+
+      - name: Rebuild and start the stack
+        run: |
+          docker compose -p vault_prod -f $env:COMPOSE_FILE up -d --build --remove-orphans
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          docker image prune -f | Out-Null
+
+      - name: Wait for the health check
+        run: |
+          $port = 47800
+          $envFile = Join-Path $env:HOST_DIR '.env'
+          $line = Select-String -Path $envFile -Pattern '^VAULT_PORT=(\d+)' -ErrorAction SilentlyContinue
+          if ($line) { $port = $line.Matches[0].Groups[1].Value }
+          for ($i = 0; $i -lt 30; $i++) {
+            try {
+              $res = Invoke-RestMethod "http://127.0.0.1:$port/health" -TimeoutSec 3
+              if ($res.status -eq 'healthy') { Write-Host "Vault is healthy on port $port"; exit 0 }
+            } catch {}
+            Start-Sleep -Seconds 2
+          }
+          docker compose -p vault_prod -f $env:COMPOSE_FILE logs --tail 50 backend web
+          throw "Vault did not become healthy on port $port"

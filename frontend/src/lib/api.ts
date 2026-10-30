@@ -1,4 +1,5 @@
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// An empty VITE_API_URL means the API is served from the same origin as the app (self-hosted behind nginx).
+export const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
 const AUTH_TOKEN_KEY = 'vault_auth_token';
 export const UNAUTHORIZED_EVENT = 'vault:unauthorized';
@@ -101,7 +102,7 @@ export function referencedUploads(content: string | null | undefined, noteId: st
 }
 
 function normalizeAssetUrl(url: string): URL {
-  return new URL(url, API_BASE_URL);
+  return new URL(url, API_BASE_URL || window.location.origin);
 }
 
 export function removeAccessTokenFromUrl(url: string): string {
