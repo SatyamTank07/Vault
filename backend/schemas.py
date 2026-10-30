@@ -268,6 +268,8 @@ class SnapshotResponse(BaseModel):
     canvases: list[CanvasListResponse]
     canvas_nodes: list[SnapshotCanvasNode]
     occurrences: list[OccurrenceResponse]
+    # URLs of the user's uploaded (encrypted) images, so a device can keep them offline.
+    uploads: list[str] = []
 
 
 class TimelineEntry(BaseModel):

@@ -5,7 +5,9 @@ import type { Note } from '../NoteCard/NoteCard';
 import { TipTapEditor } from '../TipTapEditor/TipTapEditor';
 import { ConfirmModal } from '../ConfirmModal/ConfirmModal';
 import { NotePicker } from '../NotePicker/NotePicker';
-import { apiFetch, referencedUploads } from '../../lib/api';
+import { referencedUploads } from '../../lib/api';
+import { extractUploadKey } from '../../lib/imageDecryption';
+import { discardUpload } from '../../lib/replica';
 import { getParentCandidates } from '../../lib/noteTree';
 import { normalizeStatus, STATUS_LABELS } from '../../lib/noteText';
 import { statusClass } from '../ui/statusClass';
@@ -302,7 +304,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
     for (const url of sessionUploadsRef.current) {
       const filename = url.split('/').pop();
       if (filename && !kept.has(filename)) {
-        apiFetch(url, { method: 'DELETE' }).catch((error) => console.error('Failed to delete upload:', error));
+        discardUpload(extractUploadKey(url)).catch((error) => console.error('Failed to delete upload:', error));
       }
     }
     sessionUploadsRef.current = [];
