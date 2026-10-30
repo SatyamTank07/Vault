@@ -39,7 +39,7 @@
 }
 .brandName { font-size: 17px; font-weight: 700; letter-spacing: -0.02em; color: var(--fg); }
 
-.offlinePill {
+.syncPill {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -52,6 +52,11 @@
   font-weight: 600;
   white-space: nowrap;
 }
+.syncPillAction { cursor: pointer; border-color: var(--accent-line); color: var(--accent); background: var(--accent-soft); }
+.syncPillAction:hover { border-color: var(--accent); }
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
 
 .hdrActions {
   margin-left: auto;

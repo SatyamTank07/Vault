@@ -109,8 +109,17 @@ Vault is an installable PWA. Every browser that has opened it keeps:
 - an encrypted copy of the user's notes, canvases and schedule in IndexedDB (`vault-<user id>`), refreshed after every
   change and on every load. The browser decrypts it with the vault secret, as usual.
 
-While the server is unreachable the header shows **Offline** and the app is read-only. A device that has never opened
-Vault, or a user who never signed in on it, can't use it until the laptop is back. Logging out deletes the device's copy.
+While the server is unreachable the header shows **Offline** and Vault keeps working: notes, canvases and the
+schedule can be read and changed. Changes are queued on the device (the `outbox` store) and sent through
+`POST /api/sync/push` once the server answers again, then the device pulls a fresh snapshot.
+
+If the same note's text was changed on two devices, the change that syncs last wins and the other version is saved as
+a new note titled "… (conflicted copy <date>)". A note deleted on one device but edited on another is kept. If the
+session expired meanwhile, the header shows **Sign in to sync**; queued changes stay on the device until you sign in
+again as the same user.
+
+A device that has never opened Vault, or a user who never signed in on it, can't use it until the laptop is back.
+Logging out deletes the device's copy (Vault warns first if changes haven't synced). Images still need the server.
 
 On an iPhone, use Safari's **Add to Home Screen**: Safari may delete a website's storage after 7 days without a visit,
 but not an installed app's.

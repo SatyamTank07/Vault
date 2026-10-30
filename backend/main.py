@@ -553,6 +553,17 @@ def set_occurrence_by_date(
     return occ
 
 
+@app.post("/api/sync/push", response_model=schemas.SyncPushResponse)
+def push_sync_ops(
+    payload: schemas.SyncPushRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    if len(payload.ops) > 200:
+        raise HTTPException(status_code=413, detail="Send at most 200 operations per push.")
+    return {"results": crud.apply_sync_ops(db, current_user.id, payload.client_id, payload.ops)}
+
+
 @app.get("/api/sync/snapshot", response_model=schemas.SnapshotResponse)
 def get_sync_snapshot(
     db: Session = Depends(get_db),

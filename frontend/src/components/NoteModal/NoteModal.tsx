@@ -6,7 +6,6 @@ import { TipTapEditor } from '../TipTapEditor/TipTapEditor';
 import { ConfirmModal } from '../ConfirmModal/ConfirmModal';
 import { NotePicker } from '../NotePicker/NotePicker';
 import { apiFetch, referencedUploads } from '../../lib/api';
-import { useOnline } from '../../lib/connectivity';
 import { getParentCandidates } from '../../lib/noteTree';
 import { normalizeStatus, STATUS_LABELS } from '../../lib/noteText';
 import { statusClass } from '../ui/statusClass';
@@ -121,7 +120,6 @@ export const NoteModal: React.FC<NoteModalProps> = ({
   initialPopover = null,
   canvasName = null,
 }) => {
-  const online = useOnline();
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [status, setStatus] = useState<string | null>(null);
@@ -415,7 +413,6 @@ export const NoteModal: React.FC<NoteModalProps> = ({
   const handleSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!title.trim() && !content.trim()) return;
-    if (!online) return;
     if (isPopoverOpen) {
       setIsPopoverOpen(false);
     }
@@ -904,13 +901,8 @@ export const NoteModal: React.FC<NoteModalProps> = ({
               <button type="button" className={`${ui.btn} ${ui.ghost}`} onClick={handleCancelClick}>
                 {hasUnsavedChanges ? 'Cancel' : 'Close'}
               </button>
-              <button
-                type="submit"
-                className={`${ui.btn} ${ui.primary}`}
-                disabled={!online || (!title.trim() && !content.trim())}
-                title={online ? undefined : 'Vault is offline. Saving resumes once it is reachable.'}
-              >
-                {online ? 'Save note' : 'Offline'}
+              <button type="submit" className={`${ui.btn} ${ui.primary}`} disabled={!title.trim() && !content.trim()}>
+                Save note
               </button>
             </div>
           </form>

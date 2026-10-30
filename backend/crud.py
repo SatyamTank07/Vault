@@ -1,4 +1,5 @@
 import os
+import uuid
 from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session, joinedload
@@ -205,13 +206,16 @@ def create_note(db: Session, user_id: str, note: schemas.NoteCreate):
     return db_note
 
 
-def update_note(db: Session, user_id: str, note_id: str, note: schemas.NoteUpdate):
+def update_note(db: Session, user_id: str, note_id: str, note: schemas.NoteUpdate, writer: str | None = None):
     db_note = get_note(db, user_id, note_id)
     if db_note:
         update_data = note.dict(exclude_unset=True)
         referenced_uploads = update_data.pop("referenced_uploads", None)
         if update_data.get("canvas_only") is None:
             update_data.pop("canvas_only", None)
+        if any(key in update_data and update_data[key] != getattr(db_note, key) for key in ("title", "content")):
+            db_note.content_version = (db_note.content_version or 1) + 1
+            db_note.content_writer = writer
         for key, value in update_data.items():
             setattr(db_note, key, value)
         _enforce_visibility(db_note)
@@ -290,7 +294,7 @@ def get_canvas(db: Session, user_id: str, canvas_id: str):
 
 
 def create_canvas(db: Session, user_id: str, canvas: schemas.CanvasCreate):
-    db_canvas = models.Canvas(name=canvas.name, user_id=user_id)
+    db_canvas = models.Canvas(id=canvas.id or None, name=canvas.name, user_id=user_id)
     db.add(db_canvas)
     db.commit()
     db.refresh(db_canvas)
@@ -361,6 +365,7 @@ def create_canvas_node(db: Session, user_id: str, canvas_id: str, data: schemas.
         db_note.parent_note_id = data.parent_note_id
 
     db_node = models.CanvasNode(
+        id=data.id or None,
         canvas_id=canvas_id,
         note_id=db_note.id,
         position_x=data.position_x,
@@ -955,6 +960,159 @@ def set_occurrence_by_date(
     db.commit()
     db.refresh(occ)
     return occ
+
+
+def _require_uuid(value) -> str:
+    if not isinstance(value, str):
+        raise ValueError("id is required")
+    return str(uuid.UUID(value))
+
+
+def _owned_canvas_node(db: Session, user_id: str, node_id: str):
+    return (
+        db.query(models.CanvasNode)
+        .join(models.Canvas, models.CanvasNode.canvas_id == models.Canvas.id)
+        .filter(models.CanvasNode.id == node_id, models.Canvas.user_id == user_id)
+        .first()
+    )
+
+
+def _content_conflict(db_note, base_version, client_id: str) -> bool:
+    """True when title/content changed on another device since this one last saw the note."""
+    if base_version is None:
+        return False
+    return db_note.content_version != base_version and db_note.content_writer != client_id
+
+
+def _apply_sync_op(db: Session, user_id: str, client_id: str, op_type: str, payload: dict) -> dict:
+    applied = {"result": "applied"}
+    not_found = {"result": "not_found"}
+
+    if op_type == "create_note":
+        note = schemas.NoteCreate(**payload)
+        note.id = _require_uuid(note.id)
+        existing = db.query(models.Note).filter(models.Note.id == note.id).first()
+        if existing is not None:
+            # Created by an earlier push whose response was lost.
+            return applied if existing.user_id == user_id else {"result": "error", "detail": "id in use"}
+        if note.parent_note_id and get_note(db, user_id, note.parent_note_id) is None:
+            note.parent_note_id = None
+        db_note = create_note(db, user_id, note)
+        db_note.content_writer = client_id
+        db.commit()
+        return applied
+
+    if op_type == "update_note":
+        note_id = _require_uuid(payload.get("id"))
+        db_note = get_note(db, user_id, note_id)
+        if db_note is None:
+            return not_found
+        fields = {k: v for k, v in payload.items() if k not in ("id", "base_content_version")}
+        text_changed = "title" in fields or "content" in fields
+        if text_changed and _content_conflict(db_note, payload.get("base_content_version"), client_id):
+            # Save everything except the text, then hand both versions back to the client.
+            for field in ("title", "content", "referenced_uploads"):
+                fields.pop(field, None)
+            db_note = update_note(db, user_id, note_id, schemas.NoteUpdate(**fields))
+            return {"result": "conflict", "note": db_note}
+        update_note(db, user_id, note_id, schemas.NoteUpdate(**fields), writer=client_id)
+        return applied
+
+    if op_type == "delete_note":
+        note_id = _require_uuid(payload.get("id"))
+        db_note = get_note(db, user_id, note_id)
+        if db_note is None:
+            return applied
+        if _content_conflict(db_note, payload.get("base_content_version"), client_id):
+            # Edited elsewhere after this device last saw it: keep the edit rather than lose it.
+            return {"result": "conflict", "note": db_note}
+        delete_note(db, user_id, note_id)
+        return applied
+
+    if op_type == "set_parent":
+        note_id = _require_uuid(payload.get("id"))
+        parent_id = payload.get("parent_note_id")
+        return applied if set_note_parent(db, user_id, note_id, parent_id) is not None else not_found
+
+    if op_type == "set_schedule":
+        note_id = _require_uuid(payload.get("id"))
+        data = schemas.NoteScheduleUpdate(**{k: v for k, v in payload.items() if k != "id"})
+        return applied if update_note_schedule(db, user_id, note_id, data) is not None else not_found
+
+    if op_type == "set_occurrence":
+        note_id = _require_uuid(payload.get("note_id"))
+        occurrence_date = date.fromisoformat(payload["occurrence_date"])
+        data = schemas.OccurrenceDateUpdate(status=payload.get("status"), skipped=payload.get("skipped"))
+        occ = set_occurrence_by_date(db, user_id, note_id, occurrence_date, data)
+        return applied if occ is not None else not_found
+
+    if op_type == "create_canvas":
+        canvas_id = _require_uuid(payload.get("id"))
+        existing = db.query(models.Canvas).filter(models.Canvas.id == canvas_id).first()
+        if existing is not None:
+            return applied if existing.user_id == user_id else {"result": "error", "detail": "id in use"}
+        create_canvas(db, user_id, schemas.CanvasCreate(id=canvas_id, name=payload.get("name") or "Untitled"))
+        return applied
+
+    if op_type == "rename_canvas":
+        canvas_id = _require_uuid(payload.get("id"))
+        updated = update_canvas(db, user_id, canvas_id, schemas.CanvasUpdate(name=payload.get("name")))
+        return applied if updated is not None else not_found
+
+    if op_type == "delete_canvas":
+        delete_canvas(db, user_id, _require_uuid(payload.get("id")))
+        return applied
+
+    if op_type == "create_canvas_node":
+        data = schemas.CanvasNodeCreate(**{k: v for k, v in payload.items() if k != "canvas_id"})
+        data.id = _require_uuid(data.id)
+        if db.query(models.CanvasNode).filter(models.CanvasNode.id == data.id).first() is not None:
+            owned = _owned_canvas_node(db, user_id, data.id) is not None
+            return applied if owned else {"result": "error", "detail": "id in use"}
+        node = create_canvas_node(db, user_id, _require_uuid(payload.get("canvas_id")), data)
+        return applied if node is not None else not_found
+
+    if op_type == "move_canvas_node":
+        node_id = _require_uuid(payload.get("id"))
+        data = schemas.CanvasNodeUpdate(position_x=payload.get("position_x"), position_y=payload.get("position_y"))
+        return applied if update_canvas_node(db, user_id, node_id, data) is not None else not_found
+
+    if op_type == "delete_canvas_node":
+        delete_canvas_node(db, user_id, _require_uuid(payload.get("id")))
+        return applied
+
+    return {"result": "error", "detail": f"unknown operation {op_type}"}
+
+
+def apply_sync_ops(db: Session, user_id: str, client_id: str, ops: list) -> list[dict]:
+    """Apply a device's queued changes in order. Each op commits on its own, so one bad op doesn't block the rest."""
+    results = []
+    for op in ops:
+        done = (
+            db.query(models.AppliedSyncOp)
+            .filter(models.AppliedSyncOp.op_id == op.op_id, models.AppliedSyncOp.user_id == user_id)
+            .first()
+        )
+        if done is not None:
+            results.append({"op_id": op.op_id, "result": done.result})
+            continue
+
+        try:
+            outcome = _apply_sync_op(db, user_id, client_id, op.type, op.payload)
+        except (InvalidParentError, ValueError, KeyError, TypeError) as exc:
+            db.rollback()
+            outcome = {"result": "error", "detail": str(exc)}
+        except Exception as exc:  # keep going; the client drops the op and resyncs
+            db.rollback()
+            print(f"Sync op {op.op_id} ({op.type}) failed: {exc}")
+            outcome = {"result": "error", "detail": "server error"}
+
+        if outcome["result"] != "conflict":
+            # Conflicts aren't recorded: the client resolves them with new ops.
+            db.add(models.AppliedSyncOp(op_id=op.op_id, user_id=user_id, result=outcome["result"]))
+            db.commit()
+        results.append({"op_id": op.op_id, **outcome})
+    return results
 
 
 def get_snapshot(db: Session, user_id: str) -> dict:

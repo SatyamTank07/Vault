@@ -1,7 +1,6 @@
-import React, { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, Lock, Columns2, List } from 'lucide-react';
-import { apiFetch } from '../../lib/api';
-import { cachedGet } from '../../lib/replica';
+import { enqueue, getView, useReplica } from '../../lib/replica';
 import { buildTimeline } from '../../lib/schedule';
 import { decryptNote } from '../../lib/crypto';
 import type { Note } from '../NoteCard/NoteCard';
@@ -25,7 +24,6 @@ interface TimelineViewProps {
   actionsRef?: React.Ref<TimelineViewActions>;
   onOpenNote: (note: Note) => void;
   notes: Note[];
-  fetchNotes: () => void;
   cryptoKey: CryptoKey | null;
   showCompleted?: boolean;
   onCreateChild?: (parentId: string) => void;
@@ -136,7 +134,6 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
   actionsRef,
   onOpenNote,
   notes,
-  fetchNotes,
   cryptoKey,
   showCompleted = false,
   onCreateChild,
@@ -177,11 +174,8 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
     setLoading(true);
 
     try {
-      const response = await cachedGet(`/api/timeline/?start_date=${start}&end_date=${end}`, (local) =>
-        buildTimeline(local, start, end),
-      );
-      if (response.ok) {
-        const data: Record<string, TimelineTask[]> = await response.json();
+      {
+        const data = buildTimeline(getView(), start, end) as unknown as Record<string, TimelineTask[]>;
 
         // Decrypt note fields in timeline tasks
         if (cryptoKey) {
@@ -212,19 +206,16 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
     }
   }, [getDateRange, cryptoKey]);
 
-  // Any change to the notes (new note, edit, status) refetches the visible week; moving
+  // Any change to the local copy (new note, edit, status, sync) rebuilds the visible week; moving
   // between days of the same week reuses what is already loaded.
-  const notesKey = useMemo(
-    () => notes.map((n) => `${n.id}:${n.updated_at}:${n.status}:${n.scheduled_date}`).join('|'),
-    [notes],
-  );
-  const lastNotesKey = useRef(notesKey);
+  const replica = useReplica();
+  const lastReplica = useRef(replica);
   useEffect(() => {
     if (subView === 'horizon') return;
-    const notesChanged = lastNotesKey.current !== notesKey;
-    lastNotesKey.current = notesKey;
-    fetchTimeline(notesChanged);
-  }, [fetchTimeline, subView, notesKey]);
+    const changed = lastReplica.current !== replica;
+    lastReplica.current = replica;
+    fetchTimeline(changed);
+  }, [fetchTimeline, subView, replica]);
 
   const parentTitleOf = useCallback(
     (noteId: string) => {
@@ -283,42 +274,35 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
     setSelectedDate(nextDate);
   };
 
-  const handleStatusChange = async (taskId: string, newStatus: string, occurrenceId?: string | null) => {
+  /** A repeat is stored per occurrence (by its start date); anything else on the note itself. */
+  const sameEntry = (a: TimelineTask, b: TimelineTask) =>
+    a.id === b.id && (!a.is_recurring || (a.start_date ?? a.scheduled_date) === (b.start_date ?? b.scheduled_date));
+
+  const handleStatusChange = async (task: TimelineTask, newStatus: string) => {
     setTasksByDate((prev) => {
       const updated = { ...prev };
       for (const dateKey of Object.keys(updated)) {
-        updated[dateKey] = updated[dateKey].map((task) =>
-          (occurrenceId ? task.occurrence_id === occurrenceId : task.id === taskId)
-            ? { ...task, status: newStatus }
-            : task,
-        );
+        updated[dateKey] = updated[dateKey].map((t) => (sameEntry(t, task) ? { ...t, status: newStatus } : t));
       }
       return updated;
     });
 
-    try {
-      const response = occurrenceId
-        ? await apiFetch(`/api/occurrences/${occurrenceId}/status`, {
-            method: 'PUT',
-            body: JSON.stringify({ status: newStatus }),
-          })
-        : await apiFetch(`/api/notes/${taskId}/schedule`, {
-            method: 'PUT',
-            body: JSON.stringify({ status: newStatus }),
-          });
-      if (!response.ok) throw new Error(`Status update failed (${response.status})`);
-      fetchNotes();
-    } catch (error) {
-      console.error('Failed to update status:', error);
-      fetchTimeline(true);
+    if (task.is_recurring) {
+      await enqueue('set_occurrence', {
+        note_id: task.id,
+        occurrence_date: task.start_date ?? task.scheduled_date,
+        status: newStatus,
+      });
+    } else {
+      await enqueue('set_schedule', { id: task.id, status: newStatus });
     }
   };
 
-  const handleSkip = async (occurrenceId: string) => {
+  const handleSkip = async (task: TimelineTask) => {
     setTasksByDate((prev) => {
       const updated = { ...prev };
       for (const dateKey of Object.keys(updated)) {
-        updated[dateKey] = updated[dateKey].filter((task) => task.occurrence_id !== occurrenceId);
+        updated[dateKey] = updated[dateKey].filter((t) => !sameEntry(t, task));
         if (updated[dateKey].length === 0) {
           delete updated[dateKey];
         }
@@ -326,17 +310,12 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
       return updated;
     });
 
-    try {
-      const response = await apiFetch(`/api/occurrences/${occurrenceId}/status`, {
-        method: 'PUT',
-        body: JSON.stringify({ status: 'todo', skipped: true }),
-      });
-      if (!response.ok) throw new Error(`Skip failed (${response.status})`);
-      fetchNotes();
-    } catch (error) {
-      console.error('Failed to skip occurrence:', error);
-      fetchTimeline(true);
-    }
+    await enqueue('set_occurrence', {
+      note_id: task.id,
+      occurrence_date: task.start_date ?? task.scheduled_date,
+      status: 'todo',
+      skipped: true,
+    });
   };
 
   const filteredTasksByDate = Object.fromEntries(

@@ -29,7 +29,7 @@ export interface TimelineTask {
   end_date?: string;
 }
 
-export type StatusChangeHandler = (taskId: string, newStatus: string, occurrenceId?: string | null) => void;
+export type StatusChangeHandler = (task: TimelineTask, newStatus: string) => void;
 
 interface TaskRowProps {
   task: TimelineTask;
@@ -39,7 +39,7 @@ interface TaskRowProps {
   hideTime?: boolean;
   onOpenNote: (note: Note) => void;
   onStatusChange: StatusChangeHandler;
-  onSkip?: (occurrenceId: string) => void;
+  onSkip?: (task: TimelineTask) => void;
 }
 
 /** One task in a day column or agenda: status dot, title, canvas · time · repeat · parent. */
@@ -67,7 +67,7 @@ export const TaskRow: React.FC<TaskRowProps> = ({ task, parentTitle, hideTime, o
       <StatusDot
         status={task.status}
         label={title}
-        onChange={(next) => onStatusChange(task.id, next, task.occurrence_id)}
+        onChange={(next) => onStatusChange(task, next)}
       />
       <div className={styles.taskMain}>
         {/* The whole row opens the note on click; the title is the keyboard target. */}
@@ -78,13 +78,13 @@ export const TaskRow: React.FC<TaskRowProps> = ({ task, parentTitle, hideTime, o
           <div className={styles.taskMeta}>{meta}</div>
         )}
       </div>
-      {task.is_recurring && task.occurrence_id && onSkip && (
+      {task.is_recurring && onSkip && (
         <button
           type="button"
           className={`${ui.iconBtn} ${ui.iconSm} ${styles.skip}`}
           onClick={(event) => {
             event.stopPropagation();
-            onSkip(task.occurrence_id as string);
+            onSkip(task);
           }}
           title="Skip this occurrence"
           aria-label={`Skip this occurrence of ${title}`}
@@ -121,7 +121,7 @@ export const SpanRibbon: React.FC<SpanRibbonProps> = ({ task, style, onOpenNote,
           small
           status={task.status}
           label={title}
-          onChange={(next) => onStatusChange(task.id, next, task.occurrence_id)}
+          onChange={(next) => onStatusChange(task, next)}
         />
         <button type="button" className={styles.ribbonTitle}>
           {title}
