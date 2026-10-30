@@ -21,7 +21,10 @@ export type OpType =
   | 'delete_canvas'
   | 'create_canvas_node'
   | 'move_canvas_node'
-  | 'delete_canvas_node';
+  | 'delete_canvas_node'
+  // Images: sent to the upload routes rather than /api/sync/push; nothing to apply locally.
+  | 'upload'
+  | 'delete_upload';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type OpPayload = Record<string, any>;

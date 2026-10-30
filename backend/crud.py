@@ -47,6 +47,33 @@ def prune_note_uploads(user_id: str, note_id: str, referenced: list[str]) -> Non
                 _remove_upload(file_path)
 
 
+def is_client_upload_name(filename: str) -> bool:
+    """A client-chosen upload name: `<uuid>.<short extension>`, nothing that could escape the folder."""
+    stem, dot, extension = filename.partition(".")
+    if not dot or not extension.isalnum() or len(extension) > 8:
+        return False
+    try:
+        return str(uuid.UUID(stem)) == stem.lower()
+    except ValueError:
+        return False
+
+
+def list_uploads(user_id: str, note_ids: list[str]) -> list[str]:
+    """URLs of every uploaded file the user owns, current and legacy layout."""
+    urls = []
+    user_root = os.path.join(UPLOAD_DIR, user_id)
+    if os.path.isdir(user_root):
+        for note_id in os.listdir(user_root):
+            folder = os.path.join(user_root, note_id)
+            if os.path.isdir(folder):
+                urls.extend(f"/api/uploads/{note_id}/{name}" for name in os.listdir(folder))
+    for note_id in note_ids:
+        legacy = os.path.join(UPLOAD_DIR, note_id)
+        if os.path.isdir(legacy):
+            urls.extend(f"/api/uploads/{note_id}/{name}" for name in os.listdir(legacy))
+    return sorted(set(urls))
+
+
 def delete_upload(db: Session, user_id: str, note_id: str, filename: str) -> bool:
     """Delete one uploaded file, e.g. an image added to an edit that was then discarded."""
     paths = [os.path.join(UPLOAD_DIR, user_id, note_id, filename)]
@@ -1143,6 +1170,7 @@ def get_snapshot(db: Session, user_id: str) -> dict:
         "canvases": canvases,
         "canvas_nodes": canvas_nodes,
         "occurrences": occurrences,
+        "uploads": list_uploads(user_id, [note.id for note in notes]),
     }
 
 

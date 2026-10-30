@@ -4,9 +4,13 @@ import { isOnline, subscribeConnectivity } from './connectivity';
 import { decryptNote, encryptNote, getActiveVaultKey } from './crypto';
 import {
   clearLocalDb,
+  deleteLocalImages,
   deleteOutboxOps,
+  getLocalImage,
+  listLocalImages,
   loadOutbox,
   loadSnapshot,
+  putLocalImage,
   putOutboxOp,
   saveSnapshot,
   type LocalNote,
@@ -25,6 +29,7 @@ const CLIENT_ID_KEY = 'vault_sync_client_id';
 const PUSH_BATCH = 100;
 const SYNC_DEBOUNCE_MS = 800;
 const SYNC_INTERVAL_MS = 60_000;
+const IMAGE_DOWNLOADS_AT_ONCE = 3;
 export const SYNC_CONFLICT_EVENT = 'vault:sync-conflict';
 export const SYNC_SIGN_IN_EVENT = 'vault:sync-sign-in';
 
@@ -265,8 +270,24 @@ async function pushOutbox(userId: string): Promise<Outcome> {
   await refreshOutbox(userId);
   if (activeUserId !== userId) return 'failed';
 
-  for (let round = 0; outbox.length > 0 && round < 20; round++) {
-    const batch = outbox.slice(0, PUSH_BATCH);
+  for (let round = 0; outbox.length > 0 && round < 500; round++) {
+    if (isImageOp(outbox[0])) {
+      const op = outbox[0];
+      inFlight = new Set([op.op_id]);
+      const problem = await pushImageOp(userId, op);
+      inFlight = new Set();
+      if (problem) return problem;
+      if (op.seq !== undefined) await deleteOutboxOps(userId, [op.seq]);
+      await refreshOutbox(userId, new Set([op.op_id]));
+      if (activeUserId !== userId) return 'failed';
+      setStatus({ pending: outbox.length });
+      broadcastChange();
+      continue;
+    }
+
+    // JSON ops up to the next image op, so the server sees changes in the order they were made.
+    const firstImage = outbox.findIndex(isImageOp);
+    const batch = outbox.slice(0, Math.min(PUSH_BATCH, firstImage === -1 ? outbox.length : firstImage));
     inFlight = new Set(batch.map((op) => op.op_id));
     const response = await apiFetch(
       '/api/sync/push',
@@ -312,6 +333,133 @@ async function pushOutbox(userId: string): Promise<Outcome> {
   return 'ok';
 }
 
+const isImageOp = (op: QueuedOp) => op.type === 'upload' || op.type === 'delete_upload';
+const uploadPath = (noteId: string, filename: string) => `/api/uploads/${noteId}/${filename}`;
+
+/** Send one queued image upload or delete. Returns a problem, or null when the op is done. */
+async function pushImageOp(userId: string, op: QueuedOp): Promise<Outcome | null> {
+  const { note_id: noteId, filename } = op.payload as { note_id: string; filename: string };
+  const path = uploadPath(noteId, filename);
+
+  if (op.type === 'delete_upload') {
+    const response = await apiFetch(path, { method: 'DELETE' }, { suppressUnauthorizedEvent: true });
+    // 404: already gone, which is the goal.
+    return response.status === 404 ? null : classify(response);
+  }
+
+  const image = await getLocalImage(userId, path);
+  if (!image) {
+    console.error('Sync dropped an image upload whose bytes are missing:', path);
+    return null;
+  }
+  const form = new FormData();
+  form.append('file', new Blob([image.data], { type: 'application/octet-stream' }), filename);
+  const query = `note_id=${encodeURIComponent(noteId)}&filename=${encodeURIComponent(filename)}`;
+  const response = await apiFetch(`/api/upload?${query}`, { method: 'POST', body: form }, { suppressUnauthorizedEvent: true });
+  const problem = classify(response);
+  if (problem === 'failed') {
+    console.error('Sync dropped an image upload the server rejected:', path, response.status);
+    return null;
+  }
+  if (problem) return problem;
+  await putLocalImage(userId, { ...image, pending: false });
+  return null;
+}
+
+// ─── Images ───
+
+/** Encrypted bytes of an uploaded image, from this device if it has them. */
+export async function readLocalImage(path: string): Promise<ArrayBuffer | null> {
+  if (!activeUserId) return null;
+  try {
+    return (await getLocalImage(activeUserId, path))?.data ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Keep a downloaded image's encrypted bytes for offline use. */
+export async function rememberImage(path: string, data: ArrayBuffer): Promise<void> {
+  if (!activeUserId) return;
+  try {
+    await putLocalImage(activeUserId, { path, data, pending: false });
+  } catch (error) {
+    console.error('Failed to keep an image on this device:', error);
+  }
+}
+
+/**
+ * Add an image (already encrypted) to a note. It gets its final URL at once and is uploaded by
+ * the next sync, so this works offline. Returns the URL path to put in the note.
+ */
+export async function queueImageUpload(noteId: string, encrypted: Blob): Promise<string> {
+  const userId = activeUserId;
+  if (!userId) throw new Error('Vault is locked.');
+  const filename = `${crypto.randomUUID()}.enc`;
+  const path = uploadPath(noteId, filename);
+  await putLocalImage(userId, { path, data: await encrypted.arrayBuffer(), pending: true });
+  await enqueue('upload', { note_id: noteId, filename });
+  return path;
+}
+
+/** Drop an image added during an edit that was then discarded. */
+export async function discardUpload(path: string): Promise<void> {
+  const userId = activeUserId;
+  const match = /^\/api\/uploads\/([^/]+)\/([^/]+)$/.exec(path);
+  if (!userId || !match) return;
+  const [, noteId, filename] = match;
+
+  const queued = outbox.find(
+    (op) => op.type === 'upload' && op.payload.note_id === noteId && op.payload.filename === filename,
+  );
+  if (queued && !inFlight.has(queued.op_id)) {
+    // Never reached the server: forget it here and nothing needs sending.
+    outbox = outbox.filter((op) => op !== queued);
+    if (queued.seq !== undefined) await deleteOutboxOps(userId, [queued.seq]);
+    setStatus({ pending: outbox.length });
+    broadcastChange();
+  } else {
+    await enqueue('delete_upload', { note_id: noteId, filename });
+  }
+  await deleteLocalImages(userId, [path]);
+}
+
+let imageSyncRunning = false;
+
+/** Download images this device doesn't have yet, and drop ones that were deleted on the server. */
+async function syncImages(userId: string, uploads: string[]) {
+  if (imageSyncRunning) return;
+  imageSyncRunning = true;
+  try {
+    const local = await listLocalImages(userId);
+    const wanted = new Set(uploads);
+    const stale = [...local].filter(([path, pending]) => !pending && !wanted.has(path)).map(([path]) => path);
+    await deleteLocalImages(userId, stale);
+
+    const missing = uploads.filter((path) => !local.has(path));
+    const worker = async () => {
+      for (let path = missing.shift(); path; path = missing.shift()) {
+        if (activeUserId !== userId) return;
+        try {
+          const response = await apiFetch(path, {}, { suppressUnauthorizedEvent: true });
+          if (!response.ok) {
+            if (isServerUnreachable(response) || response.status === 401) return;
+            continue;
+          }
+          await putLocalImage(userId, { path, data: await response.arrayBuffer(), pending: false });
+        } catch {
+          return; // offline again; the next sync carries on
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: IMAGE_DOWNLOADS_AT_ONCE }, worker));
+  } catch (error) {
+    console.error('Failed to keep images offline:', error);
+  } finally {
+    imageSyncRunning = false;
+  }
+}
+
 async function pullSnapshot(userId: string): Promise<Outcome> {
   const response = await apiFetch('/api/sync/snapshot', {}, { suppressUnauthorizedEvent: true });
   const problem = classify(response);
@@ -326,6 +474,7 @@ async function pullSnapshot(userId: string): Promise<Outcome> {
   setStatus({ lastSyncedAt: fresh.server_time });
   rebuild();
   broadcastChange();
+  void syncImages(userId, fresh.uploads ?? []);
   return 'ok';
 }
 
@@ -359,26 +508,39 @@ async function resolveConflict(op: QueuedOp, serverNote: LocalNote | null | unde
 
   const { note: theirs } = await decryptNote(serverNote, key);
   const copyId = crypto.randomUUID();
+  // The copy gets its own image files, so later edits or deletes of the original can't break it.
+  let copyContent: string = theirs.content || '';
+  for (const filename of referencedUploads(copyContent, serverNote.id)) {
+    const source = uploadPath(serverNote.id, filename);
+    let data = await readLocalImage(source);
+    if (!data) {
+      const response = await apiFetch(source, {}, { suppressUnauthorizedEvent: true });
+      if (!response.ok) continue;
+      data = await response.arrayBuffer();
+    }
+    const copiedPath = await queueImageUpload(copyId, new Blob([data]));
+    copyContent = copyContent.split(source).join(copiedPath);
+  }
   const copy = await encryptNote(
-    { title: `${theirs.title || 'Untitled'} (conflicted copy ${today()})`, content: theirs.content || '' },
+    { title: `${theirs.title || 'Untitled'} (conflicted copy ${today()})`, content: copyContent },
     key,
   );
-  // Leave referenced_uploads out: the copy's images still live in the original note's folder.
-  await enqueue('create_note', { id: copyId, title: copy.title, content: copy.content, canvas_only: false });
+  await enqueue('create_note', {
+    id: copyId,
+    title: copy.title,
+    content: copy.content,
+    canvas_only: false,
+    referenced_uploads: referencedUploads(copyContent, copyId),
+  });
 
   const ours = op.payload;
   if ('title' in ours || 'content' in ours) {
-    // Keep the images both versions use, so the copy's pictures survive this save.
-    let referenced = ours.referenced_uploads as string[] | undefined;
-    if (referenced) {
-      referenced = [...new Set([...referenced, ...referencedUploads(theirs.content, serverNote.id)])];
-    }
     await enqueue('update_note', {
       id: ours.id,
       base_content_version: serverNote.content_version,
       ...('title' in ours ? { title: ours.title } : {}),
       ...('content' in ours ? { content: ours.content } : {}),
-      ...(referenced ? { referenced_uploads: referenced } : {}),
+      ...('referenced_uploads' in ours ? { referenced_uploads: ours.referenced_uploads } : {}),
     });
   }
   window.dispatchEvent(new CustomEvent(SYNC_CONFLICT_EVENT, { detail: { kind: 'copy', noteId: copyId } }));

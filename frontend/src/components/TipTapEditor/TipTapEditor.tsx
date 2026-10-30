@@ -32,6 +32,7 @@ import {
   stripProtectedAssetTokens,
 } from '../../lib/api';
 import { encryptImageFile, getActiveVaultKey } from '../../lib/crypto';
+import { queueImageUpload } from '../../lib/replica';
 import {
   cacheDecryptedBlobUrl,
   useDecryptedImageUrl,
@@ -227,14 +228,15 @@ const uploadImage = async (
 ): Promise<string | null> => {
   try {
     const key = cryptoKey || getActiveVaultKey();
-    let fileToUpload: Blob = file;
-    let filename = file.name || 'image.png';
-
     if (key) {
-      fileToUpload = await encryptImageFile(file, key);
-      filename = `${filename}.enc`;
+      // Stored on this device and uploaded by the next sync, so adding images works offline.
+      const path = await queueImageUpload(noteId, await encryptImageFile(file, key));
+      cacheDecryptedBlobUrl(path, URL.createObjectURL(file));
+      return path;
     }
 
+    const fileToUpload: Blob = file;
+    const filename = file.name || 'image.png';
     const formData = new FormData();
     formData.append('file', fileToUpload, filename);
 

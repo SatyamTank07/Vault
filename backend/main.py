@@ -219,6 +219,7 @@ def reset_password():
 async def upload_image(
     file: UploadFile = File(...),
     note_id: str = "misc",
+    filename: str | None = None,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
@@ -230,9 +231,19 @@ async def upload_image(
     note_folder = os.path.join(UPLOAD_DIR, current_user.id, safe_note_id)
     os.makedirs(note_folder, exist_ok=True)
 
-    file_extension = os.path.splitext(file.filename or "")[1]
-    unique_filename = f"{uuid.uuid4()}{file_extension}"
-    file_path = os.path.join(note_folder, unique_filename)
+    if filename is not None:
+        # Chosen by the client so an image added offline already has its final URL. Uploading the
+        # same name again (a retried sync) is a no-op.
+        if not crud.is_client_upload_name(filename):
+            raise HTTPException(status_code=400, detail="Invalid file name.")
+        unique_filename = filename
+        file_path = os.path.join(note_folder, unique_filename)
+        if os.path.exists(file_path):
+            return {"url": f"/api/uploads/{safe_note_id}/{unique_filename}"}
+    else:
+        file_extension = os.path.splitext(file.filename or "")[1]
+        unique_filename = f"{uuid.uuid4()}{file_extension}"
+        file_path = os.path.join(note_folder, unique_filename)
 
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)

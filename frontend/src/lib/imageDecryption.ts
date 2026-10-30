@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { apiFetch, isProtectedUploadUrl } from './api';
 import { decryptImageBuffer, getActiveVaultKey } from './crypto';
+import { readLocalImage, rememberImage } from './replica';
 
 // In-memory cache of decrypted blob URLs: maps normalized path (e.g., /api/uploads/<noteId>/<filename>) to blob: URL
 const decryptedBlobUrlCache = new Map<string, string>();
@@ -54,8 +55,8 @@ export function clearDecryptedImageCache(): void {
 }
 
 /**
- * Fetches an encrypted image from the backend, decrypts it client-side with the vault key,
- * and creates an ephemeral object URL.
+ * Loads an encrypted image (from this device's copy, else the backend), decrypts it client-side
+ * with the vault key, and creates an ephemeral object URL.
  */
 export async function fetchAndDecryptImage(
   url: string,
@@ -74,19 +75,23 @@ export async function fetchAndDecryptImage(
 
   const promise = (async () => {
     try {
-      const response = await apiFetch(cleanKey);
-      if (!response.ok) {
-        throw new Error(`Failed to load image: ${response.status} ${response.statusText}`);
+      let buffer = await readLocalImage(cleanKey);
+      let contentType = 'image/png';
+      if (!buffer) {
+        const response = await apiFetch(cleanKey);
+        if (!response.ok) {
+          throw new Error(`Failed to load image: ${response.status} ${response.statusText}`);
+        }
+        buffer = await response.arrayBuffer();
+        contentType = response.headers.get('content-type') || contentType;
+        void rememberImage(cleanKey, buffer.slice(0));
       }
-
-      const buffer = await response.arrayBuffer();
       const cryptoKey = key || getActiveVaultKey();
 
       let blob: Blob;
       if (cryptoKey) {
         blob = await decryptImageBuffer(buffer, cryptoKey);
       } else {
-        const contentType = response.headers.get('content-type') || 'image/png';
         blob = new Blob([buffer], { type: contentType });
       }
 

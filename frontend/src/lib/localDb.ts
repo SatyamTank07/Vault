@@ -56,6 +56,16 @@ export interface Snapshot {
   canvases: LocalCanvas[];
   canvas_nodes: LocalCanvasNode[];
   occurrences: LocalOccurrence[];
+  /** URLs of the user's uploaded images (see LocalImage). */
+  uploads?: string[];
+}
+
+/** An uploaded image's encrypted bytes, keyed by its URL path (/api/uploads/<note id>/<file>). */
+export interface LocalImage {
+  path: string;
+  data: ArrayBuffer;
+  /** Added on this device and not uploaded yet. */
+  pending: boolean;
 }
 
 interface VaultDB extends DBSchema {
@@ -65,6 +75,7 @@ interface VaultDB extends DBSchema {
   canvasNodes: { key: string; value: LocalCanvasNode };
   occurrences: { key: string; value: LocalOccurrence };
   outbox: { key: number; value: QueuedOp };
+  images: { key: string; value: LocalImage };
 }
 
 const DATA_STORES = ['notes', 'canvases', 'canvasNodes', 'occurrences'] as const;
@@ -76,7 +87,7 @@ const openConnections = new Map<string, Promise<IDBPDatabase<VaultDB>>>();
 function openLocalDb(userId: string): Promise<IDBPDatabase<VaultDB>> {
   let connection = openConnections.get(userId);
   if (!connection) {
-    connection = openDB<VaultDB>(dbName(userId), 2, {
+    connection = openDB<VaultDB>(dbName(userId), 3, {
       upgrade(db, oldVersion) {
         if (oldVersion < 1) {
           db.createObjectStore('meta');
@@ -86,6 +97,9 @@ function openLocalDb(userId: string): Promise<IDBPDatabase<VaultDB>> {
         }
         if (oldVersion < 2) {
           db.createObjectStore('outbox', { keyPath: 'seq', autoIncrement: true });
+        }
+        if (oldVersion < 3) {
+          db.createObjectStore('images', { keyPath: 'path' });
         }
       },
     });
@@ -144,6 +158,36 @@ export async function deleteOutboxOps(userId: string, seqs: number[]): Promise<v
   const tx = db.transaction('outbox', 'readwrite');
   seqs.forEach((seq) => void tx.store.delete(seq));
   await tx.done;
+}
+
+export async function getLocalImage(userId: string, path: string): Promise<LocalImage | undefined> {
+  const db = await openLocalDb(userId);
+  return db.get('images', path);
+}
+
+export async function putLocalImage(userId: string, image: LocalImage): Promise<void> {
+  const db = await openLocalDb(userId);
+  await db.put('images', image);
+}
+
+export async function deleteLocalImages(userId: string, paths: string[]): Promise<void> {
+  if (paths.length === 0) return;
+  const db = await openLocalDb(userId);
+  const tx = db.transaction('images', 'readwrite');
+  paths.forEach((path) => void tx.store.delete(path));
+  await tx.done;
+}
+
+/** Path → pending flag for every stored image, without loading the bytes. */
+export async function listLocalImages(userId: string): Promise<Map<string, boolean>> {
+  const db = await openLocalDb(userId);
+  const result = new Map<string, boolean>();
+  let cursor = await db.transaction('images').store.openCursor();
+  while (cursor) {
+    result.set(cursor.key, cursor.value.pending);
+    cursor = await cursor.continue();
+  }
+  return result;
 }
 
 /** Forget everything this device holds for a user (logout, expired session, deleted account). */
