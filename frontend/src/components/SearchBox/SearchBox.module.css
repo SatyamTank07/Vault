@@ -71,8 +71,10 @@
 }
 @media (max-width: 700px) {
   /* Shrinks to an icon-sized pill; the input's padding sets its minimum, so keep it at 36px. */
-  .search { min-width: 36px; flex-basis: 140px; width: auto; }
+  .search { min-width: 36px; flex: 0 0 36px; width: 36px; }
   .search input { padding: 0 0 0 34px; }
+  /* A clipped placeholder reads as a stray letter; it shows once the field opens. */
+  .search:not(:focus-within) input::placeholder { color: transparent; }
   .search:focus-within input { padding-right: 12px; }
   /* Too little room in the phone header; while typing, the field covers the header row. */
   .search:focus-within {

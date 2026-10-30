@@ -21,3 +21,8 @@
   flex: 1;
   min-width: 0;
 }
+
+/* Phones: stay above the floating New note button. */
+@media (max-width: 700px) {
+  .toast { bottom: calc(88px + env(safe-area-inset-bottom)); }
+}
