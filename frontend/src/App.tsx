@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   CalendarDays,
+  CloudOff,
   Eye,
   EyeOff,
   LayoutGrid,
@@ -11,6 +12,7 @@ import {
   Moon,
   Network,
   Plus,
+  RefreshCw,
   Sun,
   User,
   WifiOff,
@@ -31,24 +33,11 @@ import ui from './components/ui/ui.module.css';
 import { apiFetch, referencedUploads, type CurrentUser } from './lib/api';
 import { useOnline } from './lib/connectivity';
 import { encryptNote, decryptNote } from './lib/crypto';
-import { syncSnapshot } from './lib/replica';
+import { enqueue, getView, hasPendingChanges, openReplica, useReplica, useSyncStatus } from './lib/replica';
+import { SyncNotice } from './components/SyncNotice/SyncNotice';
 import { isTask, plainText } from './lib/noteText';
 import { parentSaveOrder, withLiveHierarchy } from './lib/noteTree';
 import { setThemePref, useThemePref, type ThemePref } from './lib/theme';
-
-async function putNoteParent(noteId: string, parentId: string | null): Promise<void> {
-  try {
-    const response = await apiFetch(`/api/notes/${noteId}/parent`, {
-      method: 'PUT',
-      body: JSON.stringify(parentId ? { parent_note_id: parentId } : { clear_parent: true }),
-    });
-    if (!response.ok) {
-      console.error('Failed to set parent:', await response.text());
-    }
-  } catch (error) {
-    console.error('Failed to set parent:', error);
-  }
-}
 
 type ViewMode = 'grid' | 'canvas' | 'schedule';
 type GridFilter = 'all' | 'tasks' | 'notes';
@@ -62,10 +51,18 @@ const THEME_OPTIONS: { value: ThemePref; label: string; icon: ReactNode }[] = [
 interface AppProps {
   currentUser: CurrentUser;
   onLogout: () => void;
+  /** The session expired: sign in again, keeping this device's unsynced changes. */
+  onSignInAgain: () => void;
   cryptoKey: CryptoKey;
 }
 
-function App({ currentUser, onLogout, cryptoKey }: AppProps) {
+interface DecryptedText {
+  title: string;
+  content: string;
+  failed: boolean;
+}
+
+function App({ currentUser, onLogout, onSignInAgain, cryptoKey }: AppProps) {
   const [notes, setNotes] = useState<Note[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
@@ -99,6 +96,11 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
   const timelineActionsRef = useRef<TimelineViewActions>(null);
   const themePref = useThemePref();
   const online = useOnline();
+  const syncStatus = useSyncStatus();
+  const replica = useReplica();
+  // Decrypted title/content per ciphertext, so a change to one note doesn't decrypt them all again.
+  const decryptedText = useRef(new Map<string, DecryptedText>());
+  const notesRequest = useRef(0);
   const closeUserMenu = useCallback(() => setUserMenuAnchor(null), []);
 
   useEffect(() => {
@@ -120,42 +122,51 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
     return () => document.removeEventListener('click', handleGlobalClick, true);
   }, []);
 
+  useEffect(() => {
+    void openReplica(currentUser.id);
+  }, [currentUser.id]);
+
+  useEffect(() => {
+    decryptedText.current.clear();
+  }, [cryptoKey]);
+
+  /** Re-read the notes from this device's copy (which already includes unsynced changes). */
   const fetchNotes = useCallback(async () => {
+    const request = ++notesRequest.current;
     try {
-      // Fresh from the server when it is reachable, otherwise this device's saved copy.
-      const snapshot = await syncSnapshot(currentUser.id);
-      if (snapshot) {
-        const data = snapshot.notes as Note[];
+      const data = getView().notes;
+      const cache = decryptedText.current;
+      const decryptedNotes = await Promise.all(
+        data.map(async (raw) => {
+          const cacheKey = `${raw.title}\u0000${raw.content ?? ''}`;
+          let text = cache.get(cacheKey);
+          if (!text) {
+            const { note, failed } = await decryptNote(raw, cryptoKey);
+            text = { title: note.title, content: note.content, failed };
+            cache.set(cacheKey, text);
+          }
+          return { ...raw, title: text.title, content: text.content } as unknown as Note;
+        }),
+      );
+      if (request !== notesRequest.current) return;
 
-        // Decrypt all notes
-        const results = await Promise.all(
-          data.map((note) => decryptNote(note, cryptoKey)),
-        );
+      // If ALL notes failed and there were notes to decrypt, it's a wrong secret
+      const failedCount = data.filter((raw) => cache.get(`${raw.title}\u0000${raw.content ?? ''}`)?.failed).length;
+      setWrongSecret(failedCount > 0 && failedCount === data.length);
 
-        const decryptedNotes = results.map((r) => r.note);
-        const failedCount = results.filter((r) => r.failed).length;
-
-        // If ALL notes failed and there were notes to decrypt, it's a wrong secret
-        if (failedCount > 0 && failedCount === results.length) {
-          setWrongSecret(true);
-        } else {
-          setWrongSecret(false);
-        }
-
-        decryptedNotes.sort(
-          (a, b) =>
-            new Date(b.updated_at || b.created_at).getTime() - new Date(a.updated_at || a.created_at).getTime(),
-        );
-        setNotes(decryptedNotes);
-      }
+      decryptedNotes.sort(
+        (a, b) =>
+          new Date(b.updated_at || b.created_at).getTime() - new Date(a.updated_at || a.created_at).getTime(),
+      );
+      setNotes(decryptedNotes);
     } catch (error) {
-      console.error('Failed to fetch notes:', error);
+      console.error('Failed to read notes:', error);
     }
-  }, [cryptoKey, currentUser.id]);
+  }, [cryptoKey]);
 
   useEffect(() => {
     fetchNotes();
-  }, [fetchNotes]);
+  }, [fetchNotes, replica]);
 
   useEffect(() => {
     // Ask the browser not to evict the offline copy under storage pressure.
@@ -178,18 +189,7 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
         referenced_uploads: referencedUploads(noteData.content, noteData.id),
       };
       const encrypted = await encryptNote(payload, cryptoKey);
-      const response = await apiFetch('/notes/', {
-        method: 'POST',
-        body: JSON.stringify(encrypted),
-      });
-      if (response.ok) {
-        const newNote = await response.json();
-        const { note: decrypted } = await decryptNote(newNote, cryptoKey);
-        setNotes((prev) => [decrypted, ...prev]);
-        if (payload.parent_note_id) {
-          fetchNotes();
-        }
-      }
+      await enqueue('create_note', encrypted);
     } catch (error) {
       console.error('Failed to create note:', error);
     }
@@ -197,11 +197,9 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
 
   const handleSetParent = useCallback(
     async (noteId: string, parentId: string | null) => {
-      await putNoteParent(noteId, parentId);
-      // Parent changes can mirror canvas nodes and flip visibility on other rows.
-      fetchNotes();
+      await enqueue('set_parent', { id: noteId, parent_note_id: parentId });
     },
-    [fetchNotes],
+    [],
   );
 
   const handleUpdateNote = async (noteData: Omit<Note, 'created_at' | 'updated_at'>) => {
@@ -209,7 +207,7 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
     const parentOrder = parentSaveOrder(previousParent, noteData.parent_note_id);
     try {
       if (parentOrder === 'before') {
-        await putNoteParent(noteData.id, noteData.parent_note_id ?? null);
+        await enqueue('set_parent', { id: noteData.id, parent_note_id: noteData.parent_note_id ?? null });
       }
       const payload = {
         ...noteData,
@@ -225,27 +223,12 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
         referenced_uploads: referencedUploads(noteData.content, noteData.id),
       };
       const encrypted = await encryptNote(payload, cryptoKey);
-      const response = await apiFetch(`/notes/${noteData.id}`, {
-        method: 'PUT',
-        body: JSON.stringify(encrypted),
-      });
-      if (response.ok) {
-        const updatedNote = await response.json();
-        const { note: decrypted } = await decryptNote(updatedNote, cryptoKey);
-        setNotes((prev) =>
-          prev.map((n) => (n.id === decrypted.id ? decrypted : n)),
-        );
-      }
+      await enqueue('update_note', encrypted);
       if (parentOrder === 'after') {
-        await putNoteParent(noteData.id, null);
+        await enqueue('set_parent', { id: noteData.id, parent_note_id: null });
       }
     } catch (error) {
       console.error('Failed to update note:', error);
-    } finally {
-      if (parentOrder !== 'none') {
-        // Parent changes can mirror canvas nodes and flip visibility on other rows.
-        fetchNotes();
-      }
     }
   };
 
@@ -259,32 +242,18 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
         finalEndDate = date;
       }
 
-      const response = await apiFetch(`/api/notes/${noteId}/schedule`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          scheduled_date: date,
-          scheduled_time: time,
-          end_date: finalEndDate,
-          clear_date: !date,
-          clear_time: !time,
-          clear_end_date: !finalEndDate,
-          status,
-        }),
+      await enqueue('set_schedule', {
+        id: noteId,
+        scheduled_date: date,
+        scheduled_time: time,
+        end_date: finalEndDate,
+        clear_date: !date,
+        clear_time: !time,
+        clear_end_date: !finalEndDate,
+        status,
       });
-      if (response.ok) {
-        // Clearing the date also clears the repeat (the server does the same).
-        const clearedRepeat = date ? {} : { recurrence_rule: null, recurrence_interval: 1, recurrence_end_date: null };
-        setNotes((prev) =>
-          prev.map((n) =>
-            n.id === noteId
-              ? { ...n, scheduled_date: date, scheduled_time: time, end_date: finalEndDate, status, ...clearedRepeat }
-              : n,
-          ),
-        );
-      }
     } catch (error) {
       console.error('Failed to update schedule:', error);
-      fetchNotes();
     }
   };
 
@@ -298,12 +267,7 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
       onConfirm: async () => {
         setConfirmModalConfig((prev) => ({ ...prev, isOpen: false }));
         try {
-          const response = await apiFetch(`/notes/${id}`, { method: 'DELETE' });
-          if (response.ok) {
-            setNotes((prev) => prev.filter((note) => note.id !== id));
-            // The server detached and may have un-hidden this note's children.
-            fetchNotes();
-          }
+          await enqueue('delete_note', { id });
         } catch (error) {
           console.error('Failed to delete note:', error);
         }
@@ -331,6 +295,24 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
           console.error('Failed to delete account:', error);
           alert('Network error while deleting account.');
         }
+      },
+    });
+  };
+
+  const handleLogout = () => {
+    if (!hasPendingChanges()) {
+      onLogout();
+      return;
+    }
+    setConfirmModalConfig({
+      isOpen: true,
+      title: 'Log out with unsynced changes?',
+      message: "Some changes on this device haven't reached Vault yet. Logging out deletes them from this device.",
+      confirmText: 'Log out anyway',
+      isDestructive: true,
+      onConfirm: () => {
+        setConfirmModalConfig((prev) => ({ ...prev, isOpen: false }));
+        onLogout();
       },
     });
   };
@@ -464,16 +446,31 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
             <Lock size={18} />
           </span>
           <span className={styles.brandName}>Vault</span>
-          {!online && (
+          {syncStatus.signInRequired ? (
+            <button
+              type="button"
+              className={`${styles.syncPill} ${styles.syncPillAction}`}
+              onClick={onSignInAgain}
+              title="Your session expired. Sign in again to sync the changes saved on this device."
+            >
+              <CloudOff size={13} />
+              Sign in to sync
+            </button>
+          ) : !online ? (
             <span
-              className={styles.offlinePill}
+              className={styles.syncPill}
               role="status"
-              title="Vault can't be reached. You're seeing the copy saved on this device; changes are paused until it's back."
+              title="Vault can't be reached. Changes are saved on this device and sync when it's back."
             >
               <WifiOff size={13} />
-              Offline
+              Offline{syncStatus.pending > 0 ? ` · ${syncStatus.pending} to sync` : ''}
             </span>
-          )}
+          ) : syncStatus.pending > 0 ? (
+            <span className={styles.syncPill} role="status" title="Sending changes made on this device.">
+              <RefreshCw size={13} className={styles.spin} />
+              Syncing {syncStatus.pending}
+            </span>
+          ) : null}
         </div>
 
         <SegmentedControl<ViewMode>
@@ -512,8 +509,7 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
             type="button"
             className={`${ui.btn} ${ui.primary} ${styles.hdrBtn}`}
             onClick={handleNewNote}
-            disabled={!online}
-            title={online ? 'New note' : 'Vault is offline. New notes need it to be reachable.'}
+            title="New note"
           >
             <Plus size={16} />
             <span className={styles.btnLabel}>New note</span>
@@ -563,7 +559,7 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
               icon={<LogOut size={15} />}
               onSelect={() => {
                 closeUserMenu();
-                onLogout();
+                handleLogout();
               }}
             >
               Log out
@@ -587,7 +583,7 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
         {wrongSecret ? (
           <div className={styles.wrongSecretBanner}>
             <span>Wrong vault secret. Log out and try again.</span>
-            <button type="button" className={`${ui.btn} ${ui.danger} ${ui.sm}`} onClick={onLogout}>
+            <button type="button" className={`${ui.btn} ${ui.danger} ${ui.sm}`} onClick={handleLogout}>
               Log out
             </button>
           </div>
@@ -599,7 +595,6 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
             currentUserId={currentUser.id}
             onOpenNote={openNote}
             onRecurrenceClick={openScheduleEditor}
-            fetchNotes={fetchNotes}
             notes={showCompleted ? notes : notes.filter((n) => n.status !== 'done')}
             cryptoKey={cryptoKey}
           />
@@ -608,7 +603,6 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
             actionsRef={timelineActionsRef}
             onOpenNote={openNote}
             notes={notes}
-            fetchNotes={fetchNotes}
             cryptoKey={cryptoKey}
             showCompleted={showCompleted}
             onCreateChild={openCreateChildModal}
@@ -649,6 +643,8 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
       />
 
       <FeedbackModal isOpen={isFeedbackModalOpen} onClose={() => setIsFeedbackModalOpen(false)} />
+
+      <SyncNotice />
     </div>
   );
 }

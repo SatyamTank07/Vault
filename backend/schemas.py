@@ -123,12 +123,14 @@ class NoteResponse(NoteBase):
     end_date: Optional[date] = None
     parent_note_id: Optional[str] = None
     canvas_only: bool = False
+    content_version: int = 1
 
     class Config:
         from_attributes = True
 
 
 class CanvasCreate(BaseModel):
+    id: Optional[str] = None
     name: str
 
 
@@ -147,6 +149,7 @@ class CanvasListResponse(BaseModel):
 
 
 class CanvasNodeCreate(BaseModel):
+    id: Optional[str] = None
     note_id: Optional[str] = None
     parent_note_id: Optional[str] = None
     canvas_only: Optional[bool] = None
@@ -216,6 +219,33 @@ class OccurrenceResponse(BaseModel):
 class OccurrenceDateUpdate(BaseModel):
     status: Optional[str] = None
     skipped: Optional[bool] = None
+
+
+class SyncOp(BaseModel):
+    """One change made on a device, possibly while offline. `payload` depends on `type`; see crud.apply_sync_op."""
+
+    op_id: str
+    type: str
+    payload: dict
+
+
+class SyncPushRequest(BaseModel):
+    # Random id of the browser that made the changes, so its own edits never count as conflicts.
+    client_id: str
+    ops: list[SyncOp]
+
+
+class SyncOpResult(BaseModel):
+    op_id: str
+    # applied | conflict | not_found | error
+    result: str
+    detail: Optional[str] = None
+    # For conflicts: the note as the server has it, including the other device's title/content.
+    note: Optional[NoteResponse] = None
+
+
+class SyncPushResponse(BaseModel):
+    results: list[SyncOpResult]
 
 
 class SnapshotCanvasNode(BaseModel):

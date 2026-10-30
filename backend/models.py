@@ -54,6 +54,10 @@ class Note(Base):
     recurrence_end_date = Column(Date, nullable=True)
     parent_note_id = Column(String, ForeignKey("notes.id", ondelete="SET NULL"), nullable=True, index=True)
     canvas_only = Column(Boolean, nullable=False, default=False, server_default="false")
+    # Bumped whenever title or content change; offline sync uses it to spot edits made elsewhere.
+    content_version = Column(Integer, nullable=False, default=1, server_default="1")
+    # Sync client id of the device behind the latest title/content change (NULL for plain API writes).
+    content_writer = Column(String, nullable=True)
 
     user = relationship("User", back_populates="notes")
     # Oldest placement first, so canvas_name is stable when a note sits on several canvases.
@@ -110,6 +114,17 @@ class CanvasNode(Base):
 
     canvas = relationship("Canvas", back_populates="nodes")
     note = relationship("Note", back_populates="canvas_nodes")
+
+
+class AppliedSyncOp(Base):
+    """Offline sync operations already applied, so a retried push doesn't apply them twice."""
+
+    __tablename__ = "applied_sync_ops"
+
+    op_id = Column(String, primary_key=True)
+    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    result = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
 class Feedback(Base):

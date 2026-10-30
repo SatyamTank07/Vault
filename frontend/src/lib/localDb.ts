@@ -1,5 +1,6 @@
 import { deleteDB, openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type { CurrentUser } from './api';
+import type { QueuedOp } from './ops';
 
 /**
  * The on-device copy of a user's vault, as the server stores it: note titles and content stay
@@ -22,6 +23,7 @@ export interface LocalNote {
   end_date: string | null;
   parent_note_id: string | null;
   canvas_only: boolean;
+  content_version: number;
 }
 
 export interface LocalCanvas {
@@ -62,6 +64,7 @@ interface VaultDB extends DBSchema {
   canvases: { key: string; value: LocalCanvas };
   canvasNodes: { key: string; value: LocalCanvasNode };
   occurrences: { key: string; value: LocalOccurrence };
+  outbox: { key: number; value: QueuedOp };
 }
 
 const DATA_STORES = ['notes', 'canvases', 'canvasNodes', 'occurrences'] as const;
@@ -73,11 +76,16 @@ const openConnections = new Map<string, Promise<IDBPDatabase<VaultDB>>>();
 function openLocalDb(userId: string): Promise<IDBPDatabase<VaultDB>> {
   let connection = openConnections.get(userId);
   if (!connection) {
-    connection = openDB<VaultDB>(dbName(userId), 1, {
-      upgrade(db) {
-        db.createObjectStore('meta');
-        for (const store of DATA_STORES) {
-          db.createObjectStore(store, { keyPath: 'id' });
+    connection = openDB<VaultDB>(dbName(userId), 2, {
+      upgrade(db, oldVersion) {
+        if (oldVersion < 1) {
+          db.createObjectStore('meta');
+          for (const store of DATA_STORES) {
+            db.createObjectStore(store, { keyPath: 'id' });
+          }
+        }
+        if (oldVersion < 2) {
+          db.createObjectStore('outbox', { keyPath: 'seq', autoIncrement: true });
         }
       },
     });
@@ -116,6 +124,26 @@ export async function loadSnapshot(userId: string): Promise<Snapshot | null> {
     db.getAll('occurrences'),
   ]);
   return { server_time: serverTime, notes, canvases, canvas_nodes: canvasNodes, occurrences };
+}
+
+/** Changes made on this device that the server hasn't confirmed yet, oldest first. */
+export async function loadOutbox(userId: string): Promise<QueuedOp[]> {
+  const db = await openLocalDb(userId);
+  return db.getAll('outbox');
+}
+
+/** Add a change to the outbox, or replace an existing one (same `seq`). Returns its `seq`. */
+export async function putOutboxOp(userId: string, op: QueuedOp): Promise<number> {
+  const db = await openLocalDb(userId);
+  return db.put('outbox', op);
+}
+
+export async function deleteOutboxOps(userId: string, seqs: number[]): Promise<void> {
+  if (seqs.length === 0) return;
+  const db = await openLocalDb(userId);
+  const tx = db.transaction('outbox', 'readwrite');
+  seqs.forEach((seq) => void tx.store.delete(seq));
+  await tx.done;
 }
 
 /** Forget everything this device holds for a user (logout, expired session, deleted account). */

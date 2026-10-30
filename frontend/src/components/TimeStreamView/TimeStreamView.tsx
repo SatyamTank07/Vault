@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Lock } from 'lucide-react';
-import { cachedGet } from '../../lib/replica';
+import { getView, useReplica } from '../../lib/replica';
 import { buildTimestream } from '../../lib/schedule';
 import { decryptNote } from '../../lib/crypto';
 import type { Note } from '../NoteCard/NoteCard';
@@ -56,6 +56,7 @@ export const TimeStreamView: React.FC<TimeStreamViewProps> = ({
   const [containerWidth, setContainerWidth] = useState<number>(1000);
   const containerRef = useRef<HTMLDivElement>(null);
   const decryptedNotesCache = useRef<Map<string, { note: Note; updatedAt: string | null }>>(new Map());
+  const replica = useReplica();
 
   // Measure the timeline card's inner width.
   useEffect(() => {
@@ -87,11 +88,8 @@ export const TimeStreamView: React.FC<TimeStreamViewProps> = ({
         const fetchStart = toISODateString(new Date(viewportStart.getTime() - bufferMs));
         const fetchEnd = toISODateString(new Date(viewportEnd.getTime() + bufferMs));
 
-        const res = await cachedGet(`/api/timestream/?start_date=${fetchStart}&end_date=${fetchEnd}`, (local) =>
-          buildTimestream(local, fetchStart, fetchEnd),
-        );
-        if (res.ok && isMounted) {
-          const data = await res.json();
+        if (isMounted) {
+          const data = buildTimestream(getView(), fetchStart, fetchEnd) as unknown as TimeStreamEvent[];
 
           // Decrypt each note once per version so panning stays smooth.
           const distinctNotesToDecrypt = new Map<string, Note>();
@@ -136,7 +134,7 @@ export const TimeStreamView: React.FC<TimeStreamViewProps> = ({
       clearTimeout(fetchDebounce);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [centerDate.getTime(), zoomLevel, cryptoKey, showCompleted, notes]);
+  }, [centerDate.getTime(), zoomLevel, cryptoKey, showCompleted, notes, replica]);
 
   const handleZoomFromCanvas = useCallback(
     (delta: number) => onZoomChange(Math.max(0, Math.min(1, zoomLevel + delta))),

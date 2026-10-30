@@ -45,6 +45,10 @@ def run_schema_migrations():
         "ALTER TABLE notes ALTER COLUMN updated_at SET DEFAULT now()",
         "UPDATE canvases SET updated_at = created_at WHERE updated_at IS NULL",
         "ALTER TABLE canvases ALTER COLUMN updated_at SET DEFAULT now()",
+        "ALTER TABLE notes ADD COLUMN IF NOT EXISTS content_version INTEGER NOT NULL DEFAULT 1",
+        "ALTER TABLE notes ADD COLUMN IF NOT EXISTS content_writer VARCHAR",
+        # Retries arrive within minutes; a month of idempotency records is plenty.
+        "DELETE FROM applied_sync_ops WHERE created_at < now() - interval '30 days'",
         # One-time: move canvas parent links onto notes, then drop the old column.
         # Guarded by the column's existence, so it is a no-op on every later startup.
         """

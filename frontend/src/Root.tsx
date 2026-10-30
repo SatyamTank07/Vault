@@ -23,7 +23,19 @@ import {
 } from './lib/crypto';
 import { clearDecryptedImageCache } from './lib/imageDecryption';
 import { clearCachedUser, getCachedUser, setCachedUser } from './lib/localDb';
-import { forgetLocalCopy } from './lib/replica';
+import { closeReplica, forgetLocalCopy } from './lib/replica';
+
+/**
+ * End the session but keep this device's copy, including changes not yet synced, so signing in
+ * again as the same user picks up where they left off.
+ */
+function signOutKeepingCopy() {
+  clearAuthToken();
+  clearVaultSecret();
+  setActiveVaultKey(null);
+  clearDecryptedImageCache();
+  closeReplica();
+}
 
 /** Remove everything this device keeps for the signed-in user. */
 function forgetDevice() {
@@ -64,7 +76,7 @@ export default function Root() {
     }
 
     const handleUnauthorized = () => {
-      forgetDevice();
+      signOutKeepingCopy();
       setCurrentUser(null);
       setVaultKey(null);
       setAuthMessage('Your session expired. Please log in again.');
@@ -85,7 +97,8 @@ export default function Root() {
       try {
         const user = await fetchCurrentUser();
         if (!user) {
-          forgetDevice();
+          signOutKeepingCopy();
+          setAuthMessage('Your session expired. Please log in again.');
           return;
         }
         setCurrentUser(user);
@@ -119,7 +132,7 @@ export default function Root() {
           }
         }
       } catch {
-        forgetDevice();
+        signOutKeepingCopy();
       } finally {
         setLoading(false);
       }
@@ -146,6 +159,13 @@ export default function Root() {
     setCurrentUser(null);
     setVaultKey(null);
     setAuthMessage(null);
+  };
+
+  const handleSignInAgain = () => {
+    signOutKeepingCopy();
+    setCurrentUser(null);
+    setVaultKey(null);
+    setAuthMessage('Sign in again to sync the changes saved on this device.');
   };
 
   const handleVaultUnlocked = (key: CryptoKey) => {
@@ -187,6 +207,8 @@ export default function Root() {
     }
 
     // State 3: Fully authenticated + vault unlocked → show app
-    return <App currentUser={currentUser} onLogout={handleLogout} cryptoKey={vaultKey} />;
+    return (
+      <App currentUser={currentUser} onLogout={handleLogout} onSignInAgain={handleSignInAgain} cryptoKey={vaultKey} />
+    );
   }
 }

@@ -8,7 +8,7 @@ import styles from './TimelineView.module.css';
 export interface AgendaHandlers {
   onOpenNote: (note: Note) => void;
   onStatusChange: StatusChangeHandler;
-  onSkip?: (occurrenceId: string) => void;
+  onSkip?: (task: TimelineTask) => void;
   parentTitleOf: (noteId: string) => string | undefined;
 }
 
