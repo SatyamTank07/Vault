@@ -1,0 +1,63 @@
+# Self-hosted production stack. Run it from the host clone (C:\Satyam\Vault_Project\Vault_Host), never from the dev checkout:
+#   docker compose -p vault_prod -f docker-compose.prod.yml up -d --build
+# Only the web service publishes a port, and only on localhost. The public site goes through the Cloudflare Tunnel.
+name: vault_prod
+
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-vault_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-vault_db}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vault_user} -d ${POSTGRES_DB:-vault_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    env_file: ./backend/.env
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-vault_user}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-vault_db}
+      - FRONTEND_URL=${FRONTEND_URL:-https://vault.satyamtank.com,http://localhost:47800}
+    volumes:
+      # Uploaded (encrypted) images live in a plain folder outside the host clone, so deploys never touch them.
+      # Relative to this file: C:\Satyam\Vault_Project\Vault_Host_data\uploads
+      - ${VAULT_UPLOADS_DIR:-../Vault_Host_data/uploads}:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ""
+    ports:
+      - "127.0.0.1:${VAULT_PORT:-47800}:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # Enabled with COMPOSE_PROFILES=tunnel in .env once TUNNEL_TOKEN is set.
+  cloudflared:
+    image: cloudflare/cloudflared:2024.12.2
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN:-}
+    depends_on:
+      - web
+    restart: unless-stopped
+    profiles: ["tunnel"]
+
+volumes:
+  pgdata:
