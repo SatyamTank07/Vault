@@ -39,6 +39,20 @@
 }
 .brandName { font-size: 17px; font-weight: 700; letter-spacing: -0.02em; color: var(--fg); }
 
+.offlinePill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--subtle);
+  color: var(--fg-2);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 .hdrActions {
   margin-left: auto;
   flex: 1;

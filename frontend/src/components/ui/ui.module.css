@@ -205,7 +205,8 @@ button.chip:hover { color: var(--accent); background: var(--accent-soft); }
   text-align: left;
   color: var(--fg);
 }
-.menuItem:hover, .menuItem:focus-visible { background: var(--subtle); outline: none; }
+.menuItem:hover:not(:disabled), .menuItem:focus-visible { background: var(--subtle); outline: none; }
+.menuItem:disabled { opacity: 0.5; cursor: not-allowed; }
 .menuItem svg { color: var(--muted); flex-shrink: 0; }
 .menuItemSel { font-weight: 600; }
 .menuCheck { margin-left: auto; color: var(--accent) !important; }

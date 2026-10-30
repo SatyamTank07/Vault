@@ -1,5 +1,5 @@
 import os
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session, joinedload
 
@@ -929,6 +929,63 @@ def update_occurrence_status(db: Session, user_id: str, occurrence_id: str, data
     db.commit()
     db.refresh(occ)
     return occ
+
+
+def set_occurrence_by_date(
+    db: Session, user_id: str, note_id: str, occurrence_date: date, data: schemas.OccurrenceDateUpdate
+):
+    """Upsert the override for one repeat of a recurring note, keyed by date rather than occurrence id."""
+    if not get_note(db, user_id, note_id):
+        return None
+
+    occ = (
+        db.query(models.TaskOccurrence)
+        .filter(models.TaskOccurrence.note_id == note_id, models.TaskOccurrence.occurrence_date == occurrence_date)
+        .first()
+    )
+    if not occ:
+        occ = models.TaskOccurrence(note_id=note_id, occurrence_date=occurrence_date, status="todo", skipped=False)
+        db.add(occ)
+
+    if data.status is not None:
+        occ.status = data.status
+    if data.skipped is not None:
+        occ.skipped = data.skipped
+
+    db.commit()
+    db.refresh(occ)
+    return occ
+
+
+def get_snapshot(db: Session, user_id: str) -> dict:
+    """All of a user's notes, canvases, canvas nodes and occurrence overrides. Read-only."""
+    notes = (
+        db.query(models.Note)
+        .options(joinedload(models.Note.canvas_nodes).joinedload(models.CanvasNode.canvas))
+        .filter(models.Note.user_id == user_id)
+        .all()
+    )
+    canvases = get_canvases(db, user_id)
+    canvas_nodes = (
+        db.query(models.CanvasNode)
+        .join(models.Canvas, models.CanvasNode.canvas_id == models.Canvas.id)
+        .filter(models.Canvas.user_id == user_id)
+        .order_by(models.CanvasNode.created_at)
+        .all()
+    )
+    occurrences = (
+        db.query(models.TaskOccurrence)
+        .join(models.Note, models.TaskOccurrence.note_id == models.Note.id)
+        .filter(models.Note.user_id == user_id)
+        .all()
+    )
+    return {
+        "server_time": datetime.now(timezone.utc),
+        "notes": notes,
+        "canvases": canvases,
+        "canvas_nodes": canvas_nodes,
+        "occurrences": occurrences,
+    }
 
 
 def create_feedback(db: Session, user_id: str, feedback: schemas.FeedbackCreate):

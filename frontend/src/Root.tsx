@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import App from './App';
 import { AuthScreen } from './components/AuthScreen/AuthScreen';
+import { UpdatePrompt } from './components/UpdatePrompt/UpdatePrompt';
 import { VaultSecretScreen } from './components/VaultSecretScreen/VaultSecretScreen';
 import {
   apiFetch,
   clearAuthToken,
   getAuthToken,
+  isServerUnreachable,
   setAuthToken,
   UNAUTHORIZED_EVENT,
   type AuthResponse,
@@ -20,6 +22,35 @@ import {
   unwrapMasterSeed,
 } from './lib/crypto';
 import { clearDecryptedImageCache } from './lib/imageDecryption';
+import { clearCachedUser, getCachedUser, setCachedUser } from './lib/localDb';
+import { forgetLocalCopy } from './lib/replica';
+
+/** Remove everything this device keeps for the signed-in user. */
+function forgetDevice() {
+  const cached = getCachedUser();
+  clearAuthToken();
+  clearCachedUser();
+  clearVaultSecret();
+  setActiveVaultKey(null);
+  clearDecryptedImageCache();
+  if (cached) void forgetLocalCopy(cached.id);
+}
+
+/** The signed-in user from the server, or the saved profile when the server can't be reached. */
+async function fetchCurrentUser(): Promise<CurrentUser | null> {
+  try {
+    const response = await apiFetch('/api/auth/me', { method: 'GET' }, { suppressUnauthorizedEvent: true });
+    if (response.ok) {
+      const user: CurrentUser = await response.json();
+      setCachedUser(user);
+      return user;
+    }
+    if (!isServerUnreachable(response)) return null;
+  } catch (error) {
+    if (!(error instanceof TypeError)) throw error;
+  }
+  return getCachedUser();
+}
 
 export default function Root() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
@@ -33,10 +64,7 @@ export default function Root() {
     }
 
     const handleUnauthorized = () => {
-      clearAuthToken();
-      clearVaultSecret();
-      setActiveVaultKey(null);
-      clearDecryptedImageCache();
+      forgetDevice();
       setCurrentUser(null);
       setVaultKey(null);
       setAuthMessage('Your session expired. Please log in again.');
@@ -55,15 +83,11 @@ export default function Root() {
       }
 
       try {
-        const response = await apiFetch('/api/auth/me', { method: 'GET' }, { suppressUnauthorizedEvent: true });
-        if (!response.ok) {
-          clearAuthToken();
-          clearVaultSecret();
-          setLoading(false);
+        const user = await fetchCurrentUser();
+        if (!user) {
+          forgetDevice();
           return;
         }
-
-        const user: CurrentUser = await response.json();
         setCurrentUser(user);
 
         // If we still have the vault secret in sessionStorage (same tab),
@@ -95,10 +119,7 @@ export default function Root() {
           }
         }
       } catch {
-        clearAuthToken();
-        clearVaultSecret();
-        setActiveVaultKey(null);
-        clearDecryptedImageCache();
+        forgetDevice();
       } finally {
         setLoading(false);
       }
@@ -108,7 +129,10 @@ export default function Root() {
   }, []);
 
   const handleAuthenticated = (payload: AuthResponse) => {
+    const previous = getCachedUser();
+    if (previous && previous.id !== payload.user.id) void forgetLocalCopy(previous.id);
     setAuthToken(payload.access_token);
+    setCachedUser(payload.user);
     setCurrentUser(payload.user);
     clearVaultSecret();
     setActiveVaultKey(null);
@@ -118,10 +142,7 @@ export default function Root() {
   };
 
   const handleLogout = () => {
-    clearAuthToken();
-    clearVaultSecret();
-    setActiveVaultKey(null);
-    clearDecryptedImageCache();
+    forgetDevice();
     setCurrentUser(null);
     setVaultKey(null);
     setAuthMessage(null);
@@ -133,29 +154,39 @@ export default function Root() {
   };
 
   const handleUserUpdated = (user: CurrentUser) => {
+    setCachedUser(user);
     setCurrentUser(user);
   };
 
-  if (loading) {
-    return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading...</div>;
-  }
+  return (
+    <>
+      {renderScreen()}
+      <UpdatePrompt />
+    </>
+  );
 
-  // State 1: Not authenticated → show auth screen
-  if (!currentUser) {
-    return <AuthScreen onAuthenticated={handleAuthenticated} initialMessage={authMessage} />;
-  }
+  function renderScreen() {
+    if (loading) {
+      return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading...</div>;
+    }
 
-  // State 2: Authenticated but no vault key → show vault secret screen
-  if (!vaultKey) {
-    return (
-      <VaultSecretScreen
-        currentUser={currentUser}
-        onUnlocked={handleVaultUnlocked}
-        onUserUpdated={handleUserUpdated}
-      />
-    );
-  }
+    // State 1: Not authenticated → show auth screen
+    if (!currentUser) {
+      return <AuthScreen onAuthenticated={handleAuthenticated} initialMessage={authMessage} />;
+    }
 
-  // State 3: Fully authenticated + vault unlocked → show app
-  return <App currentUser={currentUser} onLogout={handleLogout} cryptoKey={vaultKey} />;
+    // State 2: Authenticated but no vault key → show vault secret screen
+    if (!vaultKey) {
+      return (
+        <VaultSecretScreen
+          currentUser={currentUser}
+          onUnlocked={handleVaultUnlocked}
+          onUserUpdated={handleUserUpdated}
+        />
+      );
+    }
+
+    // State 3: Fully authenticated + vault unlocked → show app
+    return <App currentUser={currentUser} onLogout={handleLogout} cryptoKey={vaultKey} />;
+  }
 }

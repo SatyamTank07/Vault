@@ -44,7 +44,7 @@ class Note(Base):
     title = Column(String, index=True)
     content = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     scheduled_date = Column(Date, nullable=True, index=True)
     scheduled_time = Column(String, nullable=True)
     end_date = Column(Date, nullable=True)
@@ -56,7 +56,8 @@ class Note(Base):
     canvas_only = Column(Boolean, nullable=False, default=False, server_default="false")
 
     user = relationship("User", back_populates="notes")
-    canvas_nodes = relationship("CanvasNode", back_populates="note")
+    # Oldest placement first, so canvas_name is stable when a note sits on several canvases.
+    canvas_nodes = relationship("CanvasNode", back_populates="note", order_by="CanvasNode.created_at")
     occurrences = relationship("TaskOccurrence", back_populates="note", cascade="all, delete-orphan")
 
     @property
@@ -89,7 +90,7 @@ class Canvas(Base):
     user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     name = Column(String, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     user = relationship("User", back_populates="canvases")
     nodes = relationship("CanvasNode", back_populates="canvas", cascade="all, delete-orphan")

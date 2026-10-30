@@ -95,16 +95,18 @@ interface MenuItemProps {
   icon?: React.ReactNode;
   selected?: boolean;
   danger?: boolean;
+  disabled?: boolean;
   onSelect: () => void;
   children: React.ReactNode;
 }
 
-export const MenuItem: React.FC<MenuItemProps> = ({ icon, selected, danger, onSelect, children }) => (
+export const MenuItem: React.FC<MenuItemProps> = ({ icon, selected, danger, disabled, onSelect, children }) => (
   <button
     type="button"
     role="menuitem"
     className={`${ui.menuItem} ${selected ? ui.menuItemSel : ''} ${danger ? ui.menuItemDanger : ''}`}
     onClick={onSelect}
+    disabled={disabled}
   >
     {icon}
     <span>{children}</span>

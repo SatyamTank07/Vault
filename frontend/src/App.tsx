@@ -13,6 +13,7 @@ import {
   Plus,
   Sun,
   User,
+  WifiOff,
   UserX,
 } from 'lucide-react';
 import styles from './App.module.css';
@@ -28,7 +29,9 @@ import { SegmentedControl } from './components/ui/SegmentedControl';
 import { Toolbar } from './components/ui/Toolbar';
 import ui from './components/ui/ui.module.css';
 import { apiFetch, referencedUploads, type CurrentUser } from './lib/api';
+import { useOnline } from './lib/connectivity';
 import { encryptNote, decryptNote } from './lib/crypto';
+import { syncSnapshot } from './lib/replica';
 import { isTask, plainText } from './lib/noteText';
 import { parentSaveOrder, withLiveHierarchy } from './lib/noteTree';
 import { setThemePref, useThemePref, type ThemePref } from './lib/theme';
@@ -95,6 +98,7 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
   const canvasActionsRef = useRef<CanvasViewActions>(null);
   const timelineActionsRef = useRef<TimelineViewActions>(null);
   const themePref = useThemePref();
+  const online = useOnline();
   const closeUserMenu = useCallback(() => setUserMenuAnchor(null), []);
 
   useEffect(() => {
@@ -118,9 +122,10 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
 
   const fetchNotes = useCallback(async () => {
     try {
-      const response = await apiFetch('/notes/?limit=1000');
-      if (response.ok) {
-        const data: Note[] = await response.json();
+      // Fresh from the server when it is reachable, otherwise this device's saved copy.
+      const snapshot = await syncSnapshot(currentUser.id);
+      if (snapshot) {
+        const data = snapshot.notes as Note[];
 
         // Decrypt all notes
         const results = await Promise.all(
@@ -146,11 +151,16 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
     } catch (error) {
       console.error('Failed to fetch notes:', error);
     }
-  }, [cryptoKey]);
+  }, [cryptoKey, currentUser.id]);
 
   useEffect(() => {
     fetchNotes();
   }, [fetchNotes]);
+
+  useEffect(() => {
+    // Ask the browser not to evict the offline copy under storage pressure.
+    navigator.storage?.persist?.().catch(() => {});
+  }, []);
 
   const handleCreateNote = async (noteData: Omit<Note, 'created_at' | 'updated_at'>) => {
     try {
@@ -454,6 +464,16 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
             <Lock size={18} />
           </span>
           <span className={styles.brandName}>Vault</span>
+          {!online && (
+            <span
+              className={styles.offlinePill}
+              role="status"
+              title="Vault can't be reached. You're seeing the copy saved on this device; changes are paused until it's back."
+            >
+              <WifiOff size={13} />
+              Offline
+            </span>
+          )}
         </div>
 
         <SegmentedControl<ViewMode>
@@ -488,7 +508,13 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
             {showCompleted ? <EyeOff size={16} /> : <Eye size={16} />}
             <span className={styles.btnLabel}>{showCompleted ? 'Hide done' : 'Show done'}</span>
           </button>
-          <button type="button" className={`${ui.btn} ${ui.primary} ${styles.hdrBtn}`} onClick={handleNewNote} title="New note">
+          <button
+            type="button"
+            className={`${ui.btn} ${ui.primary} ${styles.hdrBtn}`}
+            onClick={handleNewNote}
+            disabled={!online}
+            title={online ? 'New note' : 'Vault is offline. New notes need it to be reachable.'}
+          >
             <Plus size={16} />
             <span className={styles.btnLabel}>New note</span>
           </button>
@@ -525,6 +551,7 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
             <MenuSeparator />
             <MenuItem
               icon={<MessageSquare size={15} />}
+              disabled={!online}
               onSelect={() => {
                 closeUserMenu();
                 setIsFeedbackModalOpen(true);
@@ -543,6 +570,7 @@ function App({ currentUser, onLogout, cryptoKey }: AppProps) {
             </MenuItem>
             <MenuItem
               danger
+              disabled={!online}
               icon={<UserX size={15} />}
               onSelect={() => {
                 closeUserMenu();

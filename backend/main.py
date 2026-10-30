@@ -539,6 +539,28 @@ def update_occurrence_status(
     return occ
 
 
+@app.put("/api/notes/{note_id}/occurrences/{occurrence_date}", response_model=schemas.OccurrenceResponse)
+def set_occurrence_by_date(
+    note_id: str,
+    occurrence_date: date,
+    data: schemas.OccurrenceDateUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    occ = crud.set_occurrence_by_date(db, current_user.id, note_id, occurrence_date, data)
+    if occ is None:
+        raise HTTPException(status_code=404, detail="Note not found")
+    return occ
+
+
+@app.get("/api/sync/snapshot", response_model=schemas.SnapshotResponse)
+def get_sync_snapshot(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    return crud.get_snapshot(db, current_user.id)
+
+
 @app.post("/api/feedback/", response_model=schemas.FeedbackResponse)
 def create_feedback(
     feedback: schemas.FeedbackCreate,
