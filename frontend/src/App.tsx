@@ -441,7 +441,7 @@ function App({ currentUser, onLogout, onSignInAgain, cryptoKey }: AppProps) {
   return (
     <div className={styles.app}>
       <header className={styles.hdr}>
-        <div className={styles.brand}>
+        <div className={`${styles.brand} ${syncStatus.signInRequired || !online || syncStatus.pending > 0 ? styles.brandBusy : ''}`}>
           <span className={styles.brandMark}>
             <Lock size={18} />
           </span>
@@ -454,7 +454,7 @@ function App({ currentUser, onLogout, onSignInAgain, cryptoKey }: AppProps) {
               title="Your session expired. Sign in again to sync the changes saved on this device."
             >
               <CloudOff size={13} />
-              Sign in to sync
+              Sign in<span className={styles.pillText}> to sync</span>
             </button>
           ) : !online ? (
             <span
@@ -463,18 +463,28 @@ function App({ currentUser, onLogout, onSignInAgain, cryptoKey }: AppProps) {
               title="Vault can't be reached. Changes are saved on this device and sync when it's back."
             >
               <WifiOff size={13} />
-              Offline{syncStatus.pending > 0 ? ` · ${syncStatus.pending} to sync` : ''}
+              {/* Phones show just the icon and count, so the view switcher keeps its room. */}
+              <span className={styles.pillText}>Offline</span>
+              {syncStatus.pending > 0 && (
+                <>
+                  <span className={styles.pillText}> · </span>
+                  {syncStatus.pending}
+                  <span className={styles.pillText}> to sync</span>
+                </>
+              )}
             </span>
           ) : syncStatus.pending > 0 ? (
             <span className={styles.syncPill} role="status" title="Sending changes made on this device.">
               <RefreshCw size={13} className={styles.spin} />
-              Syncing {syncStatus.pending}
+              <span className={styles.pillText}>Syncing </span>
+              {syncStatus.pending}
             </span>
           ) : null}
         </div>
 
         <SegmentedControl<ViewMode>
           ariaLabel="Views"
+          className={styles.viewSeg}
           value={activeView}
           onChange={setActiveView}
           options={[
@@ -507,7 +517,7 @@ function App({ currentUser, onLogout, onSignInAgain, cryptoKey }: AppProps) {
           </button>
           <button
             type="button"
-            className={`${ui.btn} ${ui.primary} ${styles.hdrBtn}`}
+            className={`${ui.btn} ${ui.primary} ${styles.hdrBtn} ${styles.hdrNew}`}
             onClick={handleNewNote}
             title="New note"
           >
@@ -610,6 +620,13 @@ function App({ currentUser, onLogout, onSignInAgain, cryptoKey }: AppProps) {
           />
         )}
       </main>
+
+      {/* Phones: New note moves out of the crowded header to the thumb-reachable corner. */}
+      {!wrongSecret && (
+        <button type="button" className={styles.fab} onClick={handleNewNote} aria-label="New note" title="New note">
+          <Plus size={24} />
+        </button>
+      )}
 
       <NoteModal
         isOpen={isModalOpen}

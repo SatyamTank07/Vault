@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Check } from 'lucide-react';
 import ui from './ui.module.css';
@@ -17,13 +17,13 @@ interface MenuProps {
 /**
  * A popover menu rendered in a portal with fixed positioning, so it escapes clipped
  * containers (day columns, the horizon, XYFlow's transformed canvas). It closes on an
- * outside press, Escape, scroll or resize.
+ * outside press, Escape, scroll or resize (unless a field in it is being typed in).
  */
 export const Menu: React.FC<MenuProps> = ({ anchor, open, onClose, align = 'start', minWidth, label, children }) => {
   const menuRef = useRef<HTMLDivElement>(null);
-  useLayoutEffect(() => {
+  const place = useCallback(() => {
     const el = menuRef.current;
-    if (!open || !anchor || !el) return;
+    if (!anchor || !el) return;
     const r = anchor.getBoundingClientRect();
     const mw = el.offsetWidth;
     const mh = el.offsetHeight;
@@ -33,10 +33,21 @@ export const Menu: React.FC<MenuProps> = ({ anchor, open, onClose, align = 'star
     if (top + mh > window.innerHeight - 8) top = Math.max(8, r.top - mh - 6);
     el.style.left = `${left}px`;
     el.style.top = `${top}px`;
-  }, [open, anchor, align]);
+  }, [anchor, align]);
+
+  useLayoutEffect(() => {
+    if (open) place();
+  }, [open, place]);
 
   useEffect(() => {
     if (!open) return;
+    // Typing in a field in the menu (e.g. a new canvas name) opens the phone keyboard, which
+    // resizes the viewport and scrolls the field into view. Closing then would drop the field
+    // and the keyboard with it, so keep the menu and just move it.
+    const typingInMenu = () => {
+      const active = document.activeElement;
+      return !!active && !!menuRef.current?.contains(active) && active.matches('input, textarea');
+    };
     const onPress = (event: Event) => {
       const target = event.target as Node;
       if (menuRef.current?.contains(target) || anchor?.contains(target)) return;
@@ -52,19 +63,24 @@ export const Menu: React.FC<MenuProps> = ({ anchor, open, onClose, align = 'star
     };
     const onScroll = (event: Event) => {
       if (menuRef.current?.contains(event.target as Node)) return;
-      onClose();
+      if (typingInMenu()) place();
+      else onClose();
+    };
+    const onResize = () => {
+      if (typingInMenu()) place();
+      else onClose();
     };
     document.addEventListener('pointerdown', onPress, true);
     document.addEventListener('keydown', onKey, true);
     window.addEventListener('scroll', onScroll, true);
-    window.addEventListener('resize', onClose);
+    window.addEventListener('resize', onResize);
     return () => {
       document.removeEventListener('pointerdown', onPress, true);
       document.removeEventListener('keydown', onKey, true);
       window.removeEventListener('scroll', onScroll, true);
-      window.removeEventListener('resize', onClose);
+      window.removeEventListener('resize', onResize);
     };
-  }, [open, anchor, onClose]);
+  }, [open, anchor, onClose, place]);
 
   if (!open) return null;
 

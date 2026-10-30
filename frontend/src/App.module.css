@@ -83,6 +83,26 @@
 }
 .avatar:hover, .avatar[aria-expanded="true"] { border-color: var(--accent-line); color: var(--accent); }
 
+/* Floating New note button; phones only (the header has the labelled one). */
+.fab {
+  display: none;
+  position: fixed;
+  right: calc(16px + env(safe-area-inset-right, 0px));
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  z-index: 50;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  place-items: center;
+  box-shadow: var(--shadow-lg);
+  -webkit-tap-highlight-color: transparent;
+}
+.fab:hover { filter: brightness(1.08); }
+.fab:active { transform: scale(0.94); }
+.fab:focus-visible { outline: 3px solid var(--accent-line); outline-offset: 3px; }
+
 /* ---------- View area ---------- */
 .view {
   flex: 1;
@@ -198,6 +218,15 @@
   .brandName { display: none; }
   .segLabel { display: none; }
   .hdrActions { gap: 4px; }
+  .pillText { display: none; }
+  .syncPill { padding: 3px 8px; }
+  .hdrBtn.hdrNew { display: none; }
+  .fab { display: grid; }
   .cards { gap: 14px; }
   .lightboxOverlay { backdrop-filter: none; -webkit-backdrop-filter: none; }
+}
+/* Smallest phones: with a sync pill showing, it stands in for the logo so the views still fit. */
+@media (max-width: 380px) {
+  .brandBusy .brandMark { display: none; }
+  .hdr .viewSeg button { padding: 0 9px; }
 }

@@ -82,3 +82,8 @@
   flex: 1;
   color: var(--muted);
 }
+
+/* Phones: the floating New note button takes this corner; pinch zoom needs no readout. */
+@media (max-width: 700px) {
+  .zoomChip { display: none; }
+}
